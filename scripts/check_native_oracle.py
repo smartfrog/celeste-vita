@@ -58,7 +58,7 @@ def main():
     run([args.native.resolve(), args.fixtures.resolve()], "native.tsv")
     reference = (evidence / "reference.tsv").read_text().splitlines()
     native = (evidence / "native.tsv").read_text().splitlines()
-    rows = compare(reference, native)
+    rows = compare(reference, native, fixtures=args.fixtures)
     report = {"rows": rows, "scenarios": len({line.split('\t')[0] for line in reference}),
               "fields_per_row": 16, "comparison": "exact text and float32 bits; no epsilon",
               "fixture_sha256": hashlib.sha256(args.fixtures.read_bytes()).hexdigest(),

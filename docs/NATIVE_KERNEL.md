@@ -7,7 +7,8 @@ historical evidence, not a native execution claim.
 
 ## Build and test
 
-No external test framework or packages are required:
+No external test framework or packages are required. Python 3.12+ (standard
+library only) runs the validation-tool regressions through CTest:
 
 ```sh
 /usr/bin/cmake -S . -B .audit/native-kernel-host \
@@ -119,9 +120,25 @@ directories, clears NuGet sources, and restores/builds package-free net8.0
 offline. Once bootstrapped, checks need no network. All original C#, binaries,
 reference build artifacts and traces remain ignored under `.audit`.
 
+Metadata reads are capped at 2 MiB. Both streamed downloads and existing SDK
+archives must be exactly 212188361 bytes and match the pinned published SHA512;
+a changed metadata hash fails explicitly. Oversized/short downloads fail before
+extraction or SDK execution. Only a uniquely owned unverified partial is cleaned
+on failure; existing caches and unrelated files are not deleted. Regression
+tests mock network/extraction/execution, use tiny archives for filesystem
+checks, and simulate the oversized 230686720-byte response without allocating
+or writing it. The SDK is not downloaded by tests.
+
 `tests/native/movement.fixtures` defines the same operations for both runners.
 Each TSV row carries case/step/event/return value, position/remainder bits,
 hit/pusher identity and every collision vector's float bits. The comparator
 fails at the **first divergent operation/field**, without epsilon tolerances.
+Before comparing, each trace independently must satisfy the field grammar and
+the ordered case/step/terminal-event coverage derived from the fixture commands.
+Missing, duplicate and foreign operations are rejected even if both traces
+contain the same error. Callback/reentry sequences follow the fixture runner's
+callback mode, including nested callbacks; this validation does not calculate
+movement or collision outcomes. The two-path comparator CLI defaults to the
+maintained fixtures; use `--fixtures PATH` for another synthetic fixture set.
 The unit suite additionally checks invalid-input failures and callback throws,
 outside the reference's supported valid-input domain.

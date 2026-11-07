@@ -14,10 +14,13 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
     add_executable(native_kernel_tests tests/native/movement_tests.cpp)
     target_link_libraries(native_kernel_tests PRIVATE celeste_native_kernel)
     add_test(NAME native_kernel_unit COMMAND native_kernel_tests)
     add_executable(native_trace_runner tests/native/trace_runner.cpp)
     target_link_libraries(native_trace_runner PRIVATE celeste_native_kernel)
     add_test(NAME native_fixture_smoke COMMAND native_trace_runner "${CMAKE_CURRENT_SOURCE_DIR}/tests/native/movement.fixtures")
+    add_test(NAME native_validation_scripts COMMAND "${Python3_EXECUTABLE}" -B -m unittest discover
+        -s "${CMAKE_CURRENT_SOURCE_DIR}/tests/native" -p "test_*.py" -v)
 endif()
