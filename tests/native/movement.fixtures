@@ -1,0 +1,160 @@
+# Synthetic scenarios only. actor: x y width height offsetX offsetY collidable hasCollider ignoreJumpThrus
+# solid/jump: id x y width height offsetX offsetY collidable hasCollider
+# Movement: H/V/HX/VX amount callbackMode pusherId. Q=first Solid at position; O=first outside JumpThru.
+case positive_half
+actor 0 0 1 1 0 0 1 1 0
+H 0.5 record -1
+case negative_half
+actor 0 0 1 1 0 0 1 1 0
+H -0.5 record -1
+case positive_one_half
+actor 0 0 1 1 0 0 1 1 0
+V 1.5 record -1
+case negative_one_half
+actor 0 0 1 1 0 0 1 1 0
+V -1.5 record -1
+case repeated_fraction_reversal
+actor -3 -2 1 1 0 0 1 1 0
+H 0.1 record -1
+H 0.1 record -1
+H 0.1 record -1
+H 0.1 record -1
+H 0.1 record -1
+H 0.1 record -1
+H -0.2 record -1
+H -0.2 record -1
+H -0.7 record -1
+V -0.25 record -1
+V -0.25 record -1
+V -0.25 record -1
+V 0.5 record -1
+V 0.5 record -1
+case negative_zero
+actor @80000000 @80000000 1 1 0 0 1 1 0
+HX -1 record -1
+VX -1 record -1
+H @80000000 record -1
+V @80000000 record -1
+case edge_touch_negative_offset
+actor -10 -10 2 3 -4 -5 1 1 0
+solid 1 -12 -15 2 3 0 0 1 1
+Q -10 -10
+Q -9.75 -10
+Q -10 -7
+Q -9.75 -7.25
+case edge_grouping
+actor -16777216 0 1 1 16777216 0 1 1 0
+solid 1 0 0 1 1 0 0 1 1
+Q -16777216 0
+case first_hit_order
+actor 0 0 1 1 0 0 1 1 0
+solid 2 2 0 1 1 0 0 1 1
+solid 1 2 0 1 1 0 0 1 1
+HX 4 record -1
+case first_hit_reversed
+actor 0 0 1 1 0 0 1 1 0
+solid 1 2 0 1 1 0 0 1 1
+solid 2 2 0 1 1 0 0 1 1
+HX 4 record -1
+case target_not_collidable
+actor 0 0 1 1 0 0 1 1 0
+solid 1 1 0 1 1 0 0 0 1
+HX 2 record -1
+case querying_not_collidable
+actor 0 0 1 1 0 0 0 1 0
+solid 1 1 0 1 1 0 0 1 1
+HX 2 record -1
+case null_target_collider
+actor 0 0 1 1 0 0 1 1 0
+solid 1 1 0 1 1 0 0 1 0
+HX 2 record -1
+case null_actor_collider
+actor 0 0 1 1 0 0 1 0 0
+solid 1 1 0 1 1 0 0 1 1
+HX 2 record -1
+case self_excluded
+actor 0 0 2 2 0 0 1 1 0
+self
+Q 0 0
+HX 1 record -1
+case one_way_ascent
+actor 0 3 1 1 0 0 1 1 0
+jump 1 0 1 3 1 0 0 1 1
+VX -4 record -1
+case one_way_descent
+actor 0 -1 1 1 0 0 1 1 0
+jump 1 0 1 3 1 0 0 1 1
+V 4.25 record -1
+case one_way_ignored
+actor 0 -1 1 1 0 0 1 1 1
+jump 1 0 1 3 1 0 0 1 1
+VX 4 record -1
+case one_way_already_overlapping
+actor 0 1.5 1 1 0 0 1 1 0
+jump 1 0 1 3 2 0 0 1 1
+O 0 2.5
+VX 3 record -1
+case one_way_order
+actor 0 -1 1 1 0 0 1 1 0
+jump 2 0 1 3 1 0 0 1 1
+jump 1 0 1 3 1 0 0 1 1
+VX 4 record -1
+case solid_precedence
+actor 0 -1 1 1 0 0 1 1 0
+jump 1 0 1 3 1 0 0 1 1
+solid 2 0 1 3 1 0 0 1 1
+VX 4 record -1
+case one_way_horizontal_pass
+actor -2 1 1 1 0 0 1 1 0
+jump 1 0 1 1 1 0 0 1 1
+HX 4 record -1
+case partial_negative_horizontal
+actor 4 0 1 1 0 0 1 1 0
+solid 1 1 0 1 1 0 0 1 1
+solid 9 100 100 1 1 0 0 1 1
+H -4.25 record 9
+case partial_negative_vertical
+actor 0 4 1 1 0 0 1 1 0
+solid 1 0 1 1 1 0 0 1 1
+V -4.25 record -1
+case callback_mutation_h
+actor 0 0 1 1 0 0 1 1 0
+solid 1 2 0 1 1 0 0 1 1
+H 4.25 mutate -1
+H 0.25 record -1
+case callback_mutation_v
+actor 0 0 1 1 0 0 1 1 0
+solid 1 0 2 1 1 0 0 1 1
+V 4.25 mutate -1
+V -0.25 record -1
+case callback_reentry_h
+actor 0 0 1 1 0 0 1 1 0
+solid 1 2 0 1 1 0 0 1 1
+solid 2 2 0 1 1 0 0 1 1
+H 4.25 reenterH -1
+case callback_reentry_v
+actor 0 0 1 1 0 0 1 1 0
+solid 1 0 2 1 1 0 0 1 1
+V 4.25 reenterV -1
+case callback_absent
+actor 0 0 1 1 0 0 1 1 0
+solid 1 2 0 1 1 0 0 1 1
+H 4.25 none -1
+case horizontal_before_vertical
+actor 0 0 1 1 0 0 1 1 0
+solid 1 2 0 1 1 0 0 1 1
+solid 2 1 2 1 1 0 0 1 1
+H 3.25 record -1
+V 3.25 record -1
+case exact_preserves_fraction
+actor 0 0 1 1 0 0 1 1 0
+H 0.25 record -1
+HX 2 record -1
+V -0.25 record -1
+VX -2 record -1
+HX 0 record -1
+VX 0 record -1
+case zero_size_hitbox
+actor 0.5 0 0 1 0 0 1 1 0
+solid 1 0 0 1 1 0 0 1 1
+Q 0.5 0
