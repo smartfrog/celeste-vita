@@ -1,0 +1,1046 @@
+{
+  "archives": [
+    {
+      "path": "game/celeste-linux.zip",
+      "archive_bytes": 883881658,
+      "expanded_bytes": 1205149730,
+      "entry_count_including_directories": 1307,
+      "managed_file_sha256": {
+        "Celeste.exe": "fd73f8a2311fa5737ded550cbad4b75c85b7686b36432f59185e940fcb65fcfe",
+        "Celeste.Content.dll": "0b8d6195992c8970e8602bf48a7bf89104b83a98e34a07dc0c18d01581711d15",
+        "FNA.dll": "00349b572636c0ed4c97d4e4f74344b3450160c42d4a6b52bcf5e0f2d5193a31"
+      }
+    },
+    {
+      "path": "game/celeste-win-opengl.zip",
+      "archive_bytes": 875540825,
+      "expanded_bytes": 1171352192,
+      "entry_count_including_directories": 1276,
+      "managed_file_sha256": {
+        "Celeste.exe": "fd73f8a2311fa5737ded550cbad4b75c85b7686b36432f59185e940fcb65fcfe",
+        "Celeste.Content.dll": "0b8d6195992c8970e8602bf48a7bf89104b83a98e34a07dc0c18d01581711d15",
+        "FNA.dll": "00349b572636c0ed4c97d4e4f74344b3450160c42d4a6b52bcf5e0f2d5193a31"
+      }
+    }
+  ],
+  "comparison": {
+    "managed_files_identical_sha256": true,
+    "all_content_identical_sha256": true,
+    "content_file_count": 1216,
+    "different_content_paths": []
+  },
+  "managed_assemblies_from_first_archive": [
+    {
+      "path": "Celeste.exe",
+      "sha256": "fd73f8a2311fa5737ded550cbad4b75c85b7686b36432f59185e940fcb65fcfe",
+      "assembly": {
+        "name": "Celeste",
+        "version": "1.0.0.0"
+      },
+      "target_framework": ".NETFramework,Version=v4.5.2",
+      "clr_metadata_version": "v4.0.30319",
+      "clr_flags": "0x00000003",
+      "il_only": true,
+      "requires_32bit": true,
+      "assembly_references": [
+        {
+          "name": "mscorlib",
+          "version": "4.0.0.0"
+        },
+        {
+          "name": "FNA",
+          "version": "21.3.5.0"
+        },
+        {
+          "name": "System.Xml",
+          "version": "4.0.0.0"
+        },
+        {
+          "name": "System",
+          "version": "4.0.0.0"
+        },
+        {
+          "name": "System.Core",
+          "version": "4.0.0.0"
+        }
+      ],
+      "type_count": 1947,
+      "method_count": 12330,
+      "cil_method_body_count": 11556,
+      "game_version_from_constructor": "1.4.0.0",
+      "pinvoke_declarations_by_library": {
+        "fmod": 320,
+        "fmod_SDL": 1,
+        "fmodstudio": 169
+      },
+      "external_type_references": [
+        "DebuggingModes",
+        "Enumerator",
+        "Enumerator",
+        "Enumerator",
+        "Enumerator",
+        "KeyCollection",
+        "Microsoft.Xna.Framework.BoundingFrustum",
+        "Microsoft.Xna.Framework.Color",
+        "Microsoft.Xna.Framework.ContainmentType",
+        "Microsoft.Xna.Framework.Content.ContentManager",
+        "Microsoft.Xna.Framework.Game",
+        "Microsoft.Xna.Framework.GameTime",
+        "Microsoft.Xna.Framework.GameWindow",
+        "Microsoft.Xna.Framework.Graphics.BasicEffect",
+        "Microsoft.Xna.Framework.Graphics.Blend",
+        "Microsoft.Xna.Framework.Graphics.BlendFunction",
+        "Microsoft.Xna.Framework.Graphics.BlendState",
+        "Microsoft.Xna.Framework.Graphics.BufferUsage",
+        "Microsoft.Xna.Framework.Graphics.CullMode",
+        "Microsoft.Xna.Framework.Graphics.DepthFormat",
+        "Microsoft.Xna.Framework.Graphics.DepthStencilState",
+        "Microsoft.Xna.Framework.Graphics.DisplayMode",
+        "Microsoft.Xna.Framework.Graphics.Effect",
+        "Microsoft.Xna.Framework.Graphics.EffectParameter",
+        "Microsoft.Xna.Framework.Graphics.EffectParameterCollection",
+        "Microsoft.Xna.Framework.Graphics.EffectPass",
+        "Microsoft.Xna.Framework.Graphics.EffectPassCollection",
+        "Microsoft.Xna.Framework.Graphics.EffectTechnique",
+        "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection",
+        "Microsoft.Xna.Framework.Graphics.GraphicsAdapter",
+        "Microsoft.Xna.Framework.Graphics.GraphicsDevice",
+        "Microsoft.Xna.Framework.Graphics.GraphicsProfile",
+        "Microsoft.Xna.Framework.Graphics.GraphicsResource",
+        "Microsoft.Xna.Framework.Graphics.IVertexType",
+        "Microsoft.Xna.Framework.Graphics.IndexBuffer",
+        "Microsoft.Xna.Framework.Graphics.PresentationParameters",
+        "Microsoft.Xna.Framework.Graphics.PrimitiveType",
+        "Microsoft.Xna.Framework.Graphics.RasterizerState",
+        "Microsoft.Xna.Framework.Graphics.RenderTarget2D",
+        "Microsoft.Xna.Framework.Graphics.RenderTargetUsage",
+        "Microsoft.Xna.Framework.Graphics.SamplerState",
+        "Microsoft.Xna.Framework.Graphics.SamplerStateCollection",
+        "Microsoft.Xna.Framework.Graphics.SpriteBatch",
+        "Microsoft.Xna.Framework.Graphics.SpriteEffects",
+        "Microsoft.Xna.Framework.Graphics.SpriteFont",
+        "Microsoft.Xna.Framework.Graphics.SpriteSortMode",
+        "Microsoft.Xna.Framework.Graphics.SurfaceFormat",
+        "Microsoft.Xna.Framework.Graphics.Texture",
+        "Microsoft.Xna.Framework.Graphics.Texture2D",
+        "Microsoft.Xna.Framework.Graphics.TextureCollection",
+        "Microsoft.Xna.Framework.Graphics.VertexBuffer",
+        "Microsoft.Xna.Framework.Graphics.VertexDeclaration",
+        "Microsoft.Xna.Framework.Graphics.VertexElement",
+        "Microsoft.Xna.Framework.Graphics.VertexElementFormat",
+        "Microsoft.Xna.Framework.Graphics.VertexElementUsage",
+        "Microsoft.Xna.Framework.Graphics.VertexPositionColor",
+        "Microsoft.Xna.Framework.Graphics.VertexPositionColorTexture",
+        "Microsoft.Xna.Framework.Graphics.VertexPositionTexture",
+        "Microsoft.Xna.Framework.Graphics.Viewport",
+        "Microsoft.Xna.Framework.GraphicsDeviceManager",
+        "Microsoft.Xna.Framework.Input.ButtonState",
+        "Microsoft.Xna.Framework.Input.Buttons",
+        "Microsoft.Xna.Framework.Input.GamePad",
+        "Microsoft.Xna.Framework.Input.GamePadButtons",
+        "Microsoft.Xna.Framework.Input.GamePadDPad",
+        "Microsoft.Xna.Framework.Input.GamePadState",
+        "Microsoft.Xna.Framework.Input.GamePadThumbSticks",
+        "Microsoft.Xna.Framework.Input.GamePadTriggers",
+        "Microsoft.Xna.Framework.Input.KeyState",
+        "Microsoft.Xna.Framework.Input.Keyboard",
+        "Microsoft.Xna.Framework.Input.KeyboardState",
+        "Microsoft.Xna.Framework.Input.Keys",
+        "Microsoft.Xna.Framework.Input.Mouse",
+        "Microsoft.Xna.Framework.Input.MouseState",
+        "Microsoft.Xna.Framework.MathHelper",
+        "Microsoft.Xna.Framework.Matrix",
+        "Microsoft.Xna.Framework.PlayerIndex",
+        "Microsoft.Xna.Framework.Point",
+        "Microsoft.Xna.Framework.Quaternion",
+        "Microsoft.Xna.Framework.Rectangle",
+        "Microsoft.Xna.Framework.TitleContainer",
+        "Microsoft.Xna.Framework.Vector2",
+        "Microsoft.Xna.Framework.Vector3",
+        "SDL2.SDL",
+        "System.Action",
+        "System.Action`1",
+        "System.Action`2",
+        "System.Action`3",
+        "System.Activator",
+        "System.AppDomain",
+        "System.Array",
+        "System.AsyncCallback",
+        "System.Attribute",
+        "System.BitConverter",
+        "System.Boolean",
+        "System.Byte",
+        "System.Char",
+        "System.Collections.Generic.Dictionary`2",
+        "System.Collections.Generic.HashSet`1",
+        "System.Collections.Generic.IComparer`1",
+        "System.Collections.Generic.IDictionary`2",
+        "System.Collections.Generic.IEnumerable`1",
+        "System.Collections.Generic.IEnumerator`1",
+        "System.Collections.Generic.IEqualityComparer`1",
+        "System.Collections.Generic.KeyValuePair`2",
+        "System.Collections.Generic.List`1",
+        "System.Collections.Generic.Queue`1",
+        "System.Collections.Generic.Stack`1",
+        "System.Collections.IEnumerable",
+        "System.Collections.IEnumerator",
+        "System.Comparison`1",
+        "System.Console",
+        "System.Convert",
+        "System.DBNull",
+        "System.DateTime",
+        "System.Delegate",
+        "System.Diagnostics.DebuggableAttribute",
+        "System.Diagnostics.DebuggerHiddenAttribute",
+        "System.Diagnostics.Process",
+        "System.Diagnostics.ProcessStartInfo",
+        "System.Diagnostics.Stopwatch",
+        "System.Double",
+        "System.Enum",
+        "System.Environment",
+        "System.EventArgs",
+        "System.EventHandler`1",
+        "System.Exception",
+        "System.FlagsAttribute",
+        "System.Func`1",
+        "System.Func`2",
+        "System.GC",
+        "System.Globalization.CultureInfo",
+        "System.Globalization.NumberStyles",
+        "System.Guid",
+        "System.IAsyncResult",
+        "System.IConvertible",
+        "System.IDisposable",
+        "System.IFormatProvider",
+        "System.IO.BinaryReader",
+        "System.IO.BinaryWriter",
+        "System.IO.Directory",
+        "System.IO.DirectoryInfo",
+        "System.IO.File",
+        "System.IO.FileAccess",
+        "System.IO.FileInfo",
+        "System.IO.FileMode",
+        "System.IO.FileShare",
+        "System.IO.FileStream",
+        "System.IO.FileSystemInfo",
+        "System.IO.MemoryStream",
+        "System.IO.Path",
+        "System.IO.SearchOption",
+        "System.IO.SeekOrigin",
+        "System.IO.Stream",
+        "System.IO.StreamReader",
+        "System.IO.StreamWriter",
+        "System.IO.StringWriter",
+        "System.IO.TextReader",
+        "System.IO.TextWriter",
+        "System.IndexOutOfRangeException",
+        "System.Int16",
+        "System.Int32",
+        "System.Int64",
+        "System.IntPtr",
+        "System.InvalidOperationException",
+        "System.Linq.Enumerable",
+        "System.Math",
+        "System.MidpointRounding",
+        "System.MulticastDelegate",
+        "System.NotImplementedException",
+        "System.NotSupportedException",
+        "System.Nullable`1",
+        "System.Object",
+        "System.ParamArrayAttribute",
+        "System.Predicate`1",
+        "System.Random",
+        "System.Reflection.Assembly",
+        "System.Reflection.AssemblyCompanyAttribute",
+        "System.Reflection.AssemblyCopyrightAttribute",
+        "System.Reflection.AssemblyDescriptionAttribute",
+        "System.Reflection.AssemblyProductAttribute",
+        "System.Reflection.AssemblyTitleAttribute",
+        "System.Reflection.AssemblyTrademarkAttribute",
+        "System.Reflection.BindingFlags",
+        "System.Reflection.ConstructorInfo",
+        "System.Reflection.CustomAttributeExtensions",
+        "System.Reflection.DefaultMemberAttribute",
+        "System.Reflection.FieldInfo",
+        "System.Reflection.MemberInfo",
+        "System.Reflection.MethodBase",
+        "System.Reflection.MethodInfo",
+        "System.Reflection.ParameterInfo",
+        "System.Runtime.CompilerServices.CompilationRelaxationsAttribute",
+        "System.Runtime.CompilerServices.CompilerGeneratedAttribute",
+        "System.Runtime.CompilerServices.ExtensionAttribute",
+        "System.Runtime.CompilerServices.IteratorStateMachineAttribute",
+        "System.Runtime.CompilerServices.RuntimeCompatibilityAttribute",
+        "System.Runtime.CompilerServices.RuntimeHelpers",
+        "System.Runtime.GCLatencyMode",
+        "System.Runtime.GCSettings",
+        "System.Runtime.InteropServices.ComVisibleAttribute",
+        "System.Runtime.InteropServices.GuidAttribute",
+        "System.Runtime.InteropServices.Marshal",
+        "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+        "System.Runtime.Versioning.TargetFrameworkAttribute",
+        "System.RuntimeFieldHandle",
+        "System.RuntimeTypeHandle",
+        "System.Security.Permissions.SecurityAction",
+        "System.Security.Permissions.SecurityPermissionAttribute",
+        "System.Security.UnverifiableCodeAttribute",
+        "System.Single",
+        "System.String",
+        "System.StringComparer",
+        "System.StringComparison",
+        "System.StringSplitOptions",
+        "System.Text.Encoding",
+        "System.Text.RegularExpressions.Capture",
+        "System.Text.RegularExpressions.Group",
+        "System.Text.RegularExpressions.GroupCollection",
+        "System.Text.RegularExpressions.Match",
+        "System.Text.RegularExpressions.MatchCollection",
+        "System.Text.RegularExpressions.Regex",
+        "System.Text.RegularExpressions.RegexOptions",
+        "System.Text.StringBuilder",
+        "System.Threading.Interlocked",
+        "System.Threading.Monitor",
+        "System.Threading.Thread",
+        "System.Threading.ThreadPriority",
+        "System.Threading.ThreadStart",
+        "System.TimeSpan",
+        "System.Tuple`2",
+        "System.Type",
+        "System.ValueType",
+        "System.Version",
+        "System.Xml.Serialization.XmlAnyElementAttribute",
+        "System.Xml.Serialization.XmlAttributeAttribute",
+        "System.Xml.Serialization.XmlEnumAttribute",
+        "System.Xml.Serialization.XmlIgnoreAttribute",
+        "System.Xml.Serialization.XmlSerializer",
+        "System.Xml.XmlAttribute",
+        "System.Xml.XmlAttributeCollection",
+        "System.Xml.XmlComment",
+        "System.Xml.XmlDocument",
+        "System.Xml.XmlElement",
+        "System.Xml.XmlNamedNodeMap",
+        "System.Xml.XmlNode",
+        "System.Xml.XmlNodeList",
+        "System.Xml.XmlNodeType",
+        "System.Xml.XmlReader",
+        "System.Xml.XmlReaderSettings"
+      ],
+      "fmod_constants": {
+        "FMOD.VERSION::number": "0x00011014"
+      },
+      "parser_warnings": []
+    },
+    {
+      "path": "Celeste.Content.dll",
+      "sha256": "0b8d6195992c8970e8602bf48a7bf89104b83a98e34a07dc0c18d01581711d15",
+      "assembly": {
+        "name": "Celeste.Content",
+        "version": "0.0.0.0"
+      },
+      "target_framework": null,
+      "clr_metadata_version": "v4.0.30319",
+      "clr_flags": "0x00000001",
+      "il_only": true,
+      "requires_32bit": false,
+      "assembly_references": [
+        {
+          "name": "mscorlib",
+          "version": "4.0.0.0"
+        }
+      ],
+      "type_count": 1,
+      "method_count": 0,
+      "cil_method_body_count": 0,
+      "game_version_from_constructor": null,
+      "pinvoke_declarations_by_library": {},
+      "external_type_references": [
+        "DebuggingModes",
+        "System.Diagnostics.DebuggableAttribute",
+        "System.Runtime.CompilerServices.CompilationRelaxationsAttribute",
+        "System.Runtime.CompilerServices.RuntimeCompatibilityAttribute"
+      ],
+      "fmod_constants": {},
+      "parser_warnings": [
+        "Byte 0x00 makes up 68.6198% of the file's contents. This may indicate truncation / malformation."
+      ]
+    },
+    {
+      "path": "FNA.dll",
+      "sha256": "00349b572636c0ed4c97d4e4f74344b3450160c42d4a6b52bcf5e0f2d5193a31",
+      "assembly": {
+        "name": "FNA",
+        "version": "21.3.5.0"
+      },
+      "target_framework": ".NETFramework,Version=v4.0",
+      "clr_metadata_version": "v4.0.30319",
+      "clr_flags": "0x00000003",
+      "il_only": true,
+      "requires_32bit": true,
+      "assembly_references": [
+        {
+          "name": "mscorlib",
+          "version": "4.0.0.0"
+        },
+        {
+          "name": "System.Core",
+          "version": "4.0.0.0"
+        },
+        {
+          "name": "System",
+          "version": "4.0.0.0"
+        }
+      ],
+      "type_count": 697,
+      "method_count": 5059,
+      "cil_method_body_count": 3781,
+      "game_version_from_constructor": null,
+      "pinvoke_declarations_by_library": {
+        "FAudio": 155,
+        "FNA3D": 82,
+        "SDL2": 609,
+        "__Native": 2,
+        "libtheorafile": 11
+      },
+      "external_type_references": [
+        "DebuggingModes",
+        "Enumerator",
+        "Enumerator",
+        "SpecialFolder",
+        "System.Action`1",
+        "System.Action`2",
+        "System.Action`3",
+        "System.Activator",
+        "System.AppDomain",
+        "System.ArgumentException",
+        "System.ArgumentNullException",
+        "System.ArgumentOutOfRangeException",
+        "System.Array",
+        "System.AsyncCallback",
+        "System.Attribute",
+        "System.AttributeTargets",
+        "System.AttributeUsageAttribute",
+        "System.BadImageFormatException",
+        "System.BitConverter",
+        "System.Boolean",
+        "System.Byte",
+        "System.CLSCompliantAttribute",
+        "System.Char",
+        "System.Collections.BitArray",
+        "System.Collections.Generic.Dictionary`2",
+        "System.Collections.Generic.ICollection`1",
+        "System.Collections.Generic.IComparer`1",
+        "System.Collections.Generic.IEnumerable`1",
+        "System.Collections.Generic.IEnumerator`1",
+        "System.Collections.Generic.IEqualityComparer`1",
+        "System.Collections.Generic.IList`1",
+        "System.Collections.Generic.KeyNotFoundException",
+        "System.Collections.Generic.KeyValuePair`2",
+        "System.Collections.Generic.List`1",
+        "System.Collections.Generic.Queue`1",
+        "System.Collections.IDictionary",
+        "System.Collections.IEnumerable",
+        "System.Collections.IEnumerator",
+        "System.Collections.ObjectModel.Collection`1",
+        "System.Collections.ObjectModel.ReadOnlyCollection`1",
+        "System.ComponentModel.DefaultValueAttribute",
+        "System.ComponentModel.ExpandableObjectConverter",
+        "System.ComponentModel.ITypeDescriptorContext",
+        "System.ComponentModel.PropertyDescriptorCollection",
+        "System.ComponentModel.TypeConverter",
+        "System.ComponentModel.TypeConverterAttribute",
+        "System.Console",
+        "System.Convert",
+        "System.DateTime",
+        "System.DateTimeKind",
+        "System.Decimal",
+        "System.Delegate",
+        "System.Diagnostics.ConditionalAttribute",
+        "System.Diagnostics.DebuggableAttribute",
+        "System.Diagnostics.Debugger",
+        "System.Diagnostics.DebuggerDisplayAttribute",
+        "System.Diagnostics.DebuggerNonUserCodeAttribute",
+        "System.Diagnostics.Stopwatch",
+        "System.DllNotFoundException",
+        "System.Enum",
+        "System.Environment",
+        "System.EventArgs",
+        "System.EventHandler",
+        "System.EventHandler`1",
+        "System.Exception",
+        "System.FlagsAttribute",
+        "System.Func`1",
+        "System.Func`2",
+        "System.GC",
+        "System.Globalization.CultureInfo",
+        "System.Globalization.TextInfo",
+        "System.Guid",
+        "System.IAsyncResult",
+        "System.IComparable`1",
+        "System.IDisposable",
+        "System.IEquatable`1",
+        "System.IFormatProvider",
+        "System.IO.BinaryReader",
+        "System.IO.BinaryWriter",
+        "System.IO.Directory",
+        "System.IO.DirectoryInfo",
+        "System.IO.DirectoryNotFoundException",
+        "System.IO.DriveInfo",
+        "System.IO.File",
+        "System.IO.FileAccess",
+        "System.IO.FileMode",
+        "System.IO.FileNotFoundException",
+        "System.IO.FileShare",
+        "System.IO.FileStream",
+        "System.IO.MemoryStream",
+        "System.IO.Path",
+        "System.IO.SeekOrigin",
+        "System.IO.Stream",
+        "System.IServiceProvider",
+        "System.IndexOutOfRangeException",
+        "System.Int16",
+        "System.Int32",
+        "System.IntPtr",
+        "System.InvalidOperationException",
+        "System.Math",
+        "System.MulticastDelegate",
+        "System.NotImplementedException",
+        "System.NotSupportedException",
+        "System.Nullable`1",
+        "System.Object",
+        "System.ObjectDisposedException",
+        "System.OperatingSystem",
+        "System.ParamArrayAttribute",
+        "System.PlatformID",
+        "System.Random",
+        "System.Reflection.Assembly",
+        "System.Reflection.AssemblyCompanyAttribute",
+        "System.Reflection.AssemblyConfigurationAttribute",
+        "System.Reflection.AssemblyCopyrightAttribute",
+        "System.Reflection.AssemblyDescriptionAttribute",
+        "System.Reflection.AssemblyName",
+        "System.Reflection.AssemblyProductAttribute",
+        "System.Reflection.AssemblyTitleAttribute",
+        "System.Reflection.AssemblyTrademarkAttribute",
+        "System.Reflection.Binder",
+        "System.Reflection.BindingFlags",
+        "System.Reflection.ConstructorInfo",
+        "System.Reflection.DefaultMemberAttribute",
+        "System.Reflection.FieldInfo",
+        "System.Reflection.MemberInfo",
+        "System.Reflection.MethodBase",
+        "System.Reflection.MethodInfo",
+        "System.Reflection.ParameterInfo",
+        "System.Reflection.ParameterModifier",
+        "System.Reflection.PropertyInfo",
+        "System.Reflection.TargetInvocationException",
+        "System.Resources.ResourceManager",
+        "System.Runtime.CompilerServices.CompilationRelaxationsAttribute",
+        "System.Runtime.CompilerServices.CompilerGeneratedAttribute",
+        "System.Runtime.CompilerServices.ExtensionAttribute",
+        "System.Runtime.CompilerServices.FixedBufferAttribute",
+        "System.Runtime.CompilerServices.RuntimeCompatibilityAttribute",
+        "System.Runtime.CompilerServices.RuntimeHelpers",
+        "System.Runtime.CompilerServices.UnsafeValueTypeAttribute",
+        "System.Runtime.InteropServices.CallingConvention",
+        "System.Runtime.InteropServices.ComVisibleAttribute",
+        "System.Runtime.InteropServices.ExternalException",
+        "System.Runtime.InteropServices.GCHandle",
+        "System.Runtime.InteropServices.GCHandleType",
+        "System.Runtime.InteropServices.GuidAttribute",
+        "System.Runtime.InteropServices.Marshal",
+        "System.Runtime.InteropServices.UnmanagedFunctionPointerAttribute",
+        "System.Runtime.Versioning.TargetFrameworkAttribute",
+        "System.RuntimeFieldHandle",
+        "System.RuntimeTypeHandle",
+        "System.Security.Permissions.SecurityAction",
+        "System.Security.Permissions.SecurityPermissionAttribute",
+        "System.Security.UnverifiableCodeAttribute",
+        "System.Single",
+        "System.String",
+        "System.StringComparer",
+        "System.StringComparison",
+        "System.StringSplitOptions",
+        "System.Text.Encoding",
+        "System.Text.RegularExpressions.Regex",
+        "System.Text.StringBuilder",
+        "System.Threading.Interlocked",
+        "System.Threading.ManualResetEvent",
+        "System.Threading.Monitor",
+        "System.Threading.Thread",
+        "System.Threading.WaitHandle",
+        "System.TimeSpan",
+        "System.Type",
+        "System.UInt16",
+        "System.UInt32",
+        "System.UInt64",
+        "System.UnauthorizedAccessException",
+        "System.UnhandledExceptionEventArgs",
+        "System.UnhandledExceptionEventHandler",
+        "System.Uri",
+        "System.ValueType",
+        "System.WeakReference"
+      ],
+      "fmod_constants": {},
+      "parser_warnings": []
+    }
+  ],
+  "content_from_first_archive": {
+    "files": 1216,
+    "texture_count": 1065,
+    "texture_rgba8_bytes_all_files_not_simultaneous_residency": 1059240648,
+    "largest_textures": [
+      {
+        "path": "Content/Graphics/Atlases/Gameplay0.data",
+        "width": 4096,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 67108864,
+        "file_bytes": 7094606
+      },
+      {
+        "path": "Content/Graphics/Atlases/Gui0.data",
+        "width": 4096,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 67108864,
+        "file_bytes": 18423454
+      },
+      {
+        "path": "Content/Graphics/Atlases/FileSelect0.data",
+        "width": 4096,
+        "height": 2048,
+        "has_alpha": true,
+        "rgba8_bytes": 33554432,
+        "file_bytes": 10115961
+      },
+      {
+        "path": "Content/Graphics/Atlases/Journal0.data",
+        "width": 2048,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 33554432,
+        "file_bytes": 6534300
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/buildings_0.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 13286957
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/buildings_1.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 13551933
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/buildings_2.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 13727757
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/mountain_0.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 12842701
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/mountain_1.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 14250701
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/mountain_2.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": false,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 14904977
+      },
+      {
+        "path": "Content/Graphics/Atlases/WaveDashing0.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": true,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 1263072
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/skybox_0.data",
+        "width": 4096,
+        "height": 820,
+        "has_alpha": false,
+        "rgba8_bytes": 13434880,
+        "file_bytes": 3206633
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/skybox_1.data",
+        "width": 4096,
+        "height": 820,
+        "has_alpha": false,
+        "rgba8_bytes": 13434880,
+        "file_bytes": 1317913
+      },
+      {
+        "path": "Content/Graphics/Atlases/Mountain/skybox_2.data",
+        "width": 4096,
+        "height": 820,
+        "has_alpha": false,
+        "rgba8_bytes": 13434880,
+        "file_bytes": 1087297
+      },
+      {
+        "path": "Content/Graphics/Atlases/TheFall/05a0.data",
+        "width": 2136,
+        "height": 1300,
+        "has_alpha": true,
+        "rgba8_bytes": 11107200,
+        "file_bytes": 21789
+      },
+      {
+        "path": "Content/Graphics/Atlases/TheFall/05b0.data",
+        "width": 2136,
+        "height": 1300,
+        "has_alpha": true,
+        "rgba8_bytes": 11107200,
+        "file_bytes": 21789
+      },
+      {
+        "path": "Content/Graphics/Atlases/TheFall/05c0.data",
+        "width": 2136,
+        "height": 1300,
+        "has_alpha": true,
+        "rgba8_bytes": 11107200,
+        "file_bytes": 21789
+      },
+      {
+        "path": "Content/Graphics/Atlases/TheFall/05d0.data",
+        "width": 2136,
+        "height": 1300,
+        "has_alpha": true,
+        "rgba8_bytes": 11107200,
+        "file_bytes": 21789
+      },
+      {
+        "path": "Content/Graphics/Atlases/Core/02.data",
+        "width": 2094,
+        "height": 1300,
+        "has_alpha": true,
+        "rgba8_bytes": 10888800,
+        "file_bytes": 444216
+      },
+      {
+        "path": "Content/Graphics/Atlases/SummitEnd/01a.data",
+        "width": 2136,
+        "height": 1224,
+        "has_alpha": true,
+        "rgba8_bytes": 10457856,
+        "file_bytes": 322408
+      }
+    ],
+    "root_atlas_textures": [
+      {
+        "path": "Content/Graphics/Atlases/FileSelect0.data",
+        "width": 4096,
+        "height": 2048,
+        "has_alpha": true,
+        "rgba8_bytes": 33554432,
+        "file_bytes": 10115961
+      },
+      {
+        "path": "Content/Graphics/Atlases/Gameplay0.data",
+        "width": 4096,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 67108864,
+        "file_bytes": 7094606
+      },
+      {
+        "path": "Content/Graphics/Atlases/Gui0.data",
+        "width": 4096,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 67108864,
+        "file_bytes": 18423454
+      },
+      {
+        "path": "Content/Graphics/Atlases/Journal0.data",
+        "width": 2048,
+        "height": 4096,
+        "has_alpha": true,
+        "rgba8_bytes": 33554432,
+        "file_bytes": 6534300
+      },
+      {
+        "path": "Content/Graphics/Atlases/Memo0.data",
+        "width": 2048,
+        "height": 1024,
+        "has_alpha": true,
+        "rgba8_bytes": 8388608,
+        "file_bytes": 1739122
+      },
+      {
+        "path": "Content/Graphics/Atlases/WaveDashing0.data",
+        "width": 2048,
+        "height": 2048,
+        "has_alpha": true,
+        "rgba8_bytes": 16777216,
+        "file_bytes": 1263072
+      }
+    ],
+    "textures_exceeding_4096": [],
+    "texture_groups": {
+      "Content/Graphics/Atlases": {
+        "textures": 6,
+        "rgba8_bytes": 226492416
+      },
+      "Content/Graphics/Atlases/CelestialResort": {
+        "textures": 10,
+        "rgba8_bytes": 24194624
+      },
+      "Content/Graphics/Atlases/Checkpoints": {
+        "textures": 80,
+        "rgba8_bytes": 11951616
+      },
+      "Content/Graphics/Atlases/Cliffside": {
+        "textures": 9,
+        "rgba8_bytes": 19772436
+      },
+      "Content/Graphics/Atlases/Core": {
+        "textures": 9,
+        "rgba8_bytes": 24962904
+      },
+      "Content/Graphics/Atlases/Farewell": {
+        "textures": 26,
+        "rgba8_bytes": 98564052
+      },
+      "Content/Graphics/Atlases/ForsakenCity": {
+        "textures": 14,
+        "rgba8_bytes": 34755736
+      },
+      "Content/Graphics/Atlases/MirrorTemple": {
+        "textures": 17,
+        "rgba8_bytes": 16749216
+      },
+      "Content/Graphics/Atlases/Misc": {
+        "textures": 10,
+        "rgba8_bytes": 3826864
+      },
+      "Content/Graphics/Atlases/Mountain": {
+        "textures": 14,
+        "rgba8_bytes": 156493824
+      },
+      "Content/Graphics/Atlases/Mountain/marker": {
+        "textures": 22,
+        "rgba8_bytes": 5573216
+      },
+      "Content/Graphics/Atlases/OldSite": {
+        "textures": 11,
+        "rgba8_bytes": 16836908
+      },
+      "Content/Graphics/Atlases/Opening": {
+        "textures": 2,
+        "rgba8_bytes": 2245404
+      },
+      "Content/Graphics/Atlases/Overworld": {
+        "textures": 4,
+        "rgba8_bytes": 16720264
+      },
+      "Content/Graphics/Atlases/Overworld/loading": {
+        "textures": 10,
+        "rgba8_bytes": 1428840
+      },
+      "Content/Graphics/Atlases/Portraits": {
+        "textures": 16,
+        "rgba8_bytes": 74320012
+      },
+      "Content/Graphics/Atlases/Portraits/credits": {
+        "textures": 4,
+        "rgba8_bytes": 11379200
+      },
+      "Content/Graphics/Atlases/Portraits/exph": {
+        "textures": 1,
+        "rgba8_bytes": 102400
+      },
+      "Content/Graphics/Atlases/Portraits/ghost": {
+        "textures": 167,
+        "rgba8_bytes": 34514048
+      },
+      "Content/Graphics/Atlases/Portraits/granny": {
+        "textures": 37,
+        "rgba8_bytes": 3788800
+      },
+      "Content/Graphics/Atlases/Portraits/madeline": {
+        "textures": 105,
+        "rgba8_bytes": 10752000
+      },
+      "Content/Graphics/Atlases/Portraits/madelinemirror": {
+        "textures": 106,
+        "rgba8_bytes": 10854400
+      },
+      "Content/Graphics/Atlases/Portraits/madelineph": {
+        "textures": 45,
+        "rgba8_bytes": 4608000
+      },
+      "Content/Graphics/Atlases/Portraits/mom": {
+        "textures": 14,
+        "rgba8_bytes": 1433600
+      },
+      "Content/Graphics/Atlases/Portraits/momph": {
+        "textures": 14,
+        "rgba8_bytes": 1433600
+      },
+      "Content/Graphics/Atlases/Portraits/noise": {
+        "textures": 3,
+        "rgba8_bytes": 307200
+      },
+      "Content/Graphics/Atlases/Portraits/oshiro": {
+        "textures": 74,
+        "rgba8_bytes": 7577600
+      },
+      "Content/Graphics/Atlases/Portraits/textbox": {
+        "textures": 12,
+        "rgba8_bytes": 19802336
+      },
+      "Content/Graphics/Atlases/Portraits/theo": {
+        "textures": 53,
+        "rgba8_bytes": 5422096
+      },
+      "Content/Graphics/Atlases/Portraits/theomirror": {
+        "textures": 85,
+        "rgba8_bytes": 8693792
+      },
+      "Content/Graphics/Atlases/SummitEnd": {
+        "textures": 31,
+        "rgba8_bytes": 74120564
+      },
+      "Content/Graphics/Atlases/SummitIntro": {
+        "textures": 19,
+        "rgba8_bytes": 16834532
+      },
+      "Content/Graphics/Atlases/TheFall": {
+        "textures": 35,
+        "rgba8_bytes": 112728148
+      }
+    },
+    "startup_atlases_selected_by_gfx_load": {
+      "Gameplay": {
+        "source_texture_count": 1,
+        "rgba8_bytes": 67108864
+      },
+      "Opening": {
+        "source_texture_count": 2,
+        "rgba8_bytes": 2245404
+      },
+      "Gui": {
+        "source_texture_count": 1,
+        "rgba8_bytes": 67108864
+      },
+      "Misc": {
+        "source_texture_count": 10,
+        "rgba8_bytes": 3826864
+      },
+      "Portraits": {
+        "source_texture_count": 736,
+        "rgba8_bytes": 194989084
+      }
+    },
+    "banks": [
+      {
+        "path": "Content/FMOD/Desktop/Master Bank.bank",
+        "bytes": 405344
+      },
+      {
+        "path": "Content/FMOD/Desktop/Master Bank.strings.bank",
+        "bytes": 46920
+      },
+      {
+        "path": "Content/FMOD/Desktop/dlc_music.bank",
+        "bytes": 67452832
+      },
+      {
+        "path": "Content/FMOD/Desktop/dlc_sfx.bank",
+        "bytes": 34768032
+      },
+      {
+        "path": "Content/FMOD/Desktop/music.bank",
+        "bytes": 393143808
+      },
+      {
+        "path": "Content/FMOD/Desktop/sfx.bank",
+        "bytes": 164503840
+      },
+      {
+        "path": "Content/FMOD/Desktop/ui.bank",
+        "bytes": 5400800
+      }
+    ],
+    "bank_bytes_on_disk": 665721576,
+    "effects": [
+      {
+        "path": "Content/Effects/Border.xnb",
+        "bytes": 3844
+      },
+      {
+        "path": "Content/Effects/ColorGrade.xnb",
+        "bytes": 5836
+      },
+      {
+        "path": "Content/Effects/Distort.xnb",
+        "bytes": 5412
+      },
+      {
+        "path": "Content/Effects/Dither.xnb",
+        "bytes": 5300
+      },
+      {
+        "path": "Content/Effects/Dust.xnb",
+        "bytes": 3536
+      },
+      {
+        "path": "Content/Effects/GaussianBlur.xnb",
+        "bytes": 6140
+      },
+      {
+        "path": "Content/Effects/Glitch.xnb",
+        "bytes": 3500
+      },
+      {
+        "path": "Content/Effects/Lighting.xnb",
+        "bytes": 2764
+      },
+      {
+        "path": "Content/Effects/MagicGlow.xnb",
+        "bytes": 5288
+      },
+      {
+        "path": "Content/Effects/Mirrors.xnb",
+        "bytes": 2068
+      },
+      {
+        "path": "Content/Effects/MountainRender.xnb",
+        "bytes": 6508
+      },
+      {
+        "path": "Content/Effects/Primitive.xnb",
+        "bytes": 1968
+      },
+      {
+        "path": "Content/Effects/Texture.xnb",
+        "bytes": 2376
+      }
+    ]
+  }
+}

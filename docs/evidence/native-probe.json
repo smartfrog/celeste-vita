@@ -1,0 +1,354 @@
+{
+  "sdk": "/home/fred/cloudpunk-vita/tools/vitasdk",
+  "compiled_and_packaged_self": true,
+  "executed_on_vita_or_emulator": false,
+  "probe_source": "#include <psp2/kernel/processmgr.h>\n_Static_assert(sizeof(void *) == 4, \"Expected 32-bit Vita target\");\nint main(void) { sceKernelExitProcess(0); return 0; }\n",
+  "commands": [
+    {
+      "argv": [
+        "/home/fred/cloudpunk-vita/tools/vitasdk/bin/arm-vita-eabi-gcc",
+        "--version"
+      ],
+      "stdin": null,
+      "stdout": "arm-vita-eabi-gcc (GNU Tools for ARM Embedded Processors) 15.2.0\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/home/fred/cloudpunk-vita/tools/vitasdk/bin/arm-vita-eabi-gcc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wl,-q",
+        "-x",
+        "c",
+        "-",
+        "-o",
+        ".audit/toolchain/probe.elf",
+        "-lSceProcessmgr_stub"
+      ],
+      "stdin": "#include <psp2/kernel/processmgr.h>\n_Static_assert(sizeof(void *) == 4, \"Expected 32-bit Vita target\");\nint main(void) { sceKernelExitProcess(0); return 0; }\n",
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/home/fred/cloudpunk-vita/tools/vitasdk/bin/vita-elf-create",
+        ".audit/toolchain/probe.elf",
+        ".audit/toolchain/probe.velf"
+      ],
+      "stdin": null,
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/home/fred/cloudpunk-vita/tools/vitasdk/bin/vita-make-fself",
+        ".audit/toolchain/probe.velf",
+        ".audit/toolchain/probe.self"
+      ],
+      "stdin": null,
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/home/fred/cloudpunk-vita/tools/vitasdk/bin/arm-vita-eabi-readelf",
+        "-h",
+        ".audit/toolchain/probe.elf"
+      ],
+      "stdin": null,
+      "stdout": "ELF Header:\n  Magic:   7f 45 4c 46 01 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF32\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              EXEC (Executable file)\n  Machine:                           ARM\n  Version:                           0x1\n  Entry point address:               0x81000151\n  Start of program headers:          52 (bytes into file)\n  Start of section headers:          48748 (bytes into file)\n  Flags:                             0x5000400, Version5 EABI, hard-float ABI\n  Size of this header:               52 (bytes)\n  Size of program headers:           32 (bytes)\n  Number of program headers:         3\n  Size of section headers:           40 (bytes)\n  Number of section headers:         34\n  Section header string table index: 33\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  ],
+  "default_abi_macros": [
+    "#define __ARM_PCS_VFP 1",
+    "#define __SIZEOF_POINTER__ 4",
+    "#define __VFP_FP__ 1",
+    "#define __ARM_ARCH 7"
+  ],
+  "probe_self_sha256": "60f6c48b62b8ab815d261dd5d362921cc9b29985b7939bc428c2d4d4690137bc",
+  "library_presence": {
+    "libvitaGL.a": true,
+    "libSDL2.a": false,
+    "libFNA3D.a": false,
+    "libFAudio.a": false,
+    "libmonosgen-2.0.a": false,
+    "libfmod.a": false,
+    "libfmodstudio.a": false,
+    "libSceLibMono_stub.a": true
+  },
+  "graphics_comparison": {
+    "fna3d_header_url": "https://raw.githubusercontent.com/FNA-XNA/FNA3D/dba98a71514cc30f3c19dc19fc0a479be7c90d52/src/FNA3D_Driver_OpenGL_glfuncs.h",
+    "vitagl_commit": "cd3791e29ff7f1c0ab349f12c7231f4871ce6a75",
+    "vitagl_library_sha256": "d4277769335f6f42663a1de36b464516c474bce80187344efca6f419d18dc9ad",
+    "groups": {
+      "BaseGL": {
+        "required_functions": [
+          "glActiveTexture",
+          "glBindBuffer",
+          "glBindTexture",
+          "glBlendColor",
+          "glBlendEquationSeparate",
+          "glBlendFuncSeparate",
+          "glBufferData",
+          "glBufferSubData",
+          "glClear",
+          "glClearColor",
+          "glClearStencil",
+          "glColorMask",
+          "glDeleteBuffers",
+          "glDeleteTextures",
+          "glDepthFunc",
+          "glDepthMask",
+          "glDisable",
+          "glDisableVertexAttribArray",
+          "glDrawArrays",
+          "glDrawBuffers",
+          "glDrawRangeElements",
+          "glEnable",
+          "glEnableVertexAttribArray",
+          "glFrontFace",
+          "glGenBuffers",
+          "glGenTextures",
+          "glGetIntegerv",
+          "glPixelStorei",
+          "glPolygonOffset",
+          "glReadPixels",
+          "glScissor",
+          "glStencilFunc",
+          "glStencilFuncSeparate",
+          "glStencilOp",
+          "glStencilOpSeparate",
+          "glStencilMask",
+          "glCompressedTexImage2D",
+          "glCompressedTexSubImage2D",
+          "glTexImage2D",
+          "glTexParameterf",
+          "glTexParameteri",
+          "glTexSubImage2D",
+          "glVertexAttribPointer",
+          "glViewport"
+        ],
+        "missing_symbols": [
+          "glBlendColor",
+          "glDrawBuffers",
+          "glCompressedTexSubImage2D"
+        ],
+        "missing_lookup_entries": [
+          "glBlendColor",
+          "glDrawBuffers",
+          "glCompressedTexSubImage2D"
+        ]
+      },
+      "CoreGL": {
+        "required_functions": [
+          "glBindVertexArray",
+          "glDeleteVertexArrays",
+          "glGenVertexArrays",
+          "glGetStringi"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "ARB_draw_elements_base_vertex": {
+        "required_functions": [
+          "glDrawElementsInstancedBaseVertex",
+          "glDrawRangeElementsBaseVertex"
+        ],
+        "missing_symbols": [
+          "glDrawElementsInstancedBaseVertex"
+        ],
+        "missing_lookup_entries": [
+          "glDrawElementsInstancedBaseVertex"
+        ]
+      },
+      "3DTexture": {
+        "required_functions": [
+          "glTexImage3D",
+          "glTexSubImage3D"
+        ],
+        "missing_symbols": [
+          "glTexImage3D",
+          "glTexSubImage3D"
+        ],
+        "missing_lookup_entries": [
+          "glTexImage3D",
+          "glTexSubImage3D"
+        ]
+      },
+      "DoublePrecisionDepth": {
+        "required_functions": [
+          "glClearDepth",
+          "glDepthRange"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "OES_single_precision": {
+        "required_functions": [
+          "glClearDepthf",
+          "glDepthRangef"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "ARB_occlusion_query": {
+        "required_functions": [
+          "glBeginQuery",
+          "glDeleteQueries",
+          "glEndQuery",
+          "glGenQueries",
+          "glGetQueryObjectuiv"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "NonES3": {
+        "required_functions": [
+          "glGetBufferSubData",
+          "glGetTexImage",
+          "glPolygonMode"
+        ],
+        "missing_symbols": [
+          "glGetBufferSubData",
+          "glGetTexImage"
+        ],
+        "missing_lookup_entries": [
+          "glGetBufferSubData",
+          "glGetTexImage"
+        ]
+      },
+      "NonES3NonCore": {
+        "required_functions": [
+          "glTexEnvi"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "ARB_framebuffer_object": {
+        "required_functions": [
+          "glBindFramebuffer",
+          "glBindRenderbuffer",
+          "glDeleteFramebuffers",
+          "glDeleteRenderbuffers",
+          "glFramebufferRenderbuffer",
+          "glFramebufferTexture2D",
+          "glGenerateMipmap",
+          "glGenFramebuffers",
+          "glGenRenderbuffers",
+          "glRenderbufferStorage"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "EXT_framebuffer_blit": {
+        "required_functions": [
+          "glBlitFramebuffer"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "EXT_framebuffer_multisample": {
+        "required_functions": [
+          "glRenderbufferStorageMultisample"
+        ],
+        "missing_symbols": [
+          "glRenderbufferStorageMultisample"
+        ],
+        "missing_lookup_entries": [
+          "glRenderbufferStorageMultisample"
+        ]
+      },
+      "ARB_internalformat_query": {
+        "required_functions": [
+          "glGetInternalformativ"
+        ],
+        "missing_symbols": [
+          "glGetInternalformativ"
+        ],
+        "missing_lookup_entries": [
+          "glGetInternalformativ"
+        ]
+      },
+      "ARB_invalidate_subdata": {
+        "required_functions": [
+          "glInvalidateFramebuffer"
+        ],
+        "missing_symbols": [
+          "glInvalidateFramebuffer"
+        ],
+        "missing_lookup_entries": [
+          "glInvalidateFramebuffer"
+        ]
+      },
+      "ARB_draw_instanced": {
+        "required_functions": [
+          "glDrawElementsInstanced"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "ARB_instanced_arrays": {
+        "required_functions": [
+          "glVertexAttribDivisor"
+        ],
+        "missing_symbols": [],
+        "missing_lookup_entries": []
+      },
+      "EXT_draw_buffers2": {
+        "required_functions": [
+          "glColorMaski"
+        ],
+        "missing_symbols": [
+          "glColorMaski"
+        ],
+        "missing_lookup_entries": [
+          "glColorMaski"
+        ]
+      },
+      "ARB_texture_multisample": {
+        "required_functions": [
+          "glSampleMaski"
+        ],
+        "missing_symbols": [
+          "glSampleMaski"
+        ],
+        "missing_lookup_entries": [
+          "glSampleMaski"
+        ]
+      },
+      "KHR_debug": {
+        "required_functions": [
+          "glDebugMessageCallback",
+          "glDebugMessageControl"
+        ],
+        "missing_symbols": [
+          "glDebugMessageCallback",
+          "glDebugMessageControl"
+        ],
+        "missing_lookup_entries": [
+          "glDebugMessageCallback",
+          "glDebugMessageControl"
+        ]
+      },
+      "GREMEDY_string_marker": {
+        "required_functions": [
+          "glStringMarkerGREMEDY"
+        ],
+        "missing_symbols": [
+          "glStringMarkerGREMEDY"
+        ],
+        "missing_lookup_entries": [
+          "glStringMarkerGREMEDY"
+        ]
+      }
+    }
+  }
+}

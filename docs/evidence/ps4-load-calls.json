@@ -1,0 +1,136 @@
+{
+  "input_sha256": "c995afe0315213f0c66f7f6b204ba4bd44ca2f312bcbf5a2c9e1b7739520e278",
+  "cil_bodies_decoded": 10013,
+  "targets_selected": [
+    "Celeste.GFX::Load*",
+    "Celeste.GFX::Unload*",
+    "*::loadSampleData"
+  ],
+  "direct_methoddef_references": [
+    {
+      "caller": "Celeste.GameLoader::LoadThread",
+      "target": "Celeste.GFX::LoadGame",
+      "body_offset": 169
+    },
+    {
+      "caller": "Celeste.GameLoader::LoadThread",
+      "target": "Celeste.GFX::LoadOther",
+      "body_offset": 174
+    },
+    {
+      "caller": "Celeste.GameLoader::LoadThread",
+      "target": "Celeste.GFX::LoadMountain",
+      "body_offset": 179
+    },
+    {
+      "caller": "Celeste.GameLoader::LoadThread",
+      "target": "Celeste.GFX::LoadPortraits",
+      "body_offset": 184
+    },
+    {
+      "caller": "Celeste.GameLoader::LoadThread",
+      "target": "Celeste.GFX::LoadData",
+      "body_offset": 189
+    },
+    {
+      "caller": "Celeste.Audio::GetEventDescription",
+      "target": "FMOD.Studio.EventDescription::loadSampleData",
+      "body_offset": 50
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 17
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 32
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 47
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 62
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 77
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 92
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 107
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 122
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 137
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 152
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 167
+    },
+    {
+      "caller": "Celeste.GFX::LoadEffects",
+      "target": "Celeste.GFX::LoadFx",
+      "body_offset": 182
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadGui",
+      "body_offset": 64
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadOverworld",
+      "body_offset": 69
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadGame",
+      "body_offset": 74
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadOther",
+      "body_offset": 79
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadMountain",
+      "body_offset": 84
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadPortraits",
+      "body_offset": 89
+    },
+    {
+      "caller": "Celeste.Celeste::LoadContent",
+      "target": "Celeste.GFX::LoadEffects",
+      "body_offset": 101
+    }
+  ]
+}

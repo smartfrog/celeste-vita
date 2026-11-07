@@ -1,0 +1,48 @@
+{
+  "package": {
+    "path": "game/Celeste-CUSA11302.pkg",
+    "bytes": 748683264,
+    "sha256": "972d7e2b835c413dad225eb2f9eac4bf2d20fb4441e19ac18be45fae37bb6141"
+  },
+  "extractor": {
+    "repository": "https://github.com/flatz/pkg_pfs_tool",
+    "commit": "4e74afa98b0f57b2b50a2182c1ef89905dc040a7",
+    "mbedtls_version": "2.28.10",
+    "local_build_adaptations": [
+      "Recognize aarch64 in the arm64 CMake architecture guard.",
+      "Enable MBEDTLS_CMAC_C in the local Mbed TLS build.",
+      "Set MBEDTLS_INCLUDE_DIRS and UTHASH_INCLUDE_DIRS explicitly.",
+      "Symlink build/config.ini to ../config.ini."
+    ]
+  },
+  "extraction_command": [
+    ".audit/tools/pkg_pfs_tool/build/pkg_pfs_tool",
+    "--passcode",
+    "00000000000000000000000000000000",
+    "--unpack-sc-entries",
+    "--unpack",
+    "game/Celeste-CUSA11302.pkg",
+    ".audit/ps4-extracted"
+  ],
+  "exit_code": 0,
+  "extraction_log": ".audit/ps4-native-extract.log",
+  "listing_log": ".audit/ps4-file-list-zero-passcode.log",
+  "image_files_expected": 1034,
+  "image_files_extracted": 1034,
+  "image_bytes": 1061850865,
+  "missing_files": [],
+  "extra_files": [],
+  "size_mismatches": {},
+  "param_sfo_matches_package_entry": true,
+  "skipped_encrypted_outer_entries": [
+    "nptitle.dat",
+    "npbind.dat"
+  ],
+  "earlier_attempt": {
+    "tool": "PkgTool.Core 0.2.231",
+    "exit_code": 134,
+    "error": "inode 0 is corrupt.",
+    "log": ".audit/ps4-extract.log",
+    "cause_confirmed": false
+  }
+}
