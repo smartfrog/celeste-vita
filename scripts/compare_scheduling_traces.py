@@ -47,9 +47,11 @@ def validate_action(spec, scripts, count, role):
         kind = parts[0]
         if token in {"record", "cancel", "throw"}:
             continue
-        if len(parts) != 2:
+        if kind == "secondscript" and len(parts) == 3 and all(identity in scripts for identity in parts[1:]):
+            pass
+        elif len(parts) != 2:
             raise ValueError(f"Invalid callback action {token}")
-        if kind in {"set", "force", "return"}:
+        elif kind in {"set", "force", "return", "secondset", "secondreturn"}:
             integer(parts[1], 0, count - 1)
         elif kind == "lock":
             integer(parts[1], 0, 1)
@@ -57,11 +59,12 @@ def validate_action(spec, scripts, count, role):
             pass
         else:
             raise ValueError(f"Invalid callback action {token}")
-        if kind in {"return", "script"} and (token != tokens[-1] or kind != {"update": "return", "factory": "script"}.get(role)):
+        if kind in {"return", "script", "secondreturn", "secondscript"} and (
+                token != tokens[-1] or kind not in {"update": {"return", "secondreturn"}, "factory": {"script", "secondscript"}}.get(role, set())):
             raise ValueError(f"Invalid {kind} for callback role {role}")
-    if role == "update" and not (tokens[-1].startswith("return:") or tokens[-1] == "throw"):
+    if role == "update" and not (tokens[-1].startswith(("return:", "secondreturn:")) or tokens[-1] == "throw"):
         raise ValueError("Update callback requires a return or throw")
-    if role == "factory" and not (tokens[-1].startswith("script:") or tokens[-1] == "throw"):
+    if role == "factory" and not (tokens[-1].startswith(("script:", "secondscript:")) or tokens[-1] == "throw"):
         raise ValueError("Factory callback requires a script or throw")
 
 

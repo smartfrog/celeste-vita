@@ -296,3 +296,32 @@ callbacks 1 - - record -
 set 0 => begin:0 factory:0
 force 0 => end:0 end:0 begin:1 begin:1
 tick 1 2
+
+case mutable_update_capture M 3
+callbacks 0 secondreturn:1 - - -
+callbacks 1 - - record -
+set 0
+tick 1 2 => update:0
+tick 1 2 => update:0 begin:1
+
+case mutable_begin_capture M 3
+callbacks 0 - - secondset:1 -
+callbacks 1 - - record -
+set 0 => begin:0
+force 0 => begin:0 begin:1
+
+case mutable_end_capture M 3
+callbacks 0 - - - secondset:2
+callbacks 2 - - record -
+set 0
+force 0 => end:0
+set 1 => end:0 begin:2 begin:2
+
+case mutable_factory_capture M 3
+script A f:1
+script B f:2
+callbacks 0 - secondscript:A:B - -
+set 0 => factory:0
+tick 1 2 => move:A:0
+force 0 => factory:0
+tick 1 2 => move:B:0

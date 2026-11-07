@@ -45,18 +45,20 @@ public:
         if (operation == "callbacks") {
             const int index = std::stoi(fields.at(1));
             StateCallbacks callbacks;
-            if (fields.at(2) != "-") callbacks.update = [this, index, spec = fields[2]] {
+            if (fields.at(2) != "-") callbacks.update = [this, index, spec = fields[2], calls = 0]() mutable {
                 trace("update", std::to_string(index));
-                actions(spec);
-                return std::stoi(split(split(spec, ',').back(), ':').at(1));
+                actions(spec, ++calls);
+                const auto result = split(split(spec, ',').back(), ':');
+                return result[0] == "secondreturn" && calls != 2 ? machine_->state() : std::stoi(result.at(1));
             };
-            if (fields.at(3) != "-") callbacks.coroutine = [this, index, spec = fields[3]] {
+            if (fields.at(3) != "-") callbacks.coroutine = [this, index, spec = fields[3], calls = 0]() mutable {
                 trace("factory", std::to_string(index));
-                actions(spec);
-                return script(split(split(spec, ',').back(), ':').at(1));
+                actions(spec, ++calls);
+                const auto result = split(split(spec, ',').back(), ':');
+                return script(result.at(result[0] == "secondscript" && calls == 2 ? 2 : 1));
             };
-            if (fields.at(4) != "-") callbacks.begin = [this, index, spec = fields[4]] { trace("begin", std::to_string(index)); actions(spec); };
-            if (fields.at(5) != "-") callbacks.end = [this, index, spec = fields[5]] { trace("end", std::to_string(index)); actions(spec); };
+            if (fields.at(4) != "-") callbacks.begin = [this, index, spec = fields[4], calls = 0]() mutable { trace("begin", std::to_string(index)); actions(spec, ++calls); };
+            if (fields.at(5) != "-") callbacks.end = [this, index, spec = fields[5], calls = 0]() mutable { trace("end", std::to_string(index)); actions(spec, ++calls); };
             machine_->set_callbacks(index, std::move(callbacks));
             return;
         }
@@ -104,17 +106,19 @@ private:
                   << '\t' << c.use_raw_delta_time << '\t' << bits(delta_) << '\t' << bits(raw_delta_) << '\n';
     }
 
-    void actions(const std::string& spec) {
+    void actions(const std::string& spec, int calls) {
         for (const auto& token : split(spec, ',')) {
             const auto fields = split(token, ':');
             const auto& kind = fields.at(0);
             if (kind == "set") machine_->set_state(std::stoi(fields.at(1)));
+            else if (kind == "secondset") { if (calls == 2) machine_->set_state(std::stoi(fields.at(1))); }
             else if (kind == "force") machine_->force_state(std::stoi(fields.at(1)));
             else if (kind == "lock") machine_->locked = fields.at(1) == "1";
             else if (kind == "cancel") coroutine().cancel();
             else if (kind == "replace") coroutine().replace(script(fields.at(1)));
             else if (kind == "throw") throw SyntheticFailure();
-            else if (kind != "record" && kind != "return" && kind != "script") throw std::invalid_argument("Unknown callback action");
+            else if (kind != "record" && kind != "return" && kind != "script" && kind != "secondreturn" && kind != "secondscript")
+                throw std::invalid_argument("Unknown callback action");
         }
     }
 

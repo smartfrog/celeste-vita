@@ -37,7 +37,9 @@ game files or third-party library at runtime. It is not a game loop or Player.
   applies its returned state, then updates the current active coroutine. A new
   state's iterator can run that same tick. Coroutine-triggered transitions
   replace/cancel the executing stack without running the replacement that tick.
-  Executing callback copies remain alive if callbacks are replaced during reentry.
+  Installed callback tables have shared ownership: mutable value captures persist
+  between invocations, while an executing callable stays alive if its table is
+  replaced during reentry. Each transition phase looks up the current table anew.
 
 Objects must outlive their calls; callbacks may reenter transitions but must not
 destroy the machine/coroutine itself. Shared iterator captures must not introduce
@@ -96,6 +98,11 @@ comparing 17 TSV fields, including float32 bits, stack depth and callback order.
 Legitimate repeated reentrant callbacks are preserved. Missing/duplicate events
 and identical malformed traces fail; comparison reports the first differing
 field without epsilon. Actor validation retains its own domain grammar.
+
+Stateful fixtures use `secondreturn`, `secondset` and `secondscript` callback
+actions to change behavior on the second invocation. Native fixture callbacks
+own their invocation counter by value; the C# delegates retain their closure.
+These exercise persistent callback identity without modifying extracted methods.
 
 This is **unchanged extracted-method compatibility for synthetic valid inputs**,
 not original CIL/decompiler equivalence or full-game execution. The existing

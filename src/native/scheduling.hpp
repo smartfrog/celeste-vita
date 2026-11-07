@@ -80,7 +80,7 @@ public:
 private:
     int state_ = -1;
     int previous_state_ = -1;
-    std::vector<StateCallbacks> callbacks_;
+    std::vector<std::shared_ptr<StateCallbacks>> callbacks_;
     Coroutine coroutine_{false};
     void validate_state(int state) const;
     void transition(int state);

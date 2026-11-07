@@ -6,7 +6,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-from compare_scheduling_traces import compare
+from compare_scheduling_traces import compare, validate_action
 
 
 def row(step, event, detail, **values):
@@ -97,3 +97,16 @@ class SchedulingValidationTests(unittest.TestCase):
     def test_fixture_cannot_authorize_callback_for_wrong_role(self):
         self.fixture.write_text("case simple M 3\ncallbacks 0 - - return:0 -\nset 0 => begin:0\n")
         self.reject([row(1, "begin", "0", state="0"), row(1, "return", "set", state="0")])
+
+    def test_stateful_callback_actions_are_valid_parameterized(self):
+        for role, spec in (("update", "secondreturn:1"), ("factory", "secondscript:A:B"),
+                           ("begin", "secondset:1"), ("end", "secondset:1")):
+            with self.subTest(role=role):
+                validate_action(spec, {"A": [], "B": []}, 3, role)
+
+    def test_invalid_stateful_callback_actions_are_rejected_parameterized(self):
+        for role, spec in (("begin", "secondreturn:1"), ("end", "secondscript:A:B"),
+                           ("factory", "secondscript:A:foreign"), ("begin", "secondset:3"),
+                           ("update", "secondreturn:1,return:0")):
+            with self.subTest(role=role, spec=spec), self.assertRaises(ValueError):
+                validate_action(spec, {"A": [], "B": []}, 3, role)

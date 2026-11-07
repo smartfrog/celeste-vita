@@ -246,6 +246,46 @@ void update_callback_reentry_then_returned_state() {
     expect(machine.state() == 2 && machine.previous_state() == 1, "Update return not assigned after callback reentry");
 }
 
+void mutable_update_capture_persists_between_updates() {
+    StateMachine machine;
+    machine.set_callbacks(0, {[calls = 0]() mutable { return ++calls == 2 ? 1 : 0; }, {}, {}, {}});
+    machine.set_state(0);
+    machine.update(1, 1);
+    expect(machine.state() == 0, "Update transitioned before its second invocation");
+    machine.update(1, 1);
+    expect(machine.state() == 1, "Mutable update capture was reset between invocations");
+}
+
+void mutable_begin_capture_persists_between_transitions() {
+    StateMachine machine;
+    std::vector<int> calls;
+    machine.set_callbacks(0, {{}, {}, [&, count = 0]() mutable { calls.push_back(++count); }, {}});
+    machine.set_state(0);
+    machine.force_state(0);
+    expect(calls == std::vector<int>{1, 2}, "Mutable begin capture was reset between invocations");
+}
+
+void mutable_end_capture_persists_between_transitions() {
+    StateMachine machine;
+    std::vector<int> calls;
+    machine.set_callbacks(0, {{}, {}, {}, [&, count = 0]() mutable { calls.push_back(++count); }});
+    machine.set_state(0);
+    machine.force_state(0);
+    machine.set_state(1);
+    expect(calls == std::vector<int>{1, 2}, "Mutable end capture was reset between invocations");
+}
+
+void mutable_factory_capture_persists_between_transitions() {
+    StateMachine machine;
+    machine.set_callbacks(0, {{}, [count = 0]() mutable { return sequence({static_cast<float>(++count)}); }, {}, {}});
+    machine.set_state(0);
+    machine.update(1, 1);
+    expect(bits(machine.coroutine().wait_timer()) == bits(1.0f), "First factory result");
+    machine.force_state(0);
+    machine.update(1, 1);
+    expect(bits(machine.coroutine().wait_timer()) == bits(2.0f), "Mutable factory capture was reset between invocations");
+}
+
 void coroutine_state_change_ignores_stale_yield() {
     StateMachine machine;
     machine.set_callbacks(0, {{}, [&] { return std::make_shared<Iterator>([&]() -> IteratorStep { machine.set_state(1); return Yield{99.0f}; }); }, {}, {}});
@@ -265,6 +305,51 @@ void callback_replacement_keeps_executing_callback_alive() {
     token.reset();
     machine.set_state(0);
     expect(destroyed, "Callback leaked");
+}
+
+void installed_callback_self_replacement_is_owned_parameterized() {
+    for (int phase : {0, 1, 2, 3}) {
+        StateMachine machine;
+        bool destroyed = false;
+        auto token = std::shared_ptr<int>(new int, [&](int* pointer) { destroyed = true; delete pointer; });
+        std::function<void()> replace = [&, token] {
+            machine.set_callbacks(0, {});
+            expect(!destroyed, "Self-replacement destroyed the executing callable");
+        };
+        StateCallbacks callbacks;
+        if (phase == 0) callbacks.update = [replace] { replace(); return 0; };
+        if (phase == 1) callbacks.begin = replace;
+        if (phase == 2) callbacks.end = replace;
+        if (phase == 3) callbacks.coroutine = [replace] { replace(); return sequence({}); };
+        machine.set_callbacks(0, std::move(callbacks));
+        callbacks = {};
+        replace = {};
+        token.reset();
+        machine.set_state(0);
+        if (phase == 0) machine.update(1, 1);
+        if (phase == 2) machine.force_state(0);
+        expect(destroyed, "Replaced callable leaked after invocation");
+    }
+}
+
+void transition_refreshes_replaced_table_between_phases_parameterized() {
+    for (bool replace_in_begin : {false, true}) {
+        StateMachine machine;
+        std::vector<int> begins;
+        auto replace = [&] {
+            machine.set_callbacks(1, {{}, [] { return sequence({2.0f}); }, [&] { begins.push_back(2); }, {}});
+        };
+        machine.set_callbacks(0, {{}, {}, {}, [&, replace_in_begin] { if (!replace_in_begin) replace(); }});
+        machine.set_callbacks(1, {{}, [] { return sequence({1.0f}); }, [&, replace_in_begin] {
+            begins.push_back(1);
+            if (replace_in_begin) replace();
+        }, {}});
+        machine.set_state(0);
+        machine.set_state(1);
+        machine.update(1, 1);
+        expect(begins == std::vector<int>{replace_in_begin ? 1 : 2}, "Transition cached the previous callback table");
+        expect(bits(machine.coroutine().wait_timer()) == bits(2.0f), "Factory lookup used the replaced callback table");
+    }
 }
 
 void transition_exception_preserves_ordered_state_parameterized() {
@@ -337,8 +422,14 @@ int main() {
         {"factory_reentry_outer_result_replaces_inner_iterator", factory_reentry_outer_result_replaces_inner_iterator},
         {"update_transitions_then_runs_new_coroutine_same_tick", update_transitions_then_runs_new_coroutine_same_tick},
         {"update_callback_reentry_then_returned_state", update_callback_reentry_then_returned_state},
+        {"mutable_update_capture_persists_between_updates", mutable_update_capture_persists_between_updates},
+        {"mutable_begin_capture_persists_between_transitions", mutable_begin_capture_persists_between_transitions},
+        {"mutable_end_capture_persists_between_transitions", mutable_end_capture_persists_between_transitions},
+        {"mutable_factory_capture_persists_between_transitions", mutable_factory_capture_persists_between_transitions},
         {"coroutine_state_change_ignores_stale_yield", coroutine_state_change_ignores_stale_yield},
         {"callback_replacement_keeps_executing_callback_alive", callback_replacement_keeps_executing_callback_alive},
+        {"installed_callback_self_replacement_is_owned_parameterized", installed_callback_self_replacement_is_owned_parameterized},
+        {"transition_refreshes_replaced_table_between_phases_parameterized", transition_refreshes_replaced_table_between_phases_parameterized},
         {"transition_exception_preserves_ordered_state_parameterized", transition_exception_preserves_ordered_state_parameterized},
         {"step_exception_propagates_and_next_update_is_possible", step_exception_propagates_and_next_update_is_possible},
         {"unsupported_inputs_fail_parameterized", unsupported_inputs_fail_parameterized},

@@ -34,7 +34,7 @@ internal static class Runner
             Flag(Private<bool>(c, "ended")), c.RemovalEvents, Flag(c.UseRawDeltaTime), Bits(Engine.DeltaTime), Bits(Engine.RawDeltaTime)));
     }
 
-    private static void Actions(string spec)
+    private static void Actions(string spec, int calls)
     {
         foreach (string token in spec.Split(','))
         {
@@ -42,12 +42,13 @@ internal static class Runner
             switch (f[0])
             {
                 case "set": machine.State = int.Parse(f[1]); break;
+                case "secondset": if (calls == 2) machine.State = int.Parse(f[1]); break;
                 case "force": machine.ForceState(int.Parse(f[1])); break;
                 case "lock": machine.Locked = f[1] == "1"; break;
                 case "cancel": Coroutine.Cancel(); break;
                 case "replace": Coroutine.Replace(new Script(f[1])); break;
                 case "throw": throw new SyntheticFailure();
-                case "record": case "return": case "script": break;
+                case "record": case "return": case "script": case "secondreturn": case "secondscript": break;
                 default: throw new InvalidOperationException("Unknown callback action");
             }
         }
@@ -84,12 +85,12 @@ internal static class Runner
         }
     }
 
-    private static string LastArgument(string spec) => spec.Split(',')[^1].Split(':')[1];
-    private static Action Callback(string spec, string kind, int index) => spec == "-" ? null : () =>
+    private static Action Callback(string spec, string kind, int index)
     {
-        Trace(kind, index.ToString());
-        Actions(spec);
-    };
+        if (spec == "-") return null;
+        int calls = 0;
+        return () => { Trace(kind, index.ToString()); Actions(spec, ++calls); };
+    }
 
     private static void Run(string[] f)
     {
@@ -108,8 +109,21 @@ internal static class Runner
         if (operation == "callbacks")
         {
             int index = int.Parse(f[1]);
-            Func<int> update = f[2] == "-" ? null : () => { Trace("update", index.ToString()); Actions(f[2]); return int.Parse(LastArgument(f[2])); };
-            Func<IEnumerator> factory = f[3] == "-" ? null : () => { Trace("factory", index.ToString()); Actions(f[3]); return new Script(LastArgument(f[3])); };
+            int updateCalls = 0, factoryCalls = 0;
+            Func<int> update = f[2] == "-" ? null : () =>
+            {
+                Trace("update", index.ToString());
+                Actions(f[2], ++updateCalls);
+                string[] result = f[2].Split(',')[^1].Split(':');
+                return result[0] == "secondreturn" && updateCalls != 2 ? machine.State : int.Parse(result[1]);
+            };
+            Func<IEnumerator> factory = f[3] == "-" ? null : () =>
+            {
+                Trace("factory", index.ToString());
+                Actions(f[3], ++factoryCalls);
+                string[] result = f[3].Split(',')[^1].Split(':');
+                return new Script(result[result[0] == "secondscript" && factoryCalls == 2 ? 2 : 1]);
+            };
             machine.SetCallbacks(index, update, factory, Callback(f[4], "begin", index), Callback(f[5], "end", index));
             return;
         }

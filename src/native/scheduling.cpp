@@ -89,7 +89,7 @@ void StateMachine::validate_state(int state) const {
 
 void StateMachine::set_callbacks(int state, StateCallbacks callbacks) {
     validate_state(state);
-    callbacks_[state] = std::move(callbacks);
+    callbacks_[state] = std::make_shared<StateCallbacks>(std::move(callbacks));
 }
 
 void StateMachine::set_state(int state) {
@@ -109,13 +109,13 @@ void StateMachine::transition(int state) {
     previous_state_ = state_;
     state_ = state;
     if (previous_state_ != -1) {
-        const auto end = callbacks_[previous_state_].end;
-        if (end) end();
+        const auto end = callbacks_[previous_state_];
+        if (end && end->end) end->end();
     }
-    const auto begin = callbacks_[state_].begin;
-    if (begin) begin();
-    const auto factory = callbacks_[state_].coroutine;
-    if (factory) coroutine_.replace(factory());
+    const auto begin = callbacks_[state_];
+    if (begin && begin->begin) begin->begin();
+    const auto factory = callbacks_[state_];
+    if (factory && factory->coroutine) coroutine_.replace(factory->coroutine());
     else coroutine_.cancel();
 }
 
@@ -130,8 +130,8 @@ void StateMachine::entity_added() {
 void StateMachine::update(float delta_time, float raw_delta_time) {
     validate_state(state_);
     changed_states = false;
-    const auto update = callbacks_[state_].update;
-    if (update) set_state(update());
+    const auto update = callbacks_[state_];
+    if (update && update->update) set_state(update->update());
     if (coroutine_.active) coroutine_.update(delta_time, raw_delta_time);
 }
 
