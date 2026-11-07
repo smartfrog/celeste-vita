@@ -28,7 +28,20 @@ def baseline():
     return rows
 
 
+def nested_rows(case, step=1):
+    return [row(case, step, "callback", "-", "1"), row(case, step, "callback", "-", "2"),
+            row(case, step, "reentry", "1"), row(case, step, result="1")]
+
+
 class TraceValidationTests(unittest.TestCase):
+    def fixture(self, contents):
+        directory = ROOT / ".audit/native-validation-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        temporary = self.enterContext(tempfile.TemporaryDirectory(dir=directory))
+        fixture = Path(temporary) / "synthetic.fixtures"
+        fixture.write_text(contents)
+        return fixture
+
     def assert_rejected(self, rows, message="."):
         with self.assertRaisesRegex(ValueError, message):
             compare(rows, rows)
@@ -77,13 +90,28 @@ class TraceValidationTests(unittest.TestCase):
         self.assert_rejected(rows, "operation|terminal")
 
     def test_nested_callbacks_and_reentry_are_valid(self):
+        for axis, position in [("H", "2 0"), ("V", "0 2")]:
+            with self.subTest(axis=axis):
+                fixture = self.fixture(f"case nested\nactor 0 0 1 1 0 0 1 1 0\n"
+                    f"solid 1 {position} 1 1 0 0 1 1\nsolid 2 {position} 1 1 0 0 1 1\n"
+                    f"{axis} 4.25 reenter{axis} -1\n")
+                rows = nested_rows("nested")
+                self.assertEqual(compare(rows, rows, fixtures=fixture), len(rows))
+
+    def test_nested_callback_replacement_by_outer_row_is_rejected(self):
         rows = baseline()
         index = next(i for i, value in enumerate(rows) if value.startswith("callback_reentry_h\t"))
-        rows[index:index + 1] = [row("callback_reentry_h", 1, "callback", "-", "1"),
-                                row("callback_reentry_h", 1, "callback", "-", "2"),
-                                row("callback_reentry_h", 1, "reentry", "1"),
-                                row("callback_reentry_h", 1, result="1")]
-        self.assertEqual(compare(rows, rows), len(rows))
+        callbacks = nested_rows("callback_reentry_h")
+        callbacks[1] = callbacks[0]
+        rows[index:index + 1] = callbacks
+        self.assert_rejected(rows, "repeated callback hit 1 in callback_reentry_h step 1")
+
+    def test_same_callback_hit_in_later_operation_is_valid(self):
+        fixture = self.fixture("case repeated\nactor 0 0 1 1 0 0 1 1 0\n"
+            "solid 1 1 0 1 1 0 0 1 1\nH 2 record -1\nH 2 record -1\n")
+        rows = [row("repeated", 1, "callback", "-", "1"), row("repeated", 1, result="1"),
+                row("repeated", 2, "callback", "-", "1"), row("repeated", 2, result="1")]
+        self.assertEqual(compare(rows, rows, fixtures=fixture), len(rows))
 
     def test_reentry_without_outer_callback_is_rejected(self):
         rows = baseline()
@@ -124,15 +152,11 @@ class TraceValidationTests(unittest.TestCase):
         self.assert_rejected([], "empty")
 
     def test_different_future_fixture_coverage_is_derived(self):
-        directory = ROOT / ".audit/native-validation-tests"
-        directory.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=directory) as temporary:
-            fixture = Path(temporary) / "future.fixtures"
-            fixture.write_text("case future\nactor 0 0 1 1 0 0 1 1 0\nH 0.25 none -1\nV 0 none -1\n")
-            rows = [row("future", 1), row("future", 2)]
-            self.assertEqual(compare(rows, rows, fixtures=fixture), 2)
-            with self.assertRaisesRegex(ValueError, "Missing|missing"):
-                compare(rows[:1], rows[:1], fixtures=fixture)
+        fixture = self.fixture("case future\nactor 0 0 1 1 0 0 1 1 0\nH 0.25 none -1\nV 0 none -1\n")
+        rows = [row("future", 1), row("future", 2)]
+        self.assertEqual(compare(rows, rows, fixtures=fixture), 2)
+        with self.assertRaisesRegex(ValueError, "Missing|missing"):
+            compare(rows[:1], rows[:1], fixtures=fixture)
 
 
 if __name__ == "__main__":

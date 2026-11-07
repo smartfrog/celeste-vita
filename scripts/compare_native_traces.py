@@ -78,6 +78,7 @@ def fixture_operations(path):
 
 def validate_trace(rows, operations, name):
     operation_index, events = 0, []
+    callback_hits = set()
     for row, text in enumerate(rows, start=1):
         fields = text.split("\t")
         context = f"{name} Row {row}"
@@ -113,6 +114,9 @@ def validate_trace(rows, operations, name):
         if event == "callback":
             if hit == "-1" or pusher != operation.pusher:
                 raise ValueError(f"{context}: callback hit/pusher identity does not match fixture operation")
+            if hit in callback_hits:
+                raise ValueError(f"{context}: repeated callback hit {hit} in {case} step {step}")
+            callback_hits.add(hit)
         else:
             if pusher != "-1" or any(value != "00000000" for value in fields[10:]):
                 raise ValueError(f"{context}: non-callback event must have default collision payload")
@@ -128,6 +132,7 @@ def validate_trace(rows, operations, name):
                 raise ValueError(f"{context}: callback presence and terminal return result disagree")
             operation_index += 1
             events = []
+            callback_hits.clear()
     if operation_index != len(operations):
         operation = operations[operation_index]
         raise ValueError(f"{name}: Missing operation/terminal {operation.case} step {operation.step} {operation.terminal}")

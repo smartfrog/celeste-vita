@@ -140,5 +140,7 @@ contain the same error. Callback/reentry sequences follow the fixture runner's
 callback mode, including nested callbacks; this validation does not calculate
 movement or collision outcomes. The two-path comparator CLI defaults to the
 maintained fixtures; use `--fixtures PATH` for another synthetic fixture set.
+The reentry runner disables the outer hit before moving again, so callback hit
+identities must be distinct within an operation; later operations may reuse them.
 The unit suite additionally checks invalid-input failures and callback throws,
 outside the reference's supported valid-input domain.
