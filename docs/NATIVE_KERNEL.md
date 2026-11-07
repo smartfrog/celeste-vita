@@ -70,8 +70,10 @@ performance on Vita**. No VPK is produced by this ticket.
 
 The only collider type representable by this API is `Hitbox`; unsupported
 shapes/features have no conversion or fallback API. Grid, Circle,
-ColliderList, moving platforms/carry/push/lift/squish, Player/state machine,
-coroutines, input, map loading, rendering and audio are **not implemented**.
+ColliderList, moving platforms/carry/push/lift/squish, Player,
+input, map loading, rendering and audio are **not implemented**.
+Standalone StateMachine/Coroutine compatibility is described in
+[native scheduling](NATIVE_SCHEDULING.md), not integrated Player behavior.
 The pusher is identity-only; passing one does not implement pushing.
 
 ## Private differential reference

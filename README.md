@@ -2,10 +2,12 @@
 
 Portage homebrew natif de **Celeste 1.4.0.0** sur PlayStation Vita, en cours.
 
-**État : premier noyau C++ de mouvement/collisions statiques testé sur hôte ;
+**État : noyau C++ de mouvement/collisions statiques et StateMachine/Coroutine testés sur hôte ;
 exécution du jeu sur Vita non démontrée.** Le noyau n'embarque ni Mono ni CLR.
-Voir [le noyau natif](docs/NATIVE_KERNEL.md) pour le périmètre, les tests et
-l'oracle privé. Gameplay complet, graphique, audio et mémoire restent à traiter.
+Voir [le noyau natif](docs/NATIVE_KERNEL.md) et
+[la compatibilité d'ordonnancement](docs/NATIVE_SCHEDULING.md) pour le périmètre,
+les tests et les oracles privés. Player, gameplay complet, graphique, audio et
+mémoire restent à traiter.
 
 Voir [l'audit de faisabilité](docs/FEASIBILITY.md) pour les résultats, les preuves
 et le prochain jalon proposé.

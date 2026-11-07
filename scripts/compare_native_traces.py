@@ -144,11 +144,15 @@ def compare(reference, native, fixtures=DEFAULT_FIXTURES):
     operations = fixture_operations(fixtures)
     validate_trace(reference, operations, "reference")
     validate_trace(native, operations, "native")
+    return compare_rows(reference, native, FIELDS)
+
+
+def compare_rows(reference, native, fields):
     for row, (expected, actual) in enumerate(zip_longest(reference, native), start=1):
         if expected is None or actual is None:
             raise ValueError(f"Row {row}: trace length mismatch; reference={expected!r}, native={actual!r}")
         left, right = expected.split("\t"), actual.split("\t")
-        for field, expected_value, actual_value in zip(FIELDS, left, right):
+        for field, expected_value, actual_value in zip(fields, left, right):
             if expected_value != actual_value:
                 raise ValueError(f"Row {row}, {left[0]} step {left[1]} {left[2]}, {field}: "
                                  f"reference={expected_value}, native={actual_value}")

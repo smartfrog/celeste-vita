@@ -19,13 +19,22 @@ PRIVATE = ROOT / ".audit/native-oracle"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--domain", choices=("movement", "scheduling"), default="movement")
     parser.add_argument("--native", type=Path, required=True, help="Host native_trace_runner executable")
-    parser.add_argument("--fixtures", type=Path, default=ROOT / "tests/native/movement.fixtures")
+    parser.add_argument("--fixtures", type=Path)
     args = parser.parse_args()
+    if args.fixtures is None:
+        args.fixtures = ROOT / f"tests/native/{args.domain}.fixtures"
+    private = PRIVATE if args.domain == "movement" else PRIVATE / "scheduling"
+    if args.domain == "scheduling":
+        from compare_scheduling_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
+    else:
+        compare_domain, field_count = compare, 16
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
     if not sdk.is_file():
         parser.error("Private SDK missing; run scripts/bootstrap_native_oracle.py first")
-    evidence = PRIVATE / "verification"
+    evidence = private / "verification"
     evidence.mkdir(parents=True, exist_ok=True)
     (evidence / "result.json").unlink(missing_ok=True)
     environment = os.environ | {
@@ -50,22 +59,22 @@ def main():
     run([sdk, "--list-runtimes"], "runtimes.log")
     if "Microsoft.NETCore.App 8.0.31 [" not in (evidence / "runtimes.log").read_text():
         raise RuntimeError("Expected private runtime 8.0.31 is missing")
-    run([sys.executable, ROOT / "scripts/extract_native_oracle.py"], "extraction.log")
-    run([sdk, "restore", PRIVATE / "Oracle.csproj", "--configfile", PRIVATE / "NuGet.Config"], "restore.log")
-    run([sdk, "build", PRIVATE / "Oracle.csproj", "--no-restore", "-c", "Release",
+    run([sys.executable, ROOT / "scripts/extract_native_oracle.py", "--domain", args.domain], "extraction.log")
+    run([sdk, "restore", private / "Oracle.csproj", "--configfile", private / "NuGet.Config"], "restore.log")
+    run([sdk, "build", private / "Oracle.csproj", "--no-restore", "-c", "Release",
          "-p:UseSharedCompilation=false", "--disable-build-servers"], "build.log")
-    run([sdk, PRIVATE / "bin/Release/net8.0/Oracle.dll", args.fixtures.resolve()], "reference.tsv")
+    run([sdk, private / "bin/Release/net8.0/Oracle.dll", args.fixtures.resolve()], "reference.tsv")
     run([args.native.resolve(), args.fixtures.resolve()], "native.tsv")
     reference = (evidence / "reference.tsv").read_text().splitlines()
     native = (evidence / "native.tsv").read_text().splitlines()
-    rows = compare(reference, native, fixtures=args.fixtures)
+    rows = compare_domain(reference, native, fixtures=args.fixtures)
     report = {"rows": rows, "scenarios": len({line.split('\t')[0] for line in reference}),
-              "fields_per_row": 16, "comparison": "exact text and float32 bits; no epsilon",
+              "fields_per_row": field_count, "comparison": "exact text and float32 bits; no epsilon",
               "fixture_sha256": hashlib.sha256(args.fixtures.read_bytes()).hexdigest(),
               "source_manifest": "../source-manifest.json", "commands": commands,
               "claim": "Extracted-method compatibility, not full game execution"}
     (evidence / "result.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"MATCH: {report['scenarios']} scenarios, {rows} rows, 16 exact fields per row; {evidence}")
+    print(f"MATCH: {report['scenarios']} scenarios, {rows} rows, {field_count} exact fields per row; {evidence}")
 
 
 if __name__ == "__main__":
