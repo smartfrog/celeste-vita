@@ -9,6 +9,7 @@ import struct
 import zipfile
 from sfo import parse_sfo
 from native_room_revision import REPO_ROOT, source_state
+from native_room_replay import verify_replay_intent
 
 
 def verify(vpk, build, staging):
@@ -18,9 +19,18 @@ def verify(vpk, build, staging):
         raise ValueError("Current source/config is not clean: " + "; ".join(changes))
     if manifest["revision"] != revision or manifest["tracked_changes"]:
         raise ValueError("Staging is not from the exact clean delivery revision")
+    replay = bool(manifest.get("guest_replay"))
+    verify_replay_intent(manifest,replay,REPO_ROOT)
+    cache = build.parents[1] / "CMakeCache.txt"
+    if replay or cache.is_file():
+        expected = "CELESTE_ROOM_GUEST_REPLAY:BOOL="+("ON" if replay else "OFF")
+        if expected not in cache.read_text().splitlines():
+            raise ValueError("Build and package guest replay intent differ")
     elf = (build / "celeste_native_room").read_bytes()
     if elf[:7] != b"\x7fELF\x01\x01\x01" or struct.unpack_from("<H",elf,18)[0] != 40:
         raise ValueError("Expected ELF32 little-endian ARM executable")
+    if replay and manifest["guest_replay"]["sha256"].encode() not in elf:
+        raise ValueError("Guest ELF lacks its exact fixture identity pin")
     asset_names = {"global.mask", "hazards.txt"}
     if manifest.get("render_style", "debug") in {"textured_partial", "animated_player_partial"}:
         texture_count = 8 if manifest.get("spike_art") else 6

@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
 from verify_native_room_vpk import verify
+from native_room_replay import replay_intent
 
 
 def synthetic_sfo():
@@ -43,7 +45,7 @@ class CurrentPackageStateTests(unittest.TestCase):
         self.git("add",".gitignore")
         self.git("-c","user.name=Synthetic","-c","user.email=synthetic@example.invalid","commit","-qm","Ignore private synthetic outputs")
         self.revision = self.git("rev-parse","HEAD").strip()
-        self.build = self.repo / ".audit/build"
+        self.build = self.repo / ".audit/build/src/vita"
         self.staging = self.repo / ".audit/staging"
         self.build.mkdir(parents=True)
         assets = self.staging / "assets/native-room"
@@ -72,6 +74,40 @@ class CurrentPackageStateTests(unittest.TestCase):
     def checked_package(self):
         with chdir(self.repo), patch("verify_native_room_vpk.REPO_ROOT",self.repo,create=True):
             return verify(self.vpk,self.build,self.staging)
+
+    def replay_package(self):
+        fixture=self.repo/"src/vita/guest_replay.hpp"
+        fixture.parent.mkdir()
+        shutil.copyfile(ROOT/"src/vita/guest_replay.hpp",fixture)
+        self.git("add",str(fixture))
+        self.git("-c","user.name=Synthetic","-c","user.email=synthetic@example.invalid","commit","-qm","Add typed diagnostic fixture")
+        self.revision=self.git("rev-parse","HEAD").strip()
+        assets=self.staging/"assets/native-room"
+        path=assets/"provenance.json"
+        manifest=json.loads(path.read_text())|{"revision":self.revision,"guest_replay":replay_intent(self.repo)}
+        path.write_text(json.dumps(manifest))
+        elf=self.build/"celeste_native_room"
+        elf.write_bytes(elf.read_bytes()+manifest["guest_replay"]["sha256"].encode())
+        (self.build.parents[1]/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=ON\n")
+        with zipfile.ZipFile(self.vpk,"w") as archive:
+            archive.writestr("sce_sys/param.sfo",synthetic_sfo())
+            archive.write(self.build/"eboot.bin","eboot.bin")
+            for file in assets.iterdir(): archive.write(file,"assets/native-room/"+file.name)
+
+    def test_replay_package_requires_clean_revision_fixture_pin_and_explicit_build_intent(self):
+        self.replay_package()
+        self.assertEqual(self.checked_package()["revision"],self.revision)
+
+    def test_replay_package_rejects_manual_build_intent(self):
+        self.replay_package()
+        (self.build.parents[1]/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=OFF\n")
+        with self.assertRaisesRegex(ValueError,"intent"): self.checked_package()
+
+    def test_replay_package_rejects_elf_without_fixture_pin(self):
+        self.replay_package()
+        elf=self.build/"celeste_native_room"
+        elf.write_bytes(elf.read_bytes()[:-64])
+        with self.assertRaisesRegex(ValueError,"fixture"): self.checked_package()
 
     def test_clean_staging_then_current_dirty_tracked_source_is_rejected(self):
         self.checked_package()

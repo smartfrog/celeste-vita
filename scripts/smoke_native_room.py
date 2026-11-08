@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded nonvisual X11 smoke for OUR isolated Vita3K title; never capture screens."""
+"""Bounded manual-X11 or explicit guest-replay smoke; never capture screens."""
 
 import argparse
 import ctypes as C
@@ -15,7 +15,8 @@ import zipfile
 
 from vita_room_emulator import TITLE, prepare, launch_command
 from native_room_feedback import collect_native_frame, new_feedback, save_feedback
-from native_room_revision import REPO_ROOT
+from native_room_revision import REPO_ROOT, source_state
+from native_room_replay import verify_replay_intent, verify_replay_guest, completion_receipt
 
 KEYBOARD_MAPPING = {"left":"ArrowLeft", "up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter", "l1":"KeyQ", "l2":"KeyU"}
 
@@ -25,6 +26,18 @@ def verify_keyboard_mapping(text):
     for button, key in KEYBOARD_MAPPING.items():
         if [line for line in lines if line.startswith("keyboard-button-"+button+":")] != ["keyboard-button-"+button+": "+key]:
             raise ValueError("Isolated keyboard mapping differs for "+button)
+
+
+def verify_no_owned_runtime(state):
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdecimal() or int(entry.name) == os.getpid():
+            continue
+        try:
+            arguments = (entry / "cmdline").read_bytes().split(b"\0")
+        except FileNotFoundError:
+            continue
+        if arguments and Path(os.fsdecode(arguments[0])).name in {"Vita3K", "bwrap"} and any(os.fsencode(state) in arg for arg in arguments):
+            raise RuntimeError("An emulator already owns this private state; refusing duplicate runtime")
 
 
 def verify_guest(text, revision, initial_resets=0):
@@ -280,44 +293,56 @@ def main():
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
     parser.add_argument("--feedback",type=Path)
     parser.add_argument("--frame-only",action="store_true")
+    parser.add_argument("--guest-replay",action="store_true",help="Use only the compiled guest-controls fixture; no X11/input/portal calls")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true")
     capture.add_argument("--after-climb",action="store_true")
     args = parser.parse_args()
     if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input")
+    if args.guest_replay and (args.frame_only or not args.after_climb):
+        parser.error("Guest replay requires --after-climb and cannot use --frame-only")
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
         parser.error("Evidence must remain beneath .audit/native-room-vita")
     output.mkdir(parents=True,exist_ok=False)
     feedback_path = (args.feedback or output / "feedback.json").resolve()
     feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
+    if args.guest_replay:
+        feedback.update(requested_scope="guest_replay_smoke",input_source="scripted_guest_controls",
+                        physical_controller_verified=False,host_input_injected=False,portal_requests=0)
+        verify_no_owned_runtime(state)
     fs, config = prepare(state,existing)
-    verify_keyboard_mapping(config.read_text())
+    if not args.guest_replay:
+        verify_keyboard_mapping(config.read_text())
     frozen_config = output / "effective-config.yml"
     frozen_config.write_bytes(config.read_bytes())
     feedback["emulator_config"] = {"path":str(config),"frozen_path":str(frozen_config),
                                   "sha256":hashlib.sha256(frozen_config.read_bytes()).hexdigest(),
                                   "backend":"OpenGL","resolution_multiplier":1,"disable_surface_sync":False,
                                    "override_scope":"fresh private state only; shared config untouched"}
-    feedback["emulator_config"]["verified_keyboard_mapping"] = KEYBOARD_MAPPING
+    if not args.guest_replay:
+        feedback["emulator_config"]["verified_keyboard_mapping"] = KEYBOARD_MAPPING
     save_feedback(feedback_path,feedback)
     if (fs / "ux0/app" / TITLE).exists():
         parser.error("Use a fresh isolated state; never overwrite an installed title")
-    x = X11()
-    inventory = x.windows()
-    (output / "windows-before.json").write_text(json.dumps(inventory,indent=2)+"\n")
+    x = None if args.guest_replay else X11()
+    inventory = [] if x is None else x.windows()
+    if x is not None:
+        (output / "windows-before.json").write_text(json.dumps(inventory,indent=2)+"\n")
     if any(TITLE in window["name"] or "Celeste Native Room Diagnostic" in window["name"] for window in inventory):
         x.close()
         raise RuntimeError("Diagnostic window already exists; ownership ambiguous")
-    libc = C.CDLL(None,use_errno=True)
-    libc.inotify_init1.argtypes, libc.inotify_init1.restype = [C.c_int], C.c_int
-    libc.inotify_add_watch.argtypes, libc.inotify_add_watch.restype = [C.c_int,C.c_char_p,C.c_uint32], C.c_int
-    notify = libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
-    if notify < 0 or libc.inotify_add_watch(notify,os.fsencode(fs / "ux0/data"),0x8|0x80) < 0:
-        raise OSError(C.get_errno(),"inotify initialization failed")
+    notify = None
+    if x is not None:
+        libc = C.CDLL(None,use_errno=True)
+        libc.inotify_init1.argtypes, libc.inotify_init1.restype = [C.c_int], C.c_int
+        libc.inotify_add_watch.argtypes, libc.inotify_add_watch.restype = [C.c_int,C.c_char_p,C.c_uint32], C.c_int
+        notify = libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
+        if notify < 0 or libc.inotify_add_watch(notify,os.fsencode(fs / "ux0/data"),0x8|0x80) < 0:
+            raise OSError(C.get_errno(),"inotify initialization failed")
     command, env = launch_command(state,existing,["-c",str(config.parent),"--keep-config","--",str(args.vpk.resolve())])
-    events = []
+    events = [{"host_input_api":"not_created","window_inventory":"not_requested","host_input_injected":False,"portal_requests":0}] if args.guest_replay else []
     process = None
     process_fd = None
     ready = fs / "ux0/data/celeste_native_room.ready"
@@ -326,6 +351,11 @@ def main():
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
+            if args.guest_replay:
+                guest = fs / "ux0/data/celeste_native_room.log"
+                marker = f"frame_saved path=ux0:data/celeste_native_room-{revision}.ppm "
+                if not guest.exists() or not any(line.startswith(marker) and line.endswith("\n") for line in guest.read_text().splitlines(keepends=True)):
+                    return
             frame = collect_native_frame(fs,output,revision,capture="climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn",
                                          visual_provenance=provenance.get("visuals") if provenance.get("render_style") in {"textured_partial", "animated_player_partial"} else None,
                                          player_provenance=provenance.get("player"),
@@ -345,21 +375,37 @@ def main():
         nonlocal last_ready
         deadline = time.monotonic()+timeout
         while True:
-            if x.x.XPending(x.display):
+            if args.guest_replay:
+                failure = fs / "ux0/data" / f"celeste_native_room-failure-{revision}.txt"
+                if failure.exists():
+                    raise RuntimeError("Guest failed: "+failure.read_text())
+                guest_log = fs / "ux0/data/celeste_native_room.log"
+                if guest_log.exists() and "FATAL:" in guest_log.read_text():
+                    raise RuntimeError("Guest reported FATAL; see preserved guest.log")
+                if ready.exists():
+                    value = ready.read_text()
+                    if value != last_ready:
+                        last_ready = value
+                        events.append({"readiness_only":value.strip(),"at":time.monotonic()})
+                    observe_native_frame()
+            if x is not None and x.x.XPending(x.display):
                 x.drain()
             if predicate():
                 return
             remaining = deadline-time.monotonic()
             if remaining <= 0:
-                raise TimeoutError("Bounded X11/readiness wait expired")
-            if x.x.XPending(x.display):
+                raise TimeoutError("Bounded guest/readiness wait expired")
+            if x is not None and x.x.XPending(x.display):
                 continue
-            readable,_,_ = select.select([x.fd,notify,process_fd],[],[],remaining)
+            descriptors = [process_fd] if args.guest_replay else [x.fd,notify,process_fd]
+            readable,_,_ = select.select(descriptors,[],[],min(remaining,0.25) if args.guest_replay else remaining)
             if process_fd in readable:
+                if args.guest_replay and predicate():
+                    return
                 raise RuntimeError(f"Owned emulator exited before smoke completion: {process.wait()}")
-            if x.fd in readable:
+            if x is not None and x.fd in readable:
                 x.drain()
-            if notify in readable:
+            if notify is not None and notify in readable:
                 os.read(notify,65536)
                 if ready.exists():
                     value = ready.read_text()
@@ -379,7 +425,17 @@ def main():
         with zipfile.ZipFile(args.vpk) as package:
             installed = {name:package.read(name) for name in package.namelist()}
         provenance = json.loads(installed["assets/native-room/provenance.json"])
+        verify_replay_intent(provenance,args.guest_replay)
         revision = provenance["revision"] + ("-dirty" if provenance["tracked_changes"] else "")
+        actual_hash = hashlib.sha256(args.vpk.read_bytes()).hexdigest()
+        if feedback["vpk"]["sha256"] is not None and feedback["vpk"]["sha256"] != actual_hash:
+            raise ValueError("VPK changed after package verification")
+        feedback["vpk"]["sha256"] = actual_hash
+        if args.guest_replay:
+            current,changes = source_state()
+            if current != revision or changes:
+                raise ValueError("Guest replay requires the exact clean package revision")
+            feedback["guest_replay"] = provenance["guest_replay"]
         feedback["revision"] = revision
         save_feedback(feedback_path,feedback)
         with (output / "install-host.log").open("wb") as host:
@@ -398,100 +454,121 @@ def main():
             process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
             process_fd = os.pidfd_open(process.pid)
             events.append({"runtime_pid":process.pid,"command":command})
-            window = None
+            if args.guest_replay:
+                wait(lambda: bool(last_ready),150)
+                feedback["stages"]["startup"] = True
+                save_feedback(feedback_path,feedback)
+                complete = fs / "ux0/data" / f"celeste_native_room-complete-{revision}.txt"
+                def completed():
+                    if not complete.exists() or "[on_game_closed]: Game closed: Celeste Native Room Diagnostic" not in (output / "host.log").read_text():
+                        return False
+                    if complete.read_text() != completion_receipt(revision):
+                        raise ValueError("Guest completion receipt differs from the exact replay contract")
+                    return True
+                wait(completed,420)
+                observe_native_frame()
+                if not feedback["stages"]["native_image"]:
+                    raise RuntimeError("Completed guest replay lacks its closed native frame")
+                receipt = output / "guest-complete.txt"
+                receipt.write_bytes(complete.read_bytes())
+                events.append({"closed_guest_completion":str(receipt),"host_input_injected":False,"portal_requests":0})
+            else:
+                window = None
 
-            def find_window():
-                nonlocal window
-                matches = []
-                for candidate in x.windows():
-                    if TITLE not in candidate["name"] or "OpenGL" not in candidate["name"] or not candidate["pid"]:
-                        continue
-                    try:
-                        command_line = Path(f'/proc/{candidate["pid"][0]}/cmdline').read_bytes()
-                    except FileNotFoundError:
-                        continue
-                    if str(config.parent).encode() in command_line:
-                        matches.append(candidate)
-                if len(matches) > 1:
-                    raise RuntimeError("Ambiguous diagnostic game windows")
-                if not matches:
-                    return False
-                window = matches[0]
-                return True
+                def find_window():
+                    nonlocal window
+                    matches = []
+                    for candidate in x.windows():
+                        if TITLE not in candidate["name"] or "OpenGL" not in candidate["name"] or not candidate["pid"]:
+                            continue
+                        try:
+                            command_line = Path(f'/proc/{candidate["pid"][0]}/cmdline').read_bytes()
+                        except FileNotFoundError:
+                            continue
+                        if str(config.parent).encode() in command_line:
+                            matches.append(candidate)
+                    if len(matches) > 1:
+                        raise RuntimeError("Ambiguous diagnostic game windows")
+                    if not matches:
+                        return False
+                    window = matches[0]
+                    return True
 
-            wait(find_window)
-            events.append({"game_window":window})
-            wid = window["id"]
-            wait(lambda: last_ready.startswith("ready "))
-            observe_native_frame()
-            if not (args.after_wall_jump or args.after_climb) and not feedback["stages"]["native_image"]:
-                raise RuntimeError("Guest startup ready without its required closed native frame export")
-            feedback["stages"]["startup"] = True
-            save_feedback(feedback_path,feedback)
-            if args.frame_only:
-                frame_only_complete = True
-                events.append({"frame_only_checkpoint":True,"input_not_attempted":True,"guest_clean_exit_not_claimed":True})
-                return
-            x.x.XSelectInput(x.display,wid,(1<<0)|(1<<1)|(1<<21)|(1<<22))
-            x.activate(wid)
-            wait(lambda: x.focused(wid),10)
+                wait(find_window)
+                events.append({"game_window":window})
+                wid = window["id"]
+                wait(lambda: last_ready.startswith("ready "))
+                observe_native_frame()
+                if not (args.after_wall_jump or args.after_climb) and not feedback["stages"]["native_image"]:
+                    raise RuntimeError("Guest startup ready without its required closed native frame export")
+                feedback["stages"]["startup"] = True
+                save_feedback(feedback_path,feedback)
+                if args.frame_only:
+                    frame_only_complete = True
+                    events.append({"frame_only_checkpoint":True,"input_not_attempted":True,"guest_clean_exit_not_claimed":True})
+                    return
+                x.x.XSelectInput(x.display,wid,(1<<0)|(1<<1)|(1<<21)|(1<<22))
+                x.activate(wid)
+                wait(lambda: x.focused(wid),10)
 
-            def inject(code,pressed):
-                x.key(wid,code,pressed)
-                events.append({"injected_keycode":code,"pressed":pressed,"focus_and_server_key_state_verified":True})
+                def inject(code,pressed):
+                    x.key(wid,code,pressed)
+                    events.append({"injected_keycode":code,"pressed":pressed,"focus_and_server_key_state_verified":True})
 
-            def change(code,pressed,expected="sampled"):
-                before = last_ready
-                inject(code,pressed)
-                wait(lambda: last_ready != before and last_ready.startswith(expected+" "),30)
+                def change(code,pressed,expected="sampled"):
+                    before = last_ready
+                    inject(code,pressed)
+                    wait(lambda: last_ready != before and last_ready.startswith(expected+" "),30)
 
-            if args.after_wall_jump:
-                change(113,True)
-                inject(53,True)
-                wait(lambda: last_ready.startswith("wall_near "),30)
+                if args.after_wall_jump:
+                    change(113,True)
+                    inject(53,True)
+                    wait(lambda: last_ready.startswith("wall_near "),30)
+                    change(53,False)
+                    inject(53,True)
+                    wait(lambda: last_ready.startswith("wall_forced ") and feedback["stages"]["native_image"],30)
+                    change(53,False)
+                    change(113,False)
+                    change(55,True,"reset")
+                    change(55,False)
+
+                if args.after_climb:
+                    change(113,True)
+                    inject(53,True)
+                    wait(lambda: last_ready.startswith("wall_near "),30)
+                    change(53,False)
+                    wait(lambda: last_ready.startswith("climb_near "),30)
+                    change(24,True,"climb_entered")
+                    change(113,False)
+                    inject(111,True)
+                    wait(lambda: last_ready.startswith("climb_drained ") and feedback["stages"]["native_image"],60)
+                    change(111,False)
+                    wait(lambda: last_ready.startswith("climb_held "),30)
+                    change(24,False,"climb_released")
+                    wait(lambda: last_ready.startswith("climb_landed "),60)
+                    change(55,True,"reset")
+                    change(55,False)
+
+                change(53,True)
+                delay(0.25)
                 change(53,False)
-                inject(53,True)
-                wait(lambda: last_ready.startswith("wall_forced ") and feedback["stages"]["native_image"],30)
-                change(53,False)
-                change(113,False)
-                change(55,True,"reset")
-                change(55,False)
-
-            if args.after_climb:
-                change(113,True)
-                inject(53,True)
-                wait(lambda: last_ready.startswith("wall_near "),30)
-                change(53,False)
-                wait(lambda: last_ready.startswith("climb_near "),30)
-                change(24,True,"climb_entered")
-                change(113,False)
-                inject(111,True)
-                wait(lambda: last_ready.startswith("climb_drained ") and feedback["stages"]["native_image"],60)
+                delay(1.0)
+                change(111,True)
+                change(52,True)
+                change(52,False)
+                wait(lambda: last_ready.startswith("dash_done "),120)
                 change(111,False)
-                wait(lambda: last_ready.startswith("climb_held "),30)
-                change(24,False,"climb_released")
-                wait(lambda: last_ready.startswith("climb_landed "),60)
+                change(114,True)
+                wait(lambda: last_ready.startswith("dead "),60)
+                change(114,False)
                 change(55,True,"reset")
                 change(55,False)
-
-            change(53,True)
-            delay(0.25)
-            change(53,False)
-            delay(1.0)
-            change(111,True)
-            change(52,True)
-            change(52,False)
-            wait(lambda: last_ready.startswith("dash_done "),120)
-            change(111,False)
-            change(114,True)
-            wait(lambda: last_ready.startswith("dead "),60)
-            change(114,False)
-            change(55,True,"reset")
-            change(55,False)
-            x.key(wid,36,True)
+                x.key(wid,36,True)
+            host_wait_error = None
             try:
                 status = process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as error:
+                host_wait_error = error
                 status = None
                 events.append({"owned_host_pending_after_guest_exit":True})
             events.append({"host_exit_code":status})
@@ -499,27 +576,41 @@ def main():
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
         text = data.decode()
-        markers = verify_guest(text,revision,initial_resets=1 if args.after_wall_jump or args.after_climb else 0)
+        if args.guest_replay:
+            proof = verify_replay_guest(text,revision,provenance["guest_replay"])
+            feedback["guest_replay_observed"] = proof
+            markers = proof["markers"]
+        else:
+            markers = verify_guest(text,revision,initial_resets=1 if args.after_wall_jump or args.after_climb else 0)
         if args.after_wall_jump:
             feedback["wall_jump"] = verify_wall_jump_guest(text)
         if args.after_climb:
             feedback["climb"] = verify_climb_guest(text)
-        feedback["stages"].update({"input":True,"clean_exit":True,"full_completion":True})
+        feedback["stages"].update({"input":True,"clean_exit":True})
+        if args.guest_replay:
+            if status is None:
+                raise TimeoutError("Owned emulator did not exit within 30 seconds after guest completion") from host_wait_error
+            if status != 0:
+                raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
+        feedback["stages"]["full_completion"] = True
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
     except Exception as error:
+        feedback["stages"]["full_completion"] = False
         feedback["errors"].append({"stage":"runtime","type":type(error).__name__,"message":str(error)})
         save_feedback(feedback_path,feedback)
         raise
     finally:
         try:
-            x.close()
+            if x is not None:
+                x.close()
         except Exception as error:
             feedback["errors"].append({"stage":"owned_input_cleanup","type":type(error).__name__,"message":str(error)})
             feedback["stages"]["full_completion"] = False
             raise
         finally:
-            os.close(notify)
+            if notify is not None:
+                os.close(notify)
             if process_fd is not None:
                 os.close(process_fd)
             try:
@@ -537,11 +628,16 @@ def main():
                 guest = fs / "ux0/data/celeste_native_room.log"
                 if guest.is_file():
                     (output / "guest.log").write_bytes(guest.read_bytes())
-                (output / "x11-input.json").write_text(json.dumps(x.trace,indent=2)+"\n")
+                (output / "x11-input.json").write_text(json.dumps([] if x is None else x.trace,indent=2)+"\n")
                 (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
                 feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
                                                 "host":str(output / "host.log"),"guest":str(output / "guest.log")}
                 feedback["emulator_config"]["sha256_after"] = hashlib.sha256(config.read_bytes()).hexdigest()
+                if args.guest_replay and feedback["emulator_config"]["sha256_after"] != feedback["emulator_config"]["sha256"]:
+                    feedback["stages"]["full_completion"] = False
+                    feedback["errors"].append({"stage":"config_after","type":"RuntimeError","message":"Private emulator config changed during replay"})
+                    save_feedback(feedback_path,feedback)
+                    raise RuntimeError("Private emulator config changed during replay")
                 save_feedback(feedback_path,feedback)
 
 

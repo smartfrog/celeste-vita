@@ -226,3 +226,72 @@ death without teleporting or calling `die`. Full host/source/static Vita checks
 and exact-commit runtime evidence are recorded privately in
 `.audit/native-room-vita/finalchecks.json`. Runtime/hardware success must never
 be inferred from package construction alone; physical Vita remains untested.
+## Unattended guest-controls diagnostic
+
+`--guest-replay --after-climb` explicitly builds and runs one bounded diagnostic
+scenario without synthetic host keyboard input or desktop permission requests:
+
+```sh
+python3 -B scripts/feedback_native_room.py \
+  --output .audit/native-room-vita/unattended-<unique-run> \
+  --guest-replay --after-climb --textured --spike-art \
+  --visual-dir <verified-private-eight-texture-assets> \
+  --player-dir <verified-private-player-assets>
+```
+
+This still opens the real Vita3K GUI and uses the native Vita renderer. It is not
+headless or verified with a locked compositor. It needs the existing SDK,
+firmware, shader compiler, private archive, and accepted prepared assets; it
+downloads nothing and changes neither shared emulator configuration nor desktop
+security settings. No click or permission acceptance is part of this path.
+
+`CELESTE_ROOM_GUEST_REPLAY` defaults **OFF**. Staging, build, package verification,
+and runtime must agree on explicit replay intent. Normal builds retain the
+existing SceCtrl mapping and sampling path. A replay package must not be run with
+the manual smoke mode, or vice versa.
+
+`src/vita/guest_replay.hpp` contains the versioned `first_room_climb_dash_v1`
+typed-controls fixture: 21 input changes, 118 initial neutral ticks, 250 samples,
+and a final Start at tick 249. Inputs were transcribed from the successful
+first-room trace preserved at private
+`.audit/native-first-room-spike-art/f4d8def61701b27b22b8e5ec38c2d32dd4974fe3/executed/run/runtime/guest.log`
+(the log identifies its original executable revision as `7627c91`). The fixture
+contains only caller input, not expected physics or original game code/art.
+Its exact source SHA256 is pinned in staging, the executable, and feedback.
+
+Each tick, including freeze, supplies Controls to the same `Controller::sample`
+and `Session::step`. There is no state/position/speed/RNG/camera override. Tick
+order and exhaustion fail immediately. The normal moving, airborne, drained
+Climb condition triggers the actual GL_BACK/glFinish CPU readback; its closed PPM
+and receipt are preserved and losslessly converted to a 960x544 PNG. No desktop
+capture or replacement canvas is used.
+
+The host runner never constructs X11 or loads ctypes libraries in replay mode:
+no XTEST, focus/activation, keyboard injection, libei, portal, or screen capture.
+It checks duplicate ownership via private-state process arguments, installs
+byte-exact VPK entries, stops only its installer, and launches its title via
+Vita3K `-r`. It observes guest files and its own pidfd with bounded waits. Private
+OpenGL 1x configuration keeps surface synchronization enabled. The closed
+completion receipt is emitted only after graphics teardown and guest-log close;
+the host additionally requires Vita3K's game-closed notification before cleanup.
+Failures retain partial feedback and any already exported real frame.
+
+Completion requires observed Jump, Climb entry/ascent/drain/hold/release/landing,
+Dash freeze/thaw/launch/return, actual spike death, Triangle reset, and Start exit,
+plus the closed native frame and unchanged source/config state. Feedback uses
+`requested_scope=guest_replay_smoke`, `input_source=scripted_guest_controls`,
+`physical_controller_verified=false`, `host_input_injected=false`, and
+`portal_requests=0`. `stages.input=true` means **guest fixture** input only. It
+does not validate a physical controller, full game, source Level death/respawn,
+hardware fidelity, or performance. Emulator elapsed time is not a Vita benchmark.
+
+A nonzero emulator exit after the observed clean guest shutdown remains an
+overall partial result: already verified guest input/exit and native-frame
+stages survive, but `full_completion` stays false and the host error is retained.
+Do not turn an emulator post-game crash into a successful host exit.
+Replay completion requires an observed host exit status 0 within the 30-second
+post-guest wait. A timeout is partial even if subsequent owned-process cleanup
+returns 0; cleanup status 133 or termination likewise cannot promote completion.
+The verified guest/frame stages and explicit timeout error survive cleanup.
+This host-exit requirement is replay-specific; the default manual smoke policy
+is unchanged and is not a new host-health validation.
