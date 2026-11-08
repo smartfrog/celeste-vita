@@ -19,18 +19,26 @@ PRIVATE = ROOT / ".audit/native-oracle"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input"), default="movement")
-    parser.add_argument("--native", type=Path, required=True, help="Host native_trace_runner executable")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player"), default="movement")
+    parser.add_argument("--native", type=Path, help="Host native_trace_runner executable")
+    parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
     args = parser.parse_args()
+    if not args.compile_only and args.native is None:
+        parser.error("--native is required unless --compile-only is selected")
     if args.fixtures is None:
         args.fixtures = ROOT / f"tests/native/{args.domain}.fixtures"
     private = PRIVATE if args.domain == "movement" else PRIVATE / args.domain
-    if args.domain == "scheduling":
+    if args.compile_only:
+        compare_domain, field_count = None, None
+    elif args.domain == "scheduling":
         from compare_scheduling_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     elif args.domain == "input":
         from compare_input_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
+    elif args.domain == "player":
+        from compare_player_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
@@ -40,6 +48,8 @@ def main():
     evidence = private / "verification"
     evidence.mkdir(parents=True, exist_ok=True)
     (evidence / "result.json").unlink(missing_ok=True)
+    if args.compile_only:
+        (evidence / "compile-result.json").unlink(missing_ok=True)
     environment = os.environ | {
         "DOTNET_CLI_TELEMETRY_OPTOUT": "1", "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1", "DOTNET_NOLOGO": "1",
         "DOTNET_CLI_HOME": str(PRIVATE / "tools/cli"), "NUGET_PACKAGES": str(PRIVATE / "tools/packages"),
@@ -66,6 +76,12 @@ def main():
     run([sdk, "restore", private / "Oracle.csproj", "--configfile", private / "NuGet.Config"], "restore.log")
     run([sdk, "build", private / "Oracle.csproj", "--no-restore", "-c", "Release",
          "-p:UseSharedCompilation=false", "--disable-build-servers"], "build.log")
+    if args.compile_only:
+        report = {"domain": args.domain, "commands": commands, "source_manifest": "../source-manifest.json",
+                  "claim": "Compilation/dependency closure only, not behavioral parity"}
+        (evidence / "compile-result.json").write_text(json.dumps(report, indent=2) + "\n")
+        print(f"COMPILED: {args.domain}; {evidence}; no behavioral comparison")
+        return
     run([sdk, private / "bin/Release/net8.0/Oracle.dll", args.fixtures.resolve()], "reference.tsv")
     run([args.native.resolve(), args.fixtures.resolve()], "native.tsv")
     reference = (evidence / "reference.tsv").read_text().splitlines()

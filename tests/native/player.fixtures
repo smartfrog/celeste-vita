@@ -1,0 +1,162 @@
+# case name spawnX spawnY speedX speedY boundsLeft boundsRight
+# solid/jump identity x y width height safe
+# tick delta moveX moveY jumpHeld rawPressed released disabled grab dash
+# Optional callback coverage: => h:ID v:ID (repeats allowed); rejection: !input / !normal
+case run_reverse 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 1 0 0 0 0 0 0 0
+tick 0.016666668 1 0 0 0 0 0 0 0
+tick 0.1 1 0 0 0 0 0 0 0
+tick 0.016666668 -1 0 0 0 0 0 0 0
+tick 0.1 -1 0 0 0 0 0 0 0
+case jump_overspeed 0 0 90 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 1 0 1 1 0 0 0 0
+tick 0.016666668 1 0 1 0 0 0 0 0
+tick 0.016666668 1 0 0 0 1 0 0 0
+case coyote_before_expiry 0 0 90 0 -10000 10000
+solid 1 -10 0 14 8 1
+tick 0.1 1 0 0 0 0 0 0 0
+tick @3dcccccc 1 0 1 1 0 0 0 0
+case coyote_exact_expiry 0 0 90 0 -10000 10000
+solid 1 -10 0 14 8 1
+tick 0.1 1 0 0 0 0 0 0 0
+tick 0.1 1 0 1 1 0 0 0 0
+case buffered_landing 0 -4 0 120 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 0 0 1 1 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0 => v:1
+tick 0.016666668 0 0 1 0 0 0 0 0
+case released_buffer_landing 0 -4 0 120 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 0 0 1 1 0 0 0 0
+tick 0.016666668 0 0 0 0 1 0 0 0 => v:1
+tick 0.016666668 0 0 0 0 0 0 0 0
+case held_jump_apex 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.1 0 0 1 1 0 0 0 0
+tick 0.1 0 0 1 0 0 0 0 0
+tick 0.1 0 0 1 0 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+case released_jump_apex 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.1 0 0 1 1 0 0 0 0
+tick 0.1 0 0 0 0 1 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+case fastfall_entry_recovery 0 -100 0 160 -10000 10000
+tick 0.1 0 1 0 0 0 0 0 0
+tick 0.1 0 1 0 0 0 0 0 0
+tick 0.1 0 0 0 0 0 0 0 0
+tick 0.1 0 -1 0 0 0 0 0 0
+case jumpthru_ascent_overlap 0 -3 0 -60 -10000 10000
+jump 1 -20 -6 40 4 1
+tick 0.016666668 0 0 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+case jumpthru_descent 0 -4 0 120 -10000 10000
+jump 1 -1000 0 2000 8 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0 => v:1
+tick 0.016666668 0 0 0 0 0 0 0 0
+case solid_ground_priority 0 0 0 0 -10000 10000
+solid 1 -20 0 40 8 0
+jump 2 -20 0 40 8 1
+tick 0.016666668 0 0 0 0 0 0 0 0
+case duck_jump 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 1 1 1 1 0 0 0 0
+tick 0.1 1 0 1 0 0 0 0 0
+tick 0.1 1 0 0 0 1 0 0 0
+tick 0.1 1 0 0 0 0 0 0 0
+case blocked_stand_right_priority 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 0 -11 0 5 1
+tick 0.016666668 0 1 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+case blocked_stand_left_assist 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 0 -11 4 5 1
+tick 0.016666668 0 1 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+case blocked_stand_no_exit 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 -100 -11 200 5 1
+tick 0.016666668 0 1 0 0 0 0 0 0
+tick 0.016666668 0 0 0 0 0 0 0 0
+case ceiling_left_priority 0 0 0 -105 -10000 10000
+solid 1 0 -12 0 1 1
+tick 0.016666668 0 0 0 0 0 0 0 0 => v:1
+case ceiling_right_correction 0 0 0 -105 -10000 10000
+solid 1 -4 -12 4 1 1
+tick 0.016666668 0 0 0 0 0 0 0 0 => v:1
+case headbump_early 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 -1000 -15 2000 2 1
+tick 0.016666668 0 0 1 1 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0 => v:2
+case headbump_late 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 -1000 -28 2000 2 1
+tick 0.06 0 0 1 1 0 0 0 0
+tick 0.06 0 0 1 0 0 0 0 0
+tick 0.06 0 0 1 0 0 0 0 0 => v:2
+case headbump_strict_boundary 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 -1000 -13 2000 2 1
+tick 0 0 0 1 1 0 0 0 0
+tick 0.05 0 0 1 0 0 0 0 0 => v:2
+tick 0.01 0 0 1 0 0 0 0 0 => v:2
+case wallslide 0 0 90 100 -10000 10000
+solid 1 4 -100 8 200 1
+tick 0.016666668 1 0 0 0 0 0 0 0 => h:1
+tick 0.016666668 1 0 0 0 0 0 0 0
+tick 0.016666668 1 1 0 0 0 0 0 0 => h:1
+case wall_retention_restore 0 0 90 120 -10000 10000
+solid 1 4 -20 8 11 1
+tick 0.016666668 1 0 0 0 0 0 0 0 => h:1
+tick 0.016666668 1 0 0 0 0 0 0 0
+case wall_retention_cancel 0 0 90 100 -10000 10000
+solid 1 4 -100 8 200 1
+tick 0.016666668 1 0 0 0 0 0 0 0 => h:1
+tick 0.016666668 -1 0 0 0 0 0 0 0
+tick 0.016666668 -1 0 0 0 0 0 0 0
+case unsupported_walljump 0 0 0 0 -10000 10000
+solid 1 4 -100 8 200 1
+tick 0.016666668 0 0 1 1 0 0 0 0 => !normal
+case airborne_buffer_no_wall 0 -100 0 0 -10000 10000
+tick 0.016666668 0 0 1 1 0 0 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+case walljump_bounds_guard 0 0 0 0 -6 6
+solid 1 4 -100 8 200 1
+tick 0.016666668 0 0 1 1 0 0 0 0
+case bounds_enforcement_disabled 0 0 90 0 -6 6
+solid 1 -1000 0 2000 8 1
+tick 0.1 1 0 0 0 0 0 0 0
+tick 0.1 1 0 0 0 0 0 0 0
+case unsupported_grab 0 0 0 0 -10000 10000
+tick 0.016666668 0 0 0 0 0 0 1 0 => !input
+case unsupported_dash 0 0 0 0 -10000 10000
+tick 0.016666668 0 0 0 0 0 0 0 1 => !input
+case disabled_jump 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0.016666668 0 0 1 1 0 1 0 0
+tick 0.016666668 0 0 1 0 0 0 0 0
+case ordered_horizontal_then_vertical 0 -1 90 160 -10000 10000
+solid 1 4 -10 8 20 1
+solid 2 -20 1 40 8 1
+tick 0.016666668 1 1 0 0 0 0 0 0 => h:1 v:2
+case repeated_platform_callbacks 1 0 90 160 -10000 10000
+solid 1 4 -10 8 20 1
+tick 0.016666668 1 1 0 0 0 0 0 0 => h:1 v:1
+case coyote_after_expiry 0 0 90 0 -10000 10000
+solid 1 -10 0 14 8 1
+tick 0.1 1 0 0 0 0 0 0 0
+tick @3dccccce 1 0 1 1 0 0 0 0
+case signed_zero_initialization -0.5 0.5 @80000000 @80000000 -10000 10000
+tick -0 0 0 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0

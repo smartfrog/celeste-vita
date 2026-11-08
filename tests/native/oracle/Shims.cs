@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Xna.Framework
 {
-    public struct Vector2
+    public partial struct Vector2
     {
         public float X, Y;
         public Vector2(float x, float y) { X = x; Y = y; }
@@ -31,11 +31,11 @@ namespace Monocle
             set { collider = value; if (value != null) value.Added(this); }
         }
     }
-    public sealed class Scene
+    public partial class Scene
     {
         public Tracker Tracker = new Tracker();
     }
-    public sealed class Tracker
+    public sealed partial class Tracker
     {
         public Dictionary<Type, List<Entity>> Entities = new Dictionary<Type, List<Entity>>
         {
@@ -60,7 +60,7 @@ namespace Celeste
 {
     using Monocle;
     using Microsoft.Xna.Framework;
-    public class Platform : Entity { }
+    public partial class Platform : Entity { }
     public class Solid : Platform { }
     public class JumpThru : Platform { }
     public delegate void Collision(CollisionData data);

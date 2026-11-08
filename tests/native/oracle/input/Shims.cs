@@ -30,7 +30,7 @@ namespace Monocle
         public bool Check(Microsoft.Xna.Framework.Input.Keys key) => DebugHeld;
     }
 
-    public static class Engine
+    public static partial class Engine
     {
         public static float DeltaTime;
     }

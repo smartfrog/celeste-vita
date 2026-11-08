@@ -19,13 +19,15 @@ SOURCE_HASHES = {
     "Monocle.Coroutine.cs": "d4cd81b29b8535146931606aeafac396ce739df00a24763a1b51c337325fae33",
     "Monocle.StateMachine.cs": "92091f4cdf54a87cab34832d33698d0d5dd33be4c11d8e61c42d1be07e5bdf4e",
     "Monocle.VirtualButton.cs": "ae7c19ab7a08ddf2c2f5e8e31e2305ba9334f149573f9b01d78cac16291e8cbb",
+    "Celeste.Player.cs": "47413e0a774802c6dac9baff96aca6f6fda01edd8f28b1dd9bb86e0075cd4d9a",
+    "Celeste.PlayerInventory.cs": "fca9bed434019cba9bbe937e18e5d170c420cbbe51740926a4e9d70aeac7ec5f",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/ilspy")
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player"), default="movement")
     args = parser.parse_args()
     actual = hashlib.sha256((args.source / "inputs/Celeste.exe").read_bytes()).hexdigest()
     if actual != INPUT_SHA:
@@ -47,19 +49,44 @@ def main():
                                          "blocks_sha256": [hashlib.sha256(b.encode()).hexdigest() for b in blocks]})
         return "\n".join(blocks)
 
-    if args.domain == "movement":
-        header = "using System;\nusing System.Collections.Generic;\nusing Microsoft.Xna.Framework;\nusing Monocle;\n"
+    if args.domain in {"movement", "player"}:
+        header = "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nusing Microsoft.Xna.Framework;\nusing Monocle;\n"
+        if args.domain == "player":
+            header += "using Microsoft.Xna.Framework.Input;\n"
         content = header + "namespace Celeste { public partial class Actor {\n"
         content += extract("Celeste.Actor.cs", [(186, 281)]) + "\n} }\n"
         content += "namespace Celeste {\n" + extract("Celeste.CollisionData.cs", [(5, 18)]) + "\n}\n"
         content += "namespace Monocle { public static class Collide {\n"
-        content += extract("Monocle.Collide.cs", [(8, 28), (51, 70)]) + "\n} }\n"
+        content += extract("Monocle.Collide.cs", [(8, 101)] if args.domain == "player" else [(8, 28), (51, 70)]) + "\n} }\n"
         content += "namespace Monocle { public partial class Entity {\n"
         content += extract("Monocle.Entity.cs", [(682, 690), (728, 738)]) + "\n} }\n"
         content += "namespace Monocle { public abstract partial class Collider {\n"
         content += extract("Monocle.Collider.cs", [(8, 22), (205, 251), (255, 258)]) + "\n} }\n"
         content += "namespace Monocle { public class Hitbox : Collider {\n"
         content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 183)]) + "\n} }\n"
+        if args.domain == "player":
+            content += "namespace Monocle { public partial class Entity {\n"
+            content += extract("Monocle.Entity.cs", [(531, 540), (551, 581), (648, 658), (762, 776)]) + "\n} }\n"
+            content += "namespace Monocle {\n"
+            content += extract("Monocle.Coroutine.cs", [(6, 102)]) + "\n"
+            content += extract("Monocle.StateMachine.cs", [(6, 202)]) + "\n"
+            content += extract("Monocle.VirtualButton.cs", [(5, 163)]) + "\n}\n"
+            content += "namespace Celeste {\n" + extract("Celeste.PlayerInventory.cs", [(6, 37)]) + "\n"
+            content += "public partial class Player : Actor {\n"
+            content += extract("Celeste.Player.cs", [(605, 613), (934, 954), (956, 1044), (1048, 1088),
+                                                    (1092, 1102), (2353, 2362), (2436, 2478), (2521, 2546),
+                                                    (2824, 2832), (2910, 2929), (3135, 3473), (3531, 3550),
+                                                    (3557, 3843), (4179, 4189)])
+            content += "\npublic void SourceGround() {\n"
+            content += extract("Celeste.Player.cs", [(1431, 1431), (1437, 1437), (1499, 1541)]) + "\n}\n"
+            content += "public void SourcePreamble() {\n"
+            content += extract("Celeste.Player.cs", [(1542, 1550), (1555, 1682)]) + "\n}\n"
+            for method, ranges in [("SourceBoost", [(1787, 1790)]), ("SourceUnduck", [(1795, 1798)]),
+                                   ("SourceHorizontal", [(1799, 1802)]), ("SourceVertical", [(1803, 1806)])]:
+                content += f"public void {method}() {{\n" + extract("Celeste.Player.cs", ranges) + "\n}\n"
+            content += "public void SourceHazards() {\n"
+            content += extract("Celeste.Player.cs", [(1898, 1914)]) + "\n}\n"
+            content += "public void SourceComplete() {\n" + extract("Celeste.Player.cs", [(1944, 1945)]) + "\n}\n} }\n"
     elif args.domain == "scheduling":
         content = "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nnamespace Monocle {\n"
         content += extract("Monocle.Coroutine.cs", [(6, 102)]) + "\n"
@@ -93,21 +120,37 @@ def main():
             "Engine.DeltaTime is an explicit supplied float32; no full frame clock or freeze policy",
             "Private-field inspection only in the runner, outside the unchanged extracted class",
         ]
+    elif args.domain == "player":
+        manifest["stub_boundaries"] = [
+            "Linked accepted Actor/Hitbox, scheduling and sampled-button shims; explicit scalar Vector2/MathHelper/Calc operations",
+            "Unchanged full NormalUpdate, Jump, collisions, guards/properties and source frame blocks; synthetic driver calls preamble, scheduler, postamble, validated-empty hazards",
+            "Default inventory, ordinary gravity/core, zero LiftSpeed; no other-state entry or arbitrary timer snapshots",
+            "Static ordered Solid/JumpThru only, explicit Safe; no platform gameplay callbacks, movers, blockers, water, hazards, triggers, carry or assists",
+            "Unsupported shells throw; validated-absent collections empty; presentation shells inert",
+            "Bounds enforcement disabled, bounds retained for ClimbBoundsCheck; stats/replay services excluded, source TotalJumps increments an isolated counter",
+        ]
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     maintained = ROOT / "tests/native/oracle"
     if args.domain != "movement":
         maintained /= args.domain
+    extra = ""
+    if args.domain == "player":
+        extra = "\n".join(f'    <Compile Include="{ROOT / "tests/native/oracle" / name / "Shims.cs"}" />'
+                          for name in ("scheduling", "input"))
+        extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/Shims.cs"}" />'
     (output / "Oracle.csproj").write_text(f'''<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <UseAppHost>false</UseAppHost><CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
     <NuGetAudit>false</NuGetAudit>
+    <DefineConstants>{"PLAYER_ORACLE" if args.domain == "player" else ""}</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extracted.cs" />
     <Compile Include="{maintained / 'Shims.cs'}" />
     <Compile Include="{maintained / 'Runner.cs'}" />
+{extra}
   </ItemGroup>
 </Project>
 ''')

@@ -108,5 +108,6 @@ This is **unchanged extracted-method compatibility for synthetic valid inputs**,
 not original CIL/decompiler equivalence or full-game execution. The existing
 VitaSDK can compile the static library with `BUILD_TESTING=OFF` as documented for
 the kernel; compilation is not Vita execution or performance evidence.
-[Sampled buffered input](NATIVE_INPUT.md) is a separate native slice; Player,
-maps, hazards, rendering and audio remain outside this scheduling slice.
+[Sampled buffered input](NATIVE_INPUT.md) is a separate native slice.
+[Bounded Player locomotion](NATIVE_PLAYER.md) composes these primitives; maps,
+hazards, rendering and audio remain outside this scheduling slice.

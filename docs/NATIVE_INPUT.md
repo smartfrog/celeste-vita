@@ -94,3 +94,5 @@ not original CIL execution, complete game fidelity, Vita hardware input or
 performance. VitaSDK static compilation with `BUILD_TESTING=OFF` is not execution.
 Private evidence is under `.audit/native-buffered-input` and
 `.audit/native-oracle/input`; source/tools/game assets stay uncommitted.
+The [bounded Player slice](NATIVE_PLAYER.md) composes this button without adding
+hardware Binding or a general engine loop.
