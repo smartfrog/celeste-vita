@@ -45,7 +45,7 @@ class CurrentPackageStateTests(unittest.TestCase):
         self.git("add",".gitignore")
         self.git("-c","user.name=Synthetic","-c","user.email=synthetic@example.invalid","commit","-qm","Ignore private synthetic outputs")
         self.revision = self.git("rev-parse","HEAD").strip()
-        self.build = self.repo / ".audit/build"
+        self.build = self.repo / ".audit/build/src/vita"
         self.staging = self.repo / ".audit/staging"
         self.build.mkdir(parents=True)
         assets = self.staging / "assets/native-room"
@@ -88,7 +88,7 @@ class CurrentPackageStateTests(unittest.TestCase):
         path.write_text(json.dumps(manifest))
         elf=self.build/"celeste_native_room"
         elf.write_bytes(elf.read_bytes()+manifest["guest_replay"]["sha256"].encode())
-        (self.build.parent/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=ON\n")
+        (self.build.parents[1]/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=ON\n")
         with zipfile.ZipFile(self.vpk,"w") as archive:
             archive.writestr("sce_sys/param.sfo",synthetic_sfo())
             archive.write(self.build/"eboot.bin","eboot.bin")
@@ -100,7 +100,7 @@ class CurrentPackageStateTests(unittest.TestCase):
 
     def test_replay_package_rejects_manual_build_intent(self):
         self.replay_package()
-        (self.build.parent/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=OFF\n")
+        (self.build.parents[1]/"CMakeCache.txt").write_text("CELESTE_ROOM_GUEST_REPLAY:BOOL=OFF\n")
         with self.assertRaisesRegex(ValueError,"intent"): self.checked_package()
 
     def test_replay_package_rejects_elf_without_fixture_pin(self):

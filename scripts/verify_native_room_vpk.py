@@ -21,7 +21,7 @@ def verify(vpk, build, staging):
         raise ValueError("Staging is not from the exact clean delivery revision")
     replay = bool(manifest.get("guest_replay"))
     verify_replay_intent(manifest,replay,REPO_ROOT)
-    cache = build.parent / "CMakeCache.txt"
+    cache = build.parents[1] / "CMakeCache.txt"
     if replay or cache.is_file():
         expected = "CELESTE_ROOM_GUEST_REPLAY:BOOL="+("ON" if replay else "OFF")
         if expected not in cache.read_text().splitlines():
