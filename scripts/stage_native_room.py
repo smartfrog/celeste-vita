@@ -11,6 +11,7 @@ from binary_map import Reader
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA, MEMBER, read_mask, build_mask, map_driver
 from prepare_room_hazards import room_hazards
 from native_room_revision import REPO_ROOT, source_state
+from native_room_replay import replay_intent
 
 
 def checksum(data):
@@ -45,7 +46,7 @@ def verified_bytes(path, expected, limit=4_000_512):
     return data
 
 
-def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_dir=None):
+def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_dir=None, guest_replay=False):
     output = output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit"):
         raise ValueError("Private diagnostic assets must remain under .audit")
@@ -123,12 +124,15 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_di
                 "hazard_provenance_sha256": hashlib.sha256((hazard_dir / "provenance.json").read_bytes()).hexdigest(),
                 "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "fnv1a32": checksum(data), "bytes": len(data)}
                           for name, data in files.items()},
-                "integrity_claim": "SHA256 verified at preparation/staging; executable-pinned FNV-1a runtime corruption check, not authentication"}
+                 "integrity_claim": "SHA256 verified at preparation/staging; executable-pinned FNV-1a runtime corruption check, not authentication"}
+    manifest["guest_replay"] = replay_intent() if guest_replay else None
     for name, data in files.items():
         (asset_dir / name).write_bytes(data)
     (asset_dir / "provenance.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (output / "asset_pins.hpp").write_text(
         '#pragma once\n#include <cstdint>\nnamespace celeste::diagnostic {\n'
+        f'constexpr bool guest_replay_enabled = {str(guest_replay).lower()};\n'
+        + (f'constexpr const char* guest_replay_sha256 = "{manifest["guest_replay"]["sha256"]}";\n' if guest_replay else '') +
         f'constexpr std::uint32_t mask_checksum = {checksum(mask)}u;\n'
         f'constexpr std::uint32_t spike_checksum = {checksum(hazard_data)}u;\n'
         + (f'constexpr std::uint32_t visual_checksum = {checksum(files["visuals.txt"])}u;\n' if visuals else '') +
@@ -145,8 +149,9 @@ def main():
     parser.add_argument("--archive", type=Path, default=Path("game/celeste-linux.zip"))
     parser.add_argument("--visual-dir", type=Path, help="Explicit source-closed private textured-room assets; absent keeps debug mode")
     parser.add_argument("--player-dir", type=Path, help="Explicit source-closed animated player and simulated hair; requires visual-dir")
+    parser.add_argument("--guest-replay", action="store_true", help="Pin the bounded diagnostic guest-controls fixture; manual remains default")
     args = parser.parse_args()
-    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir, args.player_dir)
+    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir, args.player_dir, args.guest_replay)
     print(json.dumps(manifest, indent=2))
 
 
