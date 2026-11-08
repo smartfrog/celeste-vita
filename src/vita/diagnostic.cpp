@@ -14,18 +14,32 @@ const char* jump_kind_name(JumpKind kind) {
     }
     throw std::invalid_argument("Unknown jump kind");
 }
-Sample Controller::sample(Controls controls) {
+Sample Controller::make_sample(const Controls& controls, int x, int y, int aim_x, int aim_y) {
     Sample result;
-    result.player.x = int(controls.right) - int(controls.left);
-    result.player.y = int(controls.down) - int(controls.up);
+    result.player.x = x;
+    result.player.y = y;
     result.player.jump = {controls.cross, controls.cross && !previous_.cross, !controls.cross && previous_.cross};
-    result.player.aim_x = result.player.x;
-    result.player.aim_y = result.player.y;
+    result.player.aim_x = aim_x;
+    result.player.aim_y = aim_y;
     result.player.dash_button = {controls.square, controls.square && !previous_.square, !controls.square && previous_.square};
     result.player.grab = controls.l;
     result.reset = controls.triangle && !previous_.triangle;
     result.exit = controls.start;
+    return result;
+}
+Sample Controller::sample(Controls controls) {
+    const int x = int(controls.right) - int(controls.left);
+    const int y = int(controls.down) - int(controls.up);
+    const auto result = make_sample(controls, x, y, x, y);
     previous_ = controls;
+    return result;
+}
+Sample Controller::sample_analog(const AnalogControls& controls) {
+    const auto stick = normalize_vita_stick(controls.stick);
+    const auto resolved = directions_.update(
+        {controls.buttons.left, controls.buttons.right, controls.buttons.up, controls.buttons.down}, stick);
+    const auto result = make_sample(controls.buttons, resolved.move_x, resolved.move_y, resolved.aim_x, resolved.aim_y);
+    previous_ = controls.buttons;
     return result;
 }
 Viewport letterbox(int width, int height) {

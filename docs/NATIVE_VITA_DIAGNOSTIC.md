@@ -10,12 +10,28 @@ performance result.
 
 ## Controls and clock
 
-- DPad: movement/vertical input; opposing directions on either axis resolve to
-  neutral (diagnostic policy, not source hardware-input parity).
+- Physical manual build: the left stick (standard analog mode, **not** wide range)
+  and DPad feed the source-style MoveX 0.3 / MoveY 0.7 axes used for movement,
+  climb and glider-independent vertical input. Left stick and DPad also feed the
+  independent Aim binding (threshold 0 plus radial 0.25), snapped to eight
+  directions with the source 22.5/17.5 degree asymmetry. Same-direction stick
+  precedes DPad. Opposite movement uses source `TakeNewer`; opposite Aim compares
+  magnitudes then `TakeNewer`. This intentionally differs from the legacy
+  both-DPad-pressed neutral rule only in the new analog profile and is not a
+  hybrid priority policy.
+- The raw stick mapping is a fixture assumption for later calibration, not
+  original-source or hardware proof: `SCE_CTRL_MODE_ANALOG`, bytes 0..255 assumed
+  centered at 128 and right/down positive, piecewise `(v-128)/128` and
+  `(v-128)/127`. An unavailable sample still fails loudly and is never treated as
+  raw 0,0 full up-left. Raw `lx`/`ly` plus resolved move/aim telemetry is logged
+  on changes and periodically for a later physical calibration pass.
+- The scripted guest-replay build does not sample hardware analog input and keeps
+  the existing nine-bool `Controller::sample(Controls)` path, DPad opposing
+  neutral behavior, edges and 250-frame fixture byte-for-byte unchanged.
 - Cross: sampled held/rising-edge input to the existing Player VirtualButton.
   Releasing clears held; a subsequent press produces a new edge.
-- Square: sampled Dash VirtualButton; DPad also supplies resolved independent
-  digital aim. Cross/Jump, Triangle/manual reset and Start/exit remain separate.
+- Square: sampled Dash VirtualButton; aim is the independent analog profile above.
+  Cross/Jump, Triangle/manual reset and Start/exit remain separate.
 - Triangle rising edge: **manual diagnostic reset**, constructing a fresh Player
   at `(19,144)`. It skips simulation on that reset sample, works alive or dead,
   and is not source respawn. Dead Players are never updated.
