@@ -12,7 +12,8 @@ Normal-only oracle/profile invariants described below remain its historical
 regression boundary; they do not describe the extended native default API.
 The [jump-family extension](NATIVE_WALL_JUMPS.md) also enables eligible WallJump
 in the Normal regression oracle; its force/low-friction timers are no longer
-zero invariants. Climb remains excluded.
+zero invariants. The later [static Climb extension](NATIVE_CLIMB.md) supports
+Climb, held Grab, stamina use and wall boost in the current native API.
 
 ## Supported profile and API
 

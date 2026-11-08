@@ -20,7 +20,10 @@ class SmokeCleanupTests(unittest.TestCase):
     def test_post_jump_startup_allows_input_before_image_and_preserves_cleanup(self):
         self.check_timeout_cleanup(True)
 
-    def check_timeout_cleanup(self, after_wall_jump):
+    def test_post_climb_startup_allows_input_before_image_and_preserves_cleanup(self):
+        self.check_timeout_cleanup(True, after_climb=True)
+
+    def check_timeout_cleanup(self, after_wall_jump, after_climb=False):
         directory = ROOT / ".audit/native-room-vita/wrapper-correction-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -75,7 +78,7 @@ class SmokeCleanupTests(unittest.TestCase):
             libc = SimpleNamespace(inotify_init1=Mock(return_value=55),inotify_add_watch=Mock(return_value=1))
             arguments = ["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]
             if after_wall_jump:
-                arguments.append("--after-wall-jump")
+                arguments.append("--after-climb" if after_climb else "--after-wall-jump")
             with patch("sys.argv",arguments), \
                  patch("smoke_native_room.prepare",return_value=(fs,config)), patch("smoke_native_room.X11",return_value=x), \
                  patch("smoke_native_room.C.CDLL",return_value=libc), patch("smoke_native_room.subprocess.Popen",side_effect=start), \

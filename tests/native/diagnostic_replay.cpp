@@ -11,6 +11,29 @@ int main(int argc, char** argv) {
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(spikes,checksum(spikes)));
         Session session(room.world);
         Controller controller;
+        if (argc == 4 && std::string(argv[3]) == "--climb") {
+            bool climbed = false, drained = false, released = false, landed = false;
+            for (unsigned frame = 0; frame < 140; ++frame) {
+                Controls controls;
+                controls.left = frame < 30;
+                controls.cross = frame < 4;
+                controls.l = frame >= 12 && frame < 60;
+                controls.up = frame >= 30 && frame < 45;
+                session.step(controller.sample(controls));
+                const auto& player = session.player();
+                const auto& s = player.state();
+                const auto pos = player.actor().body.position;
+                std::cout << frame << " x=" << pos.x << " y=" << pos.y << " vx=" << s.speed.x << " vy=" << s.speed.y
+                          << " state=" << player.state_machine().state() << " ground=" << s.on_ground << " stamina=" << s.stamina
+                          << " grab=" << controls.l << " up=" << controls.up << '\n';
+                climbed = climbed || player.state_machine().state() == 1;
+                drained = drained || (player.state_machine().state() == 1 && !s.on_ground && s.stamina < 110.0f);
+                released = released || (climbed && !controls.l && player.state_machine().state() == 0);
+                landed = landed || (released && s.on_ground);
+            }
+            if (!climbed || !drained || !released || !landed) throw std::runtime_error("First-room Climb sequence lacks entry/drain/release/landing");
+            return 0;
+        }
         if (argc == 4) {
             if (std::string(argv[3]) != "--wall-jump") throw std::invalid_argument("Unknown replay mode");
             bool jumped = false;

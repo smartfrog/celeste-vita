@@ -20,9 +20,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--frame-only",action="store_true",help="Stop after closed native frame feedback; do not inject input")
-    parser.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
+    capture = parser.add_mutually_exclusive_group()
+    capture.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
+    capture.add_argument("--after-climb",action="store_true",help="Capture once during real airborne drained Climb, then retain the normal Dash/death/reset smoke")
     args = parser.parse_args()
-    if args.frame_only and args.after_wall_jump:
+    if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input; it cannot use --frame-only")
     output = args.output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
@@ -35,7 +37,7 @@ def main():
     feedback_path = output / "feedback.json"
     feedback = new_feedback(revision,vpk)
     feedback["requested_scope"] = "native_frame_only" if args.frame_only else "full_runtime_smoke"
-    feedback["capture_policy"] = "wall_jump" if args.after_wall_jump else "spawn"
+    feedback["capture_policy"] = "climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn"
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -63,7 +65,8 @@ def main():
         run("configure",["/usr/bin/cmake","-S",".","-B",str(build),"-DCMAKE_TOOLCHAIN_FILE="+sdk+"/share/vita.toolchain.cmake",
                          "-DCMAKE_BUILD_TYPE=Release","-DBUILD_TESTING=OFF","-DCELESTE_VITA=ON",
                          "-DCELESTE_VITAGL_LIBRARY="+archive,"-DCELESTE_ROOM_STAGING="+str(staging),
-                         "-DCELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP="+("ON" if args.after_wall_jump else "OFF")])
+                         "-DCELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP="+("ON" if args.after_wall_jump else "OFF"),
+                         "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF")])
         run("build",["/usr/bin/cmake","--build",str(build),"--verbose","-j2"])
         feedback["stages"]["build"] = True
         save_feedback(feedback_path,feedback)
@@ -75,7 +78,8 @@ def main():
         save_feedback(feedback_path,feedback)
         run("runtime",["python3","-B","scripts/smoke_native_room.py","--state",str(output / "vita3k-state"),
                        "--output",str(output / "runtime"),"--vpk",str(vpk),"--feedback",str(feedback_path)]+
-                       (["--frame-only"] if args.frame_only else [])+(["--after-wall-jump"] if args.after_wall_jump else []))
+                       (["--frame-only"] if args.frame_only else [])+(["--after-wall-jump"] if args.after_wall_jump else [])+
+                       (["--after-climb"] if args.after_climb else []))
     except Exception as error:
         feedback = json.loads(feedback_path.read_text())
         record_failure(feedback,"toolchain",error)

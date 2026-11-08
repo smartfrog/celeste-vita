@@ -2,6 +2,7 @@
 """Prepare missing private Dash/jump helper sources with the existing offline ILSpy."""
 
 import hashlib
+import argparse
 import json
 import subprocess
 
@@ -9,7 +10,7 @@ from check_native_oracle import ROOT, PRIVATE, oracle_environment
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
 
 
-def main():
+def main(include_climb=False):
     source = ROOT / ".audit/ilspy"
     output = ROOT / ".audit/native-dash/closure"
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
@@ -20,8 +21,9 @@ def main():
     if hashlib.sha256(executable.read_bytes()).hexdigest() != INPUT_SHA:
         raise ValueError("Unexpected private reference executable")
     output.mkdir(parents=True, exist_ok=True)
-    for name in ("Monocle.Engine", "Monocle.MInput", "Celeste.Celeste", "Monocle.Calc"):
-        directory = ROOT / ".audit/native-wall-jumps/closure" if name == "Monocle.Calc" else output
+    names = ("Monocle.Engine", "Monocle.MInput", "Celeste.Celeste", "Monocle.Calc") + (("Monocle.Scene",) if include_climb else ())
+    for name in names:
+        directory = ROOT / ".audit/native-climb/closure" if name == "Monocle.Scene" else ROOT / ".audit/native-wall-jumps/closure" if name == "Monocle.Calc" else output
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / (name + ".cs")
         command = None
@@ -40,4 +42,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--climb", action="store_true", help="Also verify/prepare the pinned Scene point-query helper")
+    main(parser.parse_args().climb)

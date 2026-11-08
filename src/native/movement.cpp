@@ -139,6 +139,23 @@ Body* StaticWorld::first_solid(const Body& query, Vec2 at) const {
     return first(solids, query, at, false);
 }
 
+bool StaticWorld::solid_at_point(Vec2 point) const {
+    require_finite(point);
+    for (const Body* target : solids) {
+        if (!target) throw std::invalid_argument("World lists cannot contain null body pointers");
+        validate_body(*target);
+        if (!target->collidable || (!target->collider && !target->grid)) continue;
+        const Hitbox box = target->grid ? grid_box(*target->grid) : *target->collider;
+        const Edges e = edges(box, target->position);
+        const float right = target->grid ? e.right : e.left + box.width;
+        const float bottom = target->grid ? e.bottom : e.top + box.height;
+        if (point.x < e.left || point.y < e.top || !(point.x < right && point.y < bottom)) continue;
+        if (!target->grid || target->grid->at(truncate_integer((point.x - e.left) / target->grid->cell_width()),
+                                            truncate_integer((point.y - e.top) / target->grid->cell_height()))) return true;
+    }
+    return false;
+}
+
 Body* StaticWorld::first_outside_jump_thru(const Body& query, Vec2 at) const {
     return first(jump_thrus, query, at, true);
 }

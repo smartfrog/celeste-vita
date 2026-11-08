@@ -8,7 +8,7 @@
 namespace celeste {
 
 enum class PlayerProfile { default_static };
-enum class JumpKind { none, jump, super_jump, wall_jump, super_wall_jump };
+enum class JumpKind { none, jump, super_jump, wall_jump, super_wall_jump, climb_jump };
 
 struct PlayerWorld {
     StaticWorld collision;
@@ -49,6 +49,11 @@ struct PlayerState {
     float wall_speed_retention_timer = 0.0f;
     float wall_speed_retained = 0.0f;
     float stamina = 110.0f;
+    float climb_no_move_timer = 0.0f, wall_boost_timer = 0.0f;
+    int last_climb_move = 0, wall_boost_dir = 0, hop_wait_x = 0;
+    float hop_wait_speed = 0.0f;
+    Body* climb_hop_solid = nullptr;
+    Vec2 climb_hop_solid_position{};
     int dashes = 1;
     bool launched = false;
     Vec2 before_dash_speed{}, dash_dir{}, last_aim{}, glider_boost_dir{};
@@ -81,6 +86,8 @@ public:
     const HazardFrame& hazard_frame() const { return hazard_frame_; }
     JumpKind jump_kind() const { return jump_kind_; }
     unsigned jump_count() const { return jump_count_; }
+    bool tired() const { return (state_.wall_boost_timer > 0.0f ? state_.stamina + 27.5f : state_.stamina) < 20.0f; }
+    bool grab_held() const { return grab_check(); }
     bool die(Vec2 direction);
     void request_state(int state);
     void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {});
@@ -116,6 +123,18 @@ private:
     void super_jump();
     void wall_jump(int dir);
     void super_wall_jump(int dir);
+    void climb_jump();
+    bool grab_check() const;
+    bool can_dash() const;
+    int start_dash();
+    static float approach(float value, float target, float max_move);
+    bool climb_check(int dir, int y_add = 0) const;
+    void climb_begin();
+    void climb_end();
+    int climb_update();
+    void climb_hop();
+    bool slip_check(float add_y = 0.0f) const;
+    bool climb_hop_blocked_check() const;
     bool super_wall_jump_angle_check() const;
     void dash_begin();
     void dash_end();

@@ -17,7 +17,7 @@ from vita_room_emulator import TITLE, prepare, launch_command
 from native_room_feedback import collect_native_frame, new_feedback, save_feedback
 from native_room_revision import REPO_ROOT
 
-KEYBOARD_MAPPING = {"left":"ArrowLeft", "up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter"}
+KEYBOARD_MAPPING = {"left":"ArrowLeft", "up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter", "l1":"KeyQ", "l2":"KeyU"}
 
 
 def verify_keyboard_mapping(text):
@@ -55,6 +55,28 @@ def verify_wall_jump_guest(text):
     if not jump or not forced or int(forced[1]) <= int(jump[1]) or float(forced[2]) <= float(jump[2]):
         raise ValueError("Completed log lacks actual WallJump launch/buffer/timers and forced-right movement")
     return {"jump_frame":int(jump[1]),"forced_frame":int(forced[1]),"x":float(jump[2]),"y":float(jump[3])}
+
+
+def verify_climb_guest(text):
+    states = []
+    offset = 0
+    for event in ("entered", "drained", "held", "released", "landed"):
+        match = re.search(r"climb "+event+r" frame=(\d+) (.+)", text[offset:])
+        if not match:
+            raise ValueError("Missing actual Climb "+event+" checkpoint")
+        values = dict(field.split("=",1) for field in match[2].split())
+        values["frame"] = int(match[1])
+        states.append(values)
+        offset += match.end()
+    entered, drained, held, released, landed = states
+    if not (all(a["frame"] < b["frame"] for a,b in zip(states, states[1:])) and
+            all(row["dead"] == "0" and row["resets"] == "0" for row in states) and
+            entered["state"] == drained["state"] == held["state"] == "1" and
+            entered["grab"] == drained["grab"] == held["grab"] == "1" and drained["ground"] == "0" and
+            float(drained["y"]) < float(entered["y"]) and 0 < float(held["stamina"]) < float(drained["stamina"]) < 110 and
+            released["state"] == "0" and released["grab"] == "0" and landed["ground"] == "1" and float(landed["stamina"]) == 110):
+        raise ValueError("Climb log lacks actual airborne ascent/drain/hold/release/landing proof")
+    return states
 
 
 class XError(C.Structure):
@@ -258,9 +280,11 @@ def main():
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
     parser.add_argument("--feedback",type=Path)
     parser.add_argument("--frame-only",action="store_true")
-    parser.add_argument("--after-wall-jump",action="store_true")
+    capture = parser.add_mutually_exclusive_group()
+    capture.add_argument("--after-wall-jump",action="store_true")
+    capture.add_argument("--after-climb",action="store_true")
     args = parser.parse_args()
-    if args.frame_only and args.after_wall_jump:
+    if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input")
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
@@ -302,7 +326,7 @@ def main():
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
-            frame = collect_native_frame(fs,output,revision,capture="wall_jump" if args.after_wall_jump else "spawn")
+            frame = collect_native_frame(fs,output,revision,capture="climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn")
             if frame:
                 frame["vpk_sha256"] = feedback["vpk"]["sha256"]
                 feedback.update({"frame":frame,"artifacts":frame["artifacts"]})
@@ -397,7 +421,7 @@ def main():
             wid = window["id"]
             wait(lambda: last_ready.startswith("ready "))
             observe_native_frame()
-            if not args.after_wall_jump and not feedback["stages"]["native_image"]:
+            if not (args.after_wall_jump or args.after_climb) and not feedback["stages"]["native_image"]:
                 raise RuntimeError("Guest startup ready without its required closed native frame export")
             feedback["stages"]["startup"] = True
             save_feedback(feedback_path,feedback)
@@ -430,6 +454,23 @@ def main():
                 change(55,True,"reset")
                 change(55,False)
 
+            if args.after_climb:
+                change(113,True)
+                inject(53,True)
+                wait(lambda: last_ready.startswith("wall_near "),30)
+                change(53,False)
+                wait(lambda: last_ready.startswith("climb_near "),30)
+                change(24,True,"climb_entered")
+                change(113,False)
+                inject(111,True)
+                wait(lambda: last_ready.startswith("climb_drained ") and feedback["stages"]["native_image"],60)
+                change(111,False)
+                wait(lambda: last_ready.startswith("climb_held "),30)
+                change(24,False,"climb_released")
+                wait(lambda: last_ready.startswith("climb_landed "),60)
+                change(55,True,"reset")
+                change(55,False)
+
             change(53,True)
             delay(0.25)
             change(53,False)
@@ -455,9 +496,11 @@ def main():
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
         text = data.decode()
-        markers = verify_guest(text,revision,initial_resets=1 if args.after_wall_jump else 0)
+        markers = verify_guest(text,revision,initial_resets=1 if args.after_wall_jump or args.after_climb else 0)
         if args.after_wall_jump:
             feedback["wall_jump"] = verify_wall_jump_guest(text)
+        if args.after_climb:
+            feedback["climb"] = verify_climb_guest(text)
         feedback["stages"].update({"input":True,"clean_exit":True,"full_completion":True})
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})

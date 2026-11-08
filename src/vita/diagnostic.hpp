@@ -9,6 +9,7 @@ struct Controls {
     bool left = false, right = false, up = false, down = false;
     bool cross = false, triangle = false, start = false;
     bool square = false;
+    bool l = false;
 };
 
 struct Sample {

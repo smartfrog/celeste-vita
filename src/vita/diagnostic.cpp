@@ -10,6 +10,7 @@ const char* jump_kind_name(JumpKind kind) {
     case JumpKind::super_jump: return "SuperJump";
     case JumpKind::wall_jump: return "WallJump";
     case JumpKind::super_wall_jump: return "SuperWallJump";
+    case JumpKind::climb_jump: return "ClimbJump";
     }
     throw std::invalid_argument("Unknown jump kind");
 }
@@ -21,6 +22,7 @@ Sample Controller::sample(Controls controls) {
     result.player.aim_x = result.player.x;
     result.player.aim_y = result.player.y;
     result.player.dash_button = {controls.square, controls.square && !previous_.square, !controls.square && previous_.square};
+    result.player.grab = controls.l;
     result.reset = controls.triangle && !previous_.triangle;
     result.exit = controls.start;
     previous_ = controls;

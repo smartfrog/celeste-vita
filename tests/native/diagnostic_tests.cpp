@@ -68,6 +68,13 @@ void opposing_axes_neutral() {
     const auto input = controller.sample({true,true,true,true}).player;
     expect(input.x == 0 && input.y == 0, "Opposing directions neutral");
 }
+void l_is_held_grab_not_an_edge() {
+    Controller controller;
+    Controls controls;
+    controls.l = true;
+    expect(controller.sample(controls).player.grab && controller.sample(controls).player.grab, "L must remain held Grab");
+    expect(!controller.sample({}).player.grab, "L release must release Grab");
+}
 void square_dash_is_independent_of_cross() {
     Controller controller;
     Controls controls; controls.right = true; controls.up = true; controls.square = true;
@@ -125,7 +132,7 @@ void diagnostic_clock_fixed() {
 int main() {
     int failed = 0;
     for (auto test : {checksum_known_vector, mask_geometry, mask_invalid_parameterized, mask_corruption,
-         spike_geometry, spike_invalid_parameterized, spike_corruption, button_edges, opposing_axes_neutral,
+         spike_geometry, spike_invalid_parameterized, spike_corruption, button_edges, opposing_axes_neutral, l_is_held_grab_not_an_edge,
          reset_edge, viewport_parameterized, invalid_viewport_parameterized, reset_fresh_after_death,
           exit_wins_over_reset, diagnostic_clock_fixed, missing_asset_fails_before_world, square_dash_is_independent_of_cross}) {
         try { test(); } catch (const std::exception& e) { std::cerr << e.what() << '\n'; ++failed; }

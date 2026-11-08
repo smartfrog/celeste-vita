@@ -243,11 +243,10 @@ void airborne_jump_buffers_without_wall() {
 }
 
 void unsupported_actions_parameterized() {
-    for (int kind : {0, 1, 2}) {
+    for (int kind : {1, 2}) {
         PlayerWorld w;
         Player p(w);
         PlayerInput input;
-        input.grab = kind == 0;
         input.dash = kind == 1;
         input.jump.debug_override_pressed = kind == 2;
         invalid([&] { p.frame(0.1f, input); });

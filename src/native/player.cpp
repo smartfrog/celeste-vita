@@ -23,12 +23,12 @@ Vec2 truncated_spawn(Vec2 spawn) {
     return {static_cast<float>(static_cast<std::int32_t>(spawn.x)), static_cast<float>(static_cast<std::int32_t>(spawn.y))};
 }
 
-float approach(float value, float target, float max_move) {
-    return value > target ? std::max(value - max_move, target) : std::min(value + max_move, target);
-}
-
 int sign(float value) { return (value > 0.0f) - (value < 0.0f); }
 
+}
+
+float Player::approach(float value, float target, float max_move) {
+    return value > target ? std::max(value - max_move, target) : std::min(value + max_move, target);
 }
 
 Player::Player(const PlayerWorld& world, Vec2 spawn, Vec2 initial_speed, PlayerProfile profile)
@@ -40,6 +40,8 @@ Player::Player(const PlayerWorld& world, Vec2 spawn, Vec2 initial_speed, PlayerP
     state_.previous_position = actor_.body.position;
     machine_.set_callbacks(0, {[this] { return normal_update(); }, {},
                                [this] { normal_begin(); }, [this] { normal_end(); }});
+    machine_.set_callbacks(1, {[this] { return climb_update(); }, {},
+                               [this] { climb_begin(); }, [this] { climb_end(); }});
     machine_.set_callbacks(2, {[this] { const int state = dash_update(); emit("dash_update"); return state; }, [this] { return dash_coroutine(); },
                                [this] { dash_begin(); }, [this] { dash_end(); }});
     machine_.added(true);
@@ -155,16 +157,33 @@ bool Player::climb_bounds_check(int dir) const {
 }
 
 void Player::normal_begin() { state_.max_fall = 160.0f; }
-void Player::normal_end() { state_.wall_speed_retention_timer = 0.0f; }
+void Player::normal_end() {
+    state_.wall_boost_timer = 0.0f;
+    state_.wall_speed_retention_timer = 0.0f;
+    state_.hop_wait_x = 0;
+}
 
 int Player::normal_update() {
     auto& s = state_;
     auto& pos = actor_.body.position;
-    if (dash_.pressed() && s.dash_cooldown_timer <= 0.0f && s.dashes > 0) {
+    if (grab_check() && !tired() && !s.ducking && s.speed.y >= 0.0f && sign(s.speed.x) != -s.facing) {
+        if (climb_check(s.facing)) {
+            set_ducking(false);
+            return 1;
+        }
+        if (input_.y < 1) {
+            for (int i = 1; i <= 2; ++i) {
+                if (!world_.collision.first_solid(actor_.body, {pos.x, pos.y - static_cast<float>(i)}) && climb_check(s.facing, -i)) {
+                    actor_.move_v_exact(-i);
+                    set_ducking(false);
+                    return 1;
+                }
+            }
+        }
+    }
+    if (can_dash()) {
         add_static_lift_boost();
-        s.dashes = std::max(0, s.dashes - 1);
-        dash_.consume_buffer();
-        return 2;
+        return start_dash();
     }
     if (s.ducking) {
         if (s.on_ground && input_.y != 1) {
@@ -194,7 +213,7 @@ int Player::normal_update() {
     else s.max_fall = approach(s.max_fall, 160.0f, 300.0f * delta_);
     if (!s.on_ground) {
         float target = s.max_fall;
-        if (s.move_x == s.facing && input_.y != 1) {
+        if ((s.move_x == s.facing || (s.move_x == 0 && grab_check())) && input_.y != 1) {
             if (s.speed.y >= 0.0f && s.wall_slide_timer > 0.0f && climb_bounds_check(s.facing) &&
                 world_.collision.first_solid(actor_.body, {pos.x + static_cast<float>(s.facing), pos.y}) && can_unduck(pos)) {
                 set_ducking(false);
@@ -214,7 +233,8 @@ int Player::normal_update() {
         else if (can_unduck(pos)) {
             for (int dir : {1, -1}) {
                 if (wall_jump_check(dir)) {
-                    if (dash_attacking() && super_wall_jump_angle_check()) super_wall_jump(-dir);
+                    if (s.facing == dir && grab_check() && s.stamina > 0.0f) climb_jump();
+                    else if (dash_attacking() && super_wall_jump_angle_check()) super_wall_jump(-dir);
                     else wall_jump(-dir);
                     break;
                 }
@@ -326,8 +346,8 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         input.x < -1 || input.x > 1 || input.y < -1 || input.y > 1 ||
         input.aim_x < -1 || input.aim_x > 1 || input.aim_y < -1 || input.aim_y > 1)
         throw std::invalid_argument("Invalid Player frame input");
-    if (input.grab || input.dash || input.jump.debug_override_pressed || input.dash_button.debug_override_pressed)
-        throw std::invalid_argument("Grab, unresolved legacy Dash and debug override are outside the supported profile");
+    if (input.dash || input.jump.debug_override_pressed || input.dash_button.debug_override_pressed)
+        throw std::invalid_argument("Unresolved legacy Dash and debug override are outside the supported profile");
     validate_world();
     finite(state_.speed);
     finite(actor_.body.position);
@@ -367,7 +387,15 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
             s.wall_slide_timer = std::max(s.wall_slide_timer - delta_, 0.0f);
             s.wall_slide_dir = 0;
         }
-        if (s.on_ground) {
+        if (s.wall_boost_timer > 0.0f) {
+            s.wall_boost_timer -= delta_;
+            if (s.move_x == s.wall_boost_dir) {
+                s.speed.x = 130.0f * static_cast<float>(s.move_x);
+                s.stamina += 27.5f;
+                s.wall_boost_timer = 0.0f;
+            }
+        }
+        if (s.on_ground && machine_.state() != 1) {
             s.auto_jump = false;
             s.stamina = 110.0f;
             s.wall_slide_timer = 1.2f;
@@ -389,8 +417,15 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         if (s.force_move_x_timer > 0.0f) {
             s.force_move_x_timer -= delta_;
             s.move_x = s.force_move_x;
-        } else s.move_x = input.x;
-        if (s.move_x != 0) s.facing = s.move_x;
+        } else {
+            s.move_x = input.x;
+            s.climb_hop_solid = nullptr;
+        }
+        if (s.climb_hop_solid && !s.climb_hop_solid->collidable) s.climb_hop_solid = nullptr;
+        else if (s.climb_hop_solid && (s.climb_hop_solid->position.x != s.climb_hop_solid_position.x ||
+                                      s.climb_hop_solid->position.y != s.climb_hop_solid_position.y))
+            throw std::invalid_argument("Hop solid moved outside the static Player profile");
+        if (s.move_x != 0 && machine_.state() != 1) s.facing = s.move_x;
         if (input.aim_x == 0 && input.aim_y == 0) s.last_aim = {1.0f * static_cast<float>(s.facing), 0.0f * static_cast<float>(s.facing)};
         else {
             const float scale = input.aim_x != 0 && input.aim_y != 0 ? 1.0f / std::sqrt(2.0f) : 1.0f;
@@ -402,6 +437,14 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
                 s.speed.x = s.wall_speed_retained;
                 s.wall_speed_retention_timer = 0.0f;
             } else s.wall_speed_retention_timer -= delta_;
+        }
+        if (s.hop_wait_x != 0) {
+            if (sign(s.speed.x) == -s.hop_wait_x || s.speed.y > 0.0f) s.hop_wait_x = 0;
+            else if (!world_.collision.first_solid(actor_.body, {pos.x + static_cast<float>(s.hop_wait_x), pos.y})) {
+                s.low_friction_stop_timer = 0.15f;
+                s.speed.x = s.hop_wait_speed;
+                s.hop_wait_x = 0;
+            }
         }
         emit("preamble");
         machine_.update(delta_, delta_);

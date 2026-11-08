@@ -28,7 +28,7 @@ def new_feedback(revision, vpk):
 
 
 def collect_native_frame(filesystem, output, revision, capture="spawn"):
-    if capture not in {"spawn", "wall_jump"}:
+    if capture not in {"spawn", "wall_jump", "climb"}:
         raise ValueError("Unsupported explicit native capture policy")
     guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
     source = filesystem / "ux0/data" / guest_path.split(":data/",1)[1]
@@ -46,10 +46,14 @@ def collect_native_frame(filesystem, output, revision, capture="spawn"):
     if capture == "spawn":
         expected["frame"] = "0"
     else:
-        expected.update(capture="wall_jump", jump_kind="WallJump", state="0", dead="0", resets="0")
+        expected.update(capture=capture, state="1" if capture == "climb" else "0", dead="0", resets="0")
+        if capture == "wall_jump":
+            expected["jump_kind"] = "WallJump"
+        else:
+            expected.update(ground="0", grab="1")
         frame = metadata.get("frame", "")
         if not frame.isascii() or not frame.isdecimal() or str(int(frame)) != frame or int(frame) <= 0:
-            raise ValueError("Post-WallJump export must record an actual positive frame")
+            raise ValueError("Deferred export must record an actual positive frame")
     if any(metadata.get(key) != value for key,value in expected.items()):
         raise ValueError("Native export receipt does not match revision/path/stage/dimensions")
     frame_state = {key:float(metadata[key]) for key in ("frame","x","y","vx","vy","ground","dead","resets")}
@@ -57,6 +61,11 @@ def collect_native_frame(filesystem, output, revision, capture="spawn"):
         raise ValueError("Nonfinite native frame state")
     if "state" in metadata:
         frame_state["state"] = int(metadata["state"])
+    if capture == "climb":
+        frame_state["stamina"] = float(metadata["stamina"])
+        frame_state["grab"] = int(metadata["grab"])
+        if not math.isfinite(frame_state["stamina"]) or not 0 < frame_state["stamina"] < 110:
+            raise ValueError("Climb export must be airborne, held and actually drained")
     ppm = source.read_bytes()
     if not ppm.startswith(b"P6\n960 544\n255\n"):
         raise ValueError("Native export dimensions are not the full framebuffer")

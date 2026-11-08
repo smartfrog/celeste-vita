@@ -26,6 +26,7 @@ void Player::begin_jump(JumpKind kind, float var_time) {
     state_.dash_attack_timer = 0.0f;
     state_.glider_boost_timer = 0.0f;
     state_.wall_slide_timer = 1.2f;
+    state_.wall_boost_timer = 0.0f;
 }
 
 void Player::jump() {
@@ -35,6 +36,16 @@ void Player::jump() {
     add_static_lift_boost();
     state_.var_jump_speed = state_.speed.y;
     state_.launched = false;
+}
+
+void Player::climb_jump() {
+    if (!state_.on_ground) state_.stamina -= 27.5f;
+    jump();
+    jump_kind_ = JumpKind::climb_jump;
+    if (state_.move_x == 0) {
+        state_.wall_boost_dir = -state_.facing;
+        state_.wall_boost_timer = 0.2f;
+    }
 }
 
 void Player::add_static_lift_boost() {

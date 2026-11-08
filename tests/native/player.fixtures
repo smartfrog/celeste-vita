@@ -138,8 +138,8 @@ case bounds_enforcement_disabled 0 0 90 0 -6 6
 solid 1 -1000 0 2000 8 1
 tick 0.1 1 0 0 0 0 0 0 0
 tick 0.1 1 0 0 0 0 0 0 0
-case unsupported_grab 0 0 0 0 -10000 10000
-tick 0.016666668 0 0 0 0 0 0 1 0 => !input
+case grab_without_wall 0 0 0 0 -10000 10000
+tick 0.016666668 0 0 0 0 0 0 1 0
 case unsupported_dash 0 0 0 0 -10000 10000
 tick 0.016666668 0 0 0 0 0 0 0 1 => !input
 case disabled_jump 0 0 0 0 -10000 10000

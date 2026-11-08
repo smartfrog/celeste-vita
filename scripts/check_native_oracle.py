@@ -52,14 +52,17 @@ def main():
     parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
     parser.add_argument("--jump-family", action="store_true", help="Require nine-family behavioral coverage using the Dash source closure")
+    parser.add_argument("--climb-family", action="store_true", help="Include the bounded static Climb closure")
     parser.add_argument("--output", type=Path, help="Fresh private extraction/build/evidence directory; never overwrite existing evidence")
     args = parser.parse_args()
     if args.jump_family and args.domain != "dash":
         parser.error("--jump-family requires --domain dash")
+    if args.climb_family and (args.domain != "dash" or args.jump_family):
+        parser.error("--climb-family requires --domain dash and excludes --jump-family")
     if not args.compile_only and args.native is None:
         parser.error("--native is required unless --compile-only is selected")
     if args.fixtures is None:
-        args.fixtures = ROOT / f"tests/native/{'jumps' if args.jump_family else args.domain}.fixtures"
+        args.fixtures = ROOT / f"tests/native/{'climb' if args.climb_family else 'jumps' if args.jump_family else args.domain}.fixtures"
     private = PRIVATE if args.domain == "movement" else PRIVATE / args.domain
     if args.output is not None:
         private = args.output.resolve()
@@ -83,7 +86,9 @@ def main():
         from compare_hazard_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     elif args.domain == "dash":
-        if args.jump_family:
+        if args.climb_family:
+            from compare_climb_traces import compare as compare_domain, FIELDS
+        elif args.jump_family:
             from compare_jump_traces import compare as compare_domain, FIELDS
         else:
             from compare_dash_traces import compare as compare_domain, FIELDS
@@ -116,6 +121,7 @@ def main():
     if "Microsoft.NETCore.App 8.0.31 [" not in (evidence / "runtimes.log").read_text():
         raise RuntimeError("Expected private runtime 8.0.31 is missing")
     run([sys.executable, ROOT / "scripts/extract_native_oracle.py", "--domain", args.domain] +
+        (["--climb-family"] if args.climb_family else []) +
         (["--output", private] if args.output else []), "extraction.log")
     identity = verify_extraction(private)
     (evidence / "source-identity.json").write_text(json.dumps(identity, indent=2) + "\n")
@@ -134,7 +140,7 @@ def main():
     native = (evidence / "native.tsv").read_text().splitlines()
     rows = compare_domain(reference, native, fixtures=args.fixtures)
     report = {"rows": rows, "scenarios": len({line.split('\t')[0] for line in reference}),
-               "family": "jumps" if args.jump_family else args.domain,
+               "family": "climb" if args.climb_family else "jumps" if args.jump_family else args.domain,
               "fields_per_row": field_count, "comparison": "exact text and float32 bits; no epsilon",
               "fixture_sha256": hashlib.sha256(args.fixtures.read_bytes()).hexdigest(),
               "source_manifest": "../source-manifest.json", "commands": commands,

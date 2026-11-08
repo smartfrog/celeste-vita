@@ -53,6 +53,7 @@ struct StaticWorld {
     std::vector<Body*> jump_thrus;
 
     Body* first_solid(const Body& query, Vec2 at) const;
+    bool solid_at_point(Vec2 point) const;
     Body* first_outside_jump_thru(const Body& query, Vec2 at) const;
 };
 

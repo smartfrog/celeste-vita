@@ -60,6 +60,7 @@ public:
             grids_.push_back(parse_grid(f));
             bodies_.push_back({{parse_float(f.at(2)), parse_float(f.at(3))}, {}, true, grids_.back().get()});
             Body* body = &bodies_.back();
+            if (f.size() == 13) body->collidable = flag(f.at(12));
             ids_[body] = std::stoi(f.at(1));
             world_.collision.solids.push_back(body);
             if (flag(f.at(11))) world_.safe_ground.push_back(body);
@@ -69,11 +70,22 @@ public:
             if (player_) throw std::invalid_argument("Fixtures must declare static platforms before frames");
             bodies_.push_back({{parse_float(f.at(2)), parse_float(f.at(3))}, Hitbox{parse_float(f.at(4)), parse_float(f.at(5)), {}}, true});
             Body* body = &bodies_.back();
+            if (f.size() == 8) body->collidable = flag(f.at(7));
             ids_[body] = std::stoi(f.at(1));
             (op == "solid" ? world_.collision.solids : world_.collision.jump_thrus).push_back(body);
             if (flag(f.at(6))) world_.safe_ground.push_back(body);
             return;
         }
+#ifdef CLIMB_TRACE
+        if (op == "point") {
+            if (!player_) player_ = std::make_unique<Player>(world_, spawn_, speed_);
+            ++frame_;
+            delta_ = 0.0f;
+            input_ = {};
+            trace(world_.collision.solid_at_point({parse_float(f.at(1)), parse_float(f.at(2))}) ? "point_hit" : "point_miss", nullptr);
+            return;
+        }
+#endif
         if (op != "tick") throw std::invalid_argument("Unknown Player operation");
         if (!player_) player_ = std::make_unique<Player>(world_, spawn_, speed_);
         ++frame_;
@@ -165,7 +177,18 @@ private:
             << '\t' << bits(d.direction.x) << '\t' << bits(d.direction.y) << '\t' << bits(d.moved.x) << '\t' << bits(d.moved.y) << '\t' << bits(d.target_position.x) << '\t' << bits(d.target_position.y)
             << '\t' << co.active << '\t' << bits(co.wait_timer()) << '\t' << co.ended() << '\t' << co.stack_depth() << '\t' << h.refill_called << '\t' << identities(h.checked) << '\t' << identities(h.overlaps)
             << '\t' << s.force_move_x << '\t' << bits(s.force_move_x_timer) << '\t' << bits(s.low_friction_stop_timer) << '\t' << s.launched
-            << '\t' << bits(s.glider_boost_dir.x) << '\t' << bits(s.glider_boost_dir.y) << '\t' << bits(s.stamina) << '\n';
+            << '\t' << bits(s.glider_boost_dir.x) << '\t' << bits(s.glider_boost_dir.y) << '\t' << bits(s.stamina)
+#ifdef CLIMB_TRACE
+            << '\t' << input_.x << '\t' << input_.y << '\t' << input_.jump.held << '\t' << input_.jump.pressed << '\t' << input_.jump.released
+            << '\t' << input_.jump.disabled << '\t' << input_.grab << '\t' << input_.dash << '\t' << input_.aim_x << '\t' << input_.aim_y
+            << '\t' << input_.dash_button.held << '\t' << input_.dash_button.pressed << '\t' << input_.dash_button.released
+            << '\t' << (input_.grab && !input_.jump.disabled) << '\t' << bits(s.climb_no_move_timer) << '\t' << s.last_climb_move
+            << '\t' << bits(s.wall_boost_timer) << '\t' << s.wall_boost_dir << '\t' << s.hop_wait_x << '\t' << bits(s.hop_wait_speed)
+            << '\t' << (s.climb_hop_solid ? ids_.at(s.climb_hop_solid) : -1)
+            << '\t' << bits(s.climb_hop_solid_position.x) << '\t' << bits(s.climb_hop_solid_position.y) << '\t' << p.tired()
+            << '\t' << bits(s.wall_slide_timer) << '\t' << s.wall_slide_dir
+#endif
+            << '\n';
 #elif defined(HAZARD_TRACE)
         (void)phase;
         (void)data;

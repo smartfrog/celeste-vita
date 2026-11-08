@@ -73,7 +73,7 @@ namespace Celeste
 {
     public enum Facings { Left = -1, Right = 1 }
     public enum DashCollisionResults { NormalCollision, NormalOverride, Rebound, Bounce, Ignore }
-    public enum RumbleStrength { Light, Medium, Strong }
+    public enum RumbleStrength { Light, Medium, Strong, Climb }
     public enum RumbleLength { Short, Medium }
     public sealed class Axis
     {
@@ -85,7 +85,10 @@ namespace Celeste
         public static readonly Axis MoveX = new(), MoveY = new(), GliderMoveY = new();
         public static VirtualButton Jump = new(new Binding(), 0, 0.08f, 0f);
         public static readonly VirtualButton Talk = new(new Binding(), 0, 0f, 0f);
-        public static bool GrabCheck => false;
+#if !CLIMB_ORACLE
+        public static bool GrabHeld;
+        public static bool GrabCheck => GrabHeld && !MInput.Disabled;
+#endif
 #if !DASH_ORACLE
         public static bool CrouchDashPressed => false;
         public static bool DashPressed => false;
@@ -243,6 +246,9 @@ namespace Celeste
             StateMachine = new StateMachine(26);
             for (int i = 1; i < 26; i++) StateMachine.SetCallbacks(i, () => throw new NotSupportedException("State excluded"), null, () => throw new NotSupportedException("State excluded"));
             StateMachine.SetCallbacks(0, NormalUpdate, null, NormalBegin, NormalEnd);
+#if CLIMB_ORACLE
+            StateMachine.SetCallbacks(1, ClimbUpdate, null, ClimbBegin, ClimbEnd);
+#endif
 #if DASH_ORACLE
             StateMachine.SetCallbacks(2, () => { int state = DashUpdate(); Observe?.Invoke("dash_update", null); return state; }, DashCoroutine, DashBegin, DashEnd);
 #endif
@@ -255,7 +261,7 @@ namespace Celeste
         )
         {
             if (!float.IsFinite(delta) || delta < 0f || !float.IsFinite(1000f * delta) || x < -1 || x > 1 || y < -1 || y > 1) throw new ArgumentException("Invalid frame input");
-            if (grab || dash) throw new NotSupportedException("Grab/Dash excluded");
+            if (dash) throw new NotSupportedException("Unsupported legacy input");
             ValidateProfile();
 #if HAZARD_ORACLE
             level.Tracker.Checks.Clear();
@@ -269,6 +275,11 @@ namespace Celeste
             Input.Jump.Binding.RawPressed = pressed;
             Input.Jump.Binding.RawReleased = released;
             MInput.Disabled = disabled;
+#if CLIMB_ORACLE
+            Input.Grab.Binding.Held = grab;
+#else
+            Input.GrabHeld = grab;
+#endif
 #if DASH_ORACLE
             if (aimX < -1 || aimX > 1 || aimY < -1 || aimY > 1) throw new ArgumentException("Invalid digital aim");
             Input.Aim.Value = new(aimX, aimY);
@@ -325,7 +336,11 @@ namespace Celeste
                 i.Dashes != 1 || !i.DreamDash || !i.Backpack || i.NoRefills || level.InSpace || level.InCutscene ||
                 level.CoreMode != Session.CoreModes.None || level.Wind != Vector2.Zero || Holding != null ||
 #if DASH_ORACLE
+#if CLIMB_ORACLE
+                (StateMachine.State != 0 && StateMachine.State != 1 && StateMachine.State != 2) ||
+#else
                 (StateMachine.State != 0 && StateMachine.State != 2) ||
+#endif
 #else
                 StateMachine.State != 0 ||
                 AutoJump || AutoJumpTimer != 0f || wallBoostTimer != 0f || dashAttackTimer != 0f || gliderBoostTimer != 0f ||
@@ -334,17 +349,31 @@ namespace Celeste
                 holdCannotDuck || windMovedUp || dashStartedOnGround || hopWaitX != 0 || noWindTimer != 0f ||
                 starFlyTimer != 0f || Stamina != 110f || Dashes != 1 || LastBooster != null || dreamBlock != null ||
 #endif
+#if CLIMB_ORACLE
+                Settings.Instance.GrabMode != GrabModes.Hold || wallBoosting || conveyorLoopSfx != null)
+#else
                 wallBoostDir != 0 || lastClimbMove != 0)
+#endif
                 throw new NotSupportedException("Unsupported Player profile/invariant");
 #if DASH_ORACLE
             if (a.DashAssist || a.SuperDashing || a.ThreeSixtyDashing || Engine.TimeRate != 1f || Engine.TimeRateB != 1f ||
                 Engine.DashAssistFreeze || OverrideDashDirection.HasValue || CurrentBooster != null || LastBooster != null ||
-                Holding != null || Dead || Dashes < 0 || Dashes > 1 || wallBoostTimer != 0f ||
-                climbHopSolid != null || minHoldTimer != 0f || dreamJump || holdCannotDuck || windMovedUp ||
-                hopWaitX != 0 || noWindTimer != 0f || starFlyTimer != 0f || Stamina != 110f || dreamBlock != null)
+                Holding != null || Dead || Dashes < 0 || Dashes > 1 ||
+#if !CLIMB_ORACLE
+                wallBoostTimer != 0f || climbHopSolid != null || hopWaitX != 0 || noWindTimer != 0f || Stamina != 110f ||
+#endif
+                minHoldTimer != 0f || dreamJump || holdCannotDuck || windMovedUp || starFlyTimer != 0f || dreamBlock != null)
                 throw new NotSupportedException("Unsupported Dash profile/invariant");
 #endif
             foreach (var pair in level.Tracker.Entities)
+            {
+#if CLIMB_ORACLE
+                if (pair.Key == typeof(WallBooster))
+                {
+                    if (pair.Value.Count != 0) throw new NotSupportedException("Wall boosters excluded");
+                    continue;
+                }
+#endif
                 foreach (var entity in pair.Value)
                 {
 #if HAZARD_ORACLE
@@ -359,6 +388,7 @@ namespace Celeste
                     if (p.OnCollide != null || p.OnDashCollide != null || (p.Collider is not Hitbox && p.Collider is not Grid))
                         throw new NotSupportedException("Platform hooks/unsupported collider excluded");
                 }
+            }
         }
         private bool Pickup(Holdable holdable) => throw new NotSupportedException("Holding excluded");
 #if !DASH_ORACLE
@@ -368,8 +398,10 @@ namespace Celeste
 #if !HAZARD_ORACLE
         private void Drop() => throw new NotSupportedException("Holding excluded");
 #endif
+#if !CLIMB_ORACLE
         private void ClimbTrigger(int dir) => throw new NotSupportedException("Grab excluded");
         private void ClimbJump() => throw new NotSupportedException("Climb jump excluded");
+#endif
 #if !DASH_ORACLE
         private void SuperWallJump(int dir) => throw new NotSupportedException("Super wall jump excluded");
 #endif

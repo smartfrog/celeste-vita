@@ -227,5 +227,7 @@ tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick .15 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0
-case unsupported_grab 0 -100 0 0 -10000 10000
-tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0 => !input
+case grab_without_wall 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case unsupported_legacy_dash 0 -100 0 0 -10000 10000
+tick .01 0 0 0 0 0 0 0 1 0 0 0 0 0 => !input

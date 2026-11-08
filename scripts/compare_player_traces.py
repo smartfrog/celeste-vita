@@ -85,8 +85,8 @@ def fixture_operations(path):
                     for phase in (*phases, "rejected"):
                         snapshots.append(Snapshot(case, frame, phase, sample))
                     continue
-                if f[8:10] != ["0", "0"]:
-                    raise ValueError("Grab/Dash must declare !input rejection")
+                if f[9] != "0":
+                    raise ValueError("Legacy Dash must declare !input rejection")
                 collisions = {"h": [], "v": []}
                 last_axis = "h"
                 for event in annotations:

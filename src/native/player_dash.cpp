@@ -1,11 +1,20 @@
 #include "player.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
 namespace celeste {
 
 bool Player::dash_attacking() const { return state_.dash_attack_timer > 0.0f; }
+
+bool Player::can_dash() const { return dash_.pressed() && state_.dash_cooldown_timer <= 0.0f && state_.dashes > 0; }
+
+int Player::start_dash() {
+    state_.dashes = std::max(0, state_.dashes - 1);
+    dash_.consume_buffer();
+    return 2;
+}
 
 bool Player::on_ground(Vec2 at) const {
     Body probe = actor_.body;
@@ -96,6 +105,7 @@ int Player::dash_update() {
         for (int dir : {1, -1}) {
             if (!wall_jump_check(dir)) continue;
             if (super_wall_jump_angle_check()) super_wall_jump(-dir);
+            else if (s.facing == dir && grab_check() && s.stamina > 0.0f) climb_jump();
             else wall_jump(-dir);
             return 0;
         }

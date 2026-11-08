@@ -58,7 +58,16 @@ internal static class Runner
             Flag(co.Active), Bits(Private<float>(co,"waitTimer")), Flag(Private<bool>(co,"ended")), Private<Stack<System.Collections.IEnumerator>>(co,"enumerators").Count,
             Flag(p.RefillCalls > 0), Identities(world.Tracker.Checks), Identities(world.Tracker.Overlaps),
             Private<int>(p,"forceMoveX"), Bits(Private<float>(p,"forceMoveXTimer")), Bits(Private<float>(p,"lowFrictionStopTimer")),
-            Flag(Private<bool>(p,"launched")), Bits(Private<Vector2>(p,"gliderBoostDir").X), Bits(Private<Vector2>(p,"gliderBoostDir").Y), Bits(p.Stamina)));
+            Flag(Private<bool>(p,"launched")), Bits(Private<Vector2>(p,"gliderBoostDir").X), Bits(Private<Vector2>(p,"gliderBoostDir").Y), Bits(p.Stamina)
+#if CLIMB_ORACLE
+            , string.Join("\t", input[2..15]), Flag(Input.GrabCheck), Bits(Private<float>(p,"climbNoMoveTimer")), Private<int>(p,"lastClimbMove"),
+            Bits(Private<float>(p,"wallBoostTimer")), Private<int>(p,"wallBoostDir"), Private<int>(p,"hopWaitX"), Bits(Private<float>(p,"hopWaitXSpeed")),
+            Private<Solid>(p,"climbHopSolid") is Solid hop ? ids[hop] : -1,
+            Bits(Private<Vector2>(p,"climbHopSolidPosition").X), Bits(Private<Vector2>(p,"climbHopSolidPosition").Y),
+            Flag((bool)typeof(Player).GetProperty("IsTired", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(p)),
+            Bits(Private<float>(p,"wallSlideTimer")), Private<int>(p,"wallSlideDir")
+#endif
+            ));
 #elif HAZARD_ORACLE
         string collider = ReferenceEquals(p.Collider, Private<Hitbox>(p, "normalHitbox")) ? "normal" : ReferenceEquals(p.Collider, Private<Hitbox>(p, "duckHitbox")) ? "duck" : "hurt";
         if (world.Session.Deaths != Flag(p.Dead) || world.Session.DeathsInCurrentLevel != Flag(p.Dead) || SaveData.Instance.DeathCalls != Flag(p.Dead))
@@ -103,6 +112,11 @@ internal static class Runner
             Engine.DeltaTime = Engine.RawDeltaTime = Engine.FreezeTimer = 0f; Engine.FrameCounter = 0;
             SaveData.Instance.TotalDashes = Stats.Dashes = 0;
             world.Tracker.Entities[typeof(SwapBlock)] = new();
+#if CLIMB_ORACLE
+            world.Tracker.Entities[typeof(WallBooster)] = new();
+            Input.Grab = new(new Binding(), 0, 0f, 0.2f);
+            MInput.VirtualInputs.Add(Input.Grab);
+#endif
 #endif
             Input.MoveX.Value = Input.MoveY.Value = 0;
             MInput.Disabled = false;
@@ -135,11 +149,22 @@ internal static class Runner
             p.Position = new(Float(f[2]), Float(f[3]));
             p.Collider = op == "grid" ? GridFixture.Parse(f) : new Hitbox(Float(f[4]), Float(f[5]));
             p.Safe = Flag(f[op == "grid" ? 11 : 6]);
+            if (f.Length == (op == "grid" ? 13 : 8)) p.Collidable = Flag(f[^1]);
             world.Tracker.Entities[p.GetType()].Add(p);
             world.Tracker.Entities[typeof(Platform)].Add(p);
             ids[p] = int.Parse(f[1]);
             return;
         }
+#if CLIMB_ORACLE
+        if (op == "point")
+        {
+            player ??= new Player(world, spawn, speed);
+            frame++; delta = 0;
+            input = new string[15]; Array.Fill(input, "0");
+            Trace(world.CollideCheck<Solid>(new(Float(f[1]), Float(f[2]))) ? "point_hit" : "point_miss", null);
+            return;
+        }
+#endif
         if (op != "tick") throw new ArgumentException("Unknown Player operation");
         player ??= new Player(world, spawn, speed) { Observe =
 #if DASH_ORACLE

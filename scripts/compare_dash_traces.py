@@ -17,7 +17,7 @@ BOOLS.add("launched")
 DEFAULT_FIXTURES = Path(__file__).resolve().parents[1] / "tests/native/dash.fixtures"
 
 
-def fixture_operations(path):
+def fixture_operations(path, *, point_queries=False):
     expected, cases, bodies, spikes = [], set(), set(), set()
     case, frame = None, 0
     for number, text in enumerate(Path(path).read_text().splitlines(), 1):
@@ -38,14 +38,15 @@ def fixture_operations(path):
             elif case is None:
                 raise ValueError("Operation before case")
             elif op in {"solid", "jump", "grid", "spike"}:
-                if frame or len(f) != (12 if op == "grid" else 7):
+                size = 12 if op == "grid" else 7
+                if frame or (len(f) != size and not (point_queries and op != "spike" and len(f) == size + 1)):
                     raise ValueError("Static world must precede frames")
                 identity = integer(f[1], 1, 2147483647)
                 if identity in bodies or identity in spikes:
                     raise ValueError("Duplicate world identity")
                 (spikes if op == "spike" else bodies).add(identity)
                 if op == "grid":
-                    grid_fields(f)
+                    grid_fields(f[:12])
                 elif op == "spike":
                     float_bits(f[2]); float_bits(f[3]); integer(f[4], 1, 1000000); integer(f[6], 0, 1)
                     if f[5] not in {"up", "left"}:
@@ -56,6 +57,14 @@ def fixture_operations(path):
                         if index >= 4 and struct.unpack(">f", bytes.fromhex(bits))[0] < 0:
                             raise ValueError("Negative Hitbox dimension")
                     integer(f[6], 0, 1)
+                if len(f) == size + 1:
+                    integer(f[-1], 0, 1)
+            elif op == "point" and point_queries:
+                if len(f) != 4:
+                    raise ValueError("Invalid point probe")
+                float_bits(f[1]); float_bits(f[2]); integer(f[3], 0, 1)
+                frame += 1
+                expected.append((case, str(frame), "point_hit" if f[3] == "1" else "point_miss", "-1", float_bits("0")))
             elif op == "tick":
                 if len(f) < 15 or (len(f) > 15 and (f[15] != "=>" or len(f) == 16)):
                     raise ValueError("Invalid Dash tick")
@@ -106,21 +115,21 @@ def fixture_operations(path):
     return expected
 
 
-def validate_trace(rows, expected, name):
+def validate_trace(rows, expected, name, *, fields=FIELDS, floats=FLOATS, bools=BOOLS, states=("0", "2")):
     if len(rows) != len(expected):
         raise ValueError(f"{name}: Expected {len(expected)} phase rows, got {len(rows)}")
     for number, (text, snapshot) in enumerate(zip(rows, expected), 1):
         f = text.split("\t")
-        if len(f) != len(FIELDS) or (*f[:3], f[FIELDS.index("hit")], f[3]) != snapshot:
+        if len(f) != len(fields) or (*f[:3], f[fields.index("hit")], f[3]) != snapshot:
             raise ValueError(f"{name} Row {number}: Unexpected schema/phase/callback; expected {snapshot}")
-        for field, value in zip(FIELDS[3:], f[3:]):
-            if field in FLOATS:
+        for field, value in zip(fields[3:], f[3:]):
+            if field in floats:
                 float_bits("@" + value)
-            elif field in BOOLS:
+            elif field in bools:
                 integer(value, 0, 1)
-        if f[FIELDS.index("state")] not in {"0", "2"} or f[FIELDS.index("dashes")] not in {"0", "1"}:
+        if f[fields.index("state")] not in states or f[fields.index("dashes")] not in {"0", "1"}:
             raise ValueError(f"{name} Row {number}: Unsupported state/inventory")
-        integer(f[FIELDS.index("force_x")], -1, 1)
+        integer(f[fields.index("force_x")], -1, 1)
 
 
 def compare(reference, native, fixtures=DEFAULT_FIXTURES, coverage=None):

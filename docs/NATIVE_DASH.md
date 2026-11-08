@@ -1,5 +1,8 @@
 # Bounded native Player Dash
 
+The subsequent [static Climb extension](NATIVE_CLIMB.md) adds state 1 and held
+Grab. Climb exclusions below describe the historical Dash/jump checkpoint.
+
 This extends [Normal/Jump](NATIVE_PLAYER.md) with default-inventory 8-way Dash
 between Normal (0) and Dash (2), on ordered static Hitboxes/Grids and static
 Up/Left spikes. It is not the original CIL, full Player/Engine, full game,

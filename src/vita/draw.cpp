@@ -37,7 +37,8 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
         " ground="+std::to_string(player.state().on_ground)+" dead="+std::to_string(player.death().dead)+
         " resets="+std::to_string(resets)+" state="+std::to_string(player.state_machine().state())+
-        " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : "wall_jump")+" format=P6_RGB_top_down\n";
+        " stamina="+std::to_string(player.state().stamina)+" grab="+std::to_string(player.grab_held())+
+        " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : player.state_machine().state() == 1 ? "climb" : "wall_jump")+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
     return receipt;
 }

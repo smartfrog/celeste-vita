@@ -1,0 +1,176 @@
+# case name spawnX spawnY speedX speedY boundsLeft boundsRight
+# tick raw x y jumpHeld jumpPressed jumpReleased disabled grab legacyDash aimX aimY dashHeld dashPressed dashReleased
+case entry_right 0 0 0 50 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case entry_left 0 0 0 50 -1000 1000
+solid 1 -12 -100 8 200 1
+tick 0 -1 0 0 0 0 0 1 0 0 0 0 0 0
+case entry_gap 0 0 0 0 -1000 1000
+solid 1 5 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case entry_corner 0 0 0 0 -1000 1000
+solid 1 4 -12 8 1 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case entry_bounds 0 0 0 0 -1000 6
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case entry_rising 0 0 0 -1 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case timer_up 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .04 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick .06 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick .001 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case idle_down 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 1 0 0 0 0 1 0 0 0 0 0 0
+case ground_idle 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+solid 2 -100 0 100 8 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 1 0 0 0 0 0 0
+case release_land 0 -3 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+solid 2 -100 0 100 8 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 0 0 0 0 0 0 0 => v:2
+tick 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+case tired_boundary 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 9 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case exhaustion 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 11 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+case jump_dash_release 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 0 0 0 -1 1 1 0
+case dash_release 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 -1 0 0 0 0 1 0 0 -1 0 0 1 => freeze
+tick 0 0 -1 0 0 0 0 1 0 0 -1 0 0 0 => dash
+case grab_before_dash 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 -1 1 1 0
+case air_climb_jump_refund 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 1 0 0 0 0 0 0
+tick 0 -1 0 1 0 0 0 0 0 0 0 0 0 0
+tick .2 0 0 1 0 0 0 0 0 0 0 0 0 0
+case ground_climb_jump 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+solid 2 -100 0 100 8 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 1 0 0 0 0 0 0
+case negative_climb_jump 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 9.1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 1 0 0 0 0 0 0
+case away_wall_jump 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 -1 0 1 1 0 0 1 0 0 0 0 0 0
+tick .16 1 0 1 0 0 0 0 0 0 0 0 0 0
+case delayed_hop 0 0 0 0 -1000 1000
+solid 1 4 -5 8 105 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+case immediate_hop 0 0 0 0 -1000 1000
+solid 1 4 -20 8 120 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case blocked_hop 0 0 0 0 -1000 1000
+solid 1 4 -5 8 105 1
+solid 2 0 -17 16 1 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case spike_hop_blocker 0 0 0 0 -1000 1000
+solid 1 4 -5 8 105 1
+spike 2 8 -4 8 up 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case half_open_solid_top 0 0 0 0 -1000 1000
+solid 1 4 -7 8 107 1
+tick 0 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case grid_ledge 0 0 0 0 -1000 1000
+grid 1 4 -8 0 0 8 8 1 2 11 1
+tick 0 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case jump_thru_boost 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+jump 2 -100 -2 100 8 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case disabled_grab 0 0 0 0 -1000 1000
+solid 1 4 -100 8 200 1
+tick 0 0 0 0 0 0 1 1 0 0 0 0 0 0
+case point_hitbox_fractional 0 0 0 0 -1000 1000
+solid 1 -10.5 -20.25 2.5 3.5 1
+point -10.5 -20.25 1
+point -8 -20.25 0
+point -10.5 -16.75 0
+point -10.500001 -20.25 0
+point -10.5 -20.250002 0
+point -8.000001 -16.750002 1
+case point_grid_cells 0 0 0 0 -1000 1000
+grid 1 -10.5 -20.25 .25 .5 2.5 3.5 2 2 1001 1
+point -10.25 -19.75 1
+point -7.75 -19.75 0
+point -10.25 -16.25 0
+point -7.75 -16.25 1
+point -5.25 -16.25 0
+point -7.75 -12.75 0
+point -10.250001 -19.75 0
+case point_noncollidable 0 0 0 0 -1000 1000
+solid 1 -10 -10 20 20 1 0
+point 0 0 0
+case hop_identity_order 0 0 0 0 -1000 1000
+solid 7 4 -5 8 105 1
+solid 3 4 -5 8 105 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case hop_identity_collidable 0 0 0 0 -1000 1000
+solid 7 4 -5 8 105 1 0
+solid 3 4 -5 8 105 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0
+case normal_selector_tired 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 9.1 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 1 0 0 0 0 0 0
+case pending_tired 0 0 0 0 -1000 1000
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 8.9 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick 0 0 0 1 1 0 0 1 0 0 0 0 0 0
+tick .2 0 0 1 0 0 0 0 0 0 0 0 0 0
+case slip_second_add_y 0 0 0 0 -1000 1000
+solid 1 4 -5 8 105 1
+solid 2 4 -13 1 .5 1
+solid 3 -100 -17 200 1 1
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+tick .1 0 -1 0 0 0 0 1 0 0 0 0 0 0 => v:3

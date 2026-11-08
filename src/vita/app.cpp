@@ -17,6 +17,11 @@ constexpr bool capture_after_wall_jump = true;
 #else
 constexpr bool capture_after_wall_jump = false;
 #endif
+#ifdef CELESTE_ROOM_CAPTURE_AFTER_CLIMB
+constexpr bool capture_after_climb = true;
+#else
+constexpr bool capture_after_climb = false;
+#endif
 constexpr const char* log_path = "ux0:data/celeste_native_room.log";
 void log(const char* format, ...) {
     va_list args;
@@ -35,11 +40,11 @@ void signal(const char* event, unsigned frame) {
 void state(const char* event, unsigned frame, const Session& session) {
     const auto& player = session.player();
     const auto position = player.actor().body.position;
-    log("%s frame=%u x=%.0f y=%.0f vx=%.3f vy=%.3f ground=%d dead=%d resets=%u state=%d freeze=%.9f dashes=%d move_x=%d force_x=%d force_timer=%.9f var_timer=%.9f jump_buffer=%.9f jump_kind=%s",event,frame,
+    log("%s frame=%u x=%.0f y=%.0f vx=%.3f vy=%.3f ground=%d dead=%d resets=%u state=%d freeze=%.9f dashes=%d move_x=%d force_x=%d force_timer=%.9f var_timer=%.9f jump_buffer=%.9f jump_kind=%s stamina=%.9f grab=%d",event,frame,
          position.x,position.y,player.state().speed.x,player.state().speed.y,
          player.state().on_ground,player.death().dead,session.resets(),player.state_machine().state(),player.clock().freeze_timer,player.state().dashes,
          player.state().move_x,player.state().force_move_x,player.state().force_move_x_timer,player.state().var_jump_timer,
-         player.jump_button().buffer_counter(),jump_kind_name(player.jump_kind()));
+          player.jump_button().buffer_counter(),jump_kind_name(player.jump_kind()),player.state().stamina,player.grab_held());
 }
 void run() {
     log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle jump=Cross dash=Square aim=DPad exit=Start", revision);
@@ -64,10 +69,12 @@ void run() {
     Controller controller;
     unsigned previous = 0, frame = 0;
     const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
-    bool captured = !capture_after_wall_jump, wall_near = false, wall_forced = false;
+    bool captured = !capture_after_wall_jump && !capture_after_climb, wall_near = false, wall_forced = false;
+    bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
+    float climb_entry_y = 0.0f;
     const auto exported = draw(room,session.player(),captured ? frame_path.c_str() : nullptr);
     if (captured) log("%s",exported.c_str());
-    log("capture policy=%s",capture_after_wall_jump ? "wall_jump" : "spawn");
+    log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
     state("frame ready",frame,session);
     signal("ready",frame);
     const auto start_time = sceKernelGetProcessTimeWide();
@@ -78,11 +85,11 @@ void run() {
         const auto buttons = pad.buttons;
         const auto down = [&](unsigned flag) { return (buttons & flag) != 0; };
         const auto sample = controller.sample({down(SCE_CTRL_LEFT),down(SCE_CTRL_RIGHT),down(SCE_CTRL_UP),down(SCE_CTRL_DOWN),
-                                              down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START),down(SCE_CTRL_SQUARE)});
+                                              down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START),down(SCE_CTRL_SQUARE),down(SCE_CTRL_LTRIGGER)});
         const bool changed = buttons != previous;
-        if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d",frame,
+        if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d grab=%d",frame,
                          unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit,
-                         sample.player.dash_button.held,sample.player.dash_button.pressed);
+                          sample.player.dash_button.held,sample.player.dash_button.pressed,sample.player.grab);
         const bool dead = session.player().death().dead;
         const int old_state = session.player().state_machine().state();
         const bool frozen = session.player().clock().freeze_timer > 0.0f;
@@ -94,7 +101,10 @@ void run() {
         const auto& player = session.player();
         const bool jumped = !sample.reset && player.jump_count() != jumps;
         const bool wall_jumped = jumped && player.jump_kind() == celeste::JumpKind::wall_jump;
-        const bool capture = capture_after_wall_jump && !captured && wall_jumped;
+        if (capture_after_climb && !climbed && player.state_machine().state() == 1) climb_entry_y = player.actor().body.position.y;
+        const bool capture = !captured && ((capture_after_wall_jump && wall_jumped) ||
+            (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
+             player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y));
         const auto saved = draw(room,player,capture ? frame_path.c_str() : nullptr,frame,session.resets());
         if (capture) { captured = true; log("%s",saved.c_str()); }
         if (jumped) state("jump",frame,session);
@@ -108,7 +118,7 @@ void run() {
                 player.state().dash_dir.x,player.state().dash_dir.y,player.state().speed.x,player.state().speed.y);
         const bool died = !dead && session.player().death().dead;
         if (died || sample.reset || changed || frame%120 == 0) state(died ? "death" : sample.reset ? "manual reset" : "frame",frame,session);
-        if (capture_after_wall_jump && !wall_near && !player.state().on_ground && player.actor().body.position.x <= 14 &&
+        if ((capture_after_wall_jump || capture_after_climb) && !wall_near && !player.state().on_ground && player.actor().body.position.x <= 14 &&
             sample.player.x == -1 && sample.player.jump.held && player.jump_kind() == celeste::JumpKind::jump) {
             wall_near = true;
             signal("wall_near",frame);
@@ -117,6 +127,28 @@ void run() {
             wall_forced = true;
             state("wall forced",frame,session);
             signal("wall_forced",frame);
+        } else if (capture_after_climb && !climb_near && wall_near && !player.state().on_ground && player.state().speed.y >= 0 && !sample.player.jump.held) {
+            climb_near = true;
+            signal("climb_near",frame);
+        } else if (capture_after_climb && !climbed && new_state == 1) {
+            climbed = true;
+            state("climb entered",frame,session);
+            signal("climb_entered",frame);
+        } else if (capture_after_climb && capture) {
+            state("climb drained",frame,session);
+            signal("climb_drained",frame);
+        } else if (capture_after_climb && captured && climbed && !climb_held && new_state == 1 && sample.player.y == 0 && player.state().speed.y == 0) {
+            climb_held = true;
+            state("climb held",frame,session);
+            signal("climb_held",frame);
+        } else if (capture_after_climb && climbed && !climb_released && !sample.player.grab && new_state == 0) {
+            climb_released = true;
+            state("climb released",frame,session);
+            signal("climb_released",frame);
+        } else if (capture_after_climb && climb_released && !climb_landed && player.state().on_ground) {
+            climb_landed = true;
+            state("climb landed",frame,session);
+            signal("climb_landed",frame);
         } else if (died || sample.reset || changed) signal(died ? "dead" : sample.reset ? "reset" : "sampled",frame);
         else if (old_state == 2 && new_state == 0) signal("dash_done",frame);
         previous = buttons;

@@ -90,7 +90,7 @@ namespace Monocle
 namespace Celeste
 {
     public enum CrouchDashModes { Press, Hold }
-    public sealed class Settings
+    public sealed partial class Settings
     {
         public static readonly Settings Instance = new();
         public CrouchDashModes CrouchDashMode = CrouchDashModes.Press;
