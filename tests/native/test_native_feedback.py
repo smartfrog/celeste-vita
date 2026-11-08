@@ -10,9 +10,29 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
 from feedback_native_room import main
 from native_room_feedback import collect_native_frame, RENDER_STAGE
+from smoke_native_room import main as smoke_main
 
 
 class NativeFeedbackTests(unittest.TestCase):
+    def test_private_config_is_prepared_before_it_is_frozen(self):
+        directory = ROOT / ".audit/native-room-vita/correction-tests"
+        directory.mkdir(parents=True,exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=directory) as temporary:
+            root = Path(temporary)
+            fs, config, output, vpk = root / "state", root / "config.yml", root / "output", root / "synthetic.vpk"
+            (fs / "ux0/app").mkdir(parents=True)
+            config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
+            vpk.write_bytes(b"synthetic package")
+            with patch("sys.argv",["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--frame-only"]), \
+                 patch("smoke_native_room.prepare",return_value=(fs,config)) as prepared, \
+                 patch("smoke_native_room.X11",side_effect=RuntimeError("stop before X11")):
+                with self.assertRaisesRegex(RuntimeError,"stop before X11"):
+                    smoke_main()
+            prepared.assert_called_once()
+            self.assertEqual((output / "effective-config.yml").read_bytes(),config.read_bytes())
+            feedback = json.loads((output / "feedback.json").read_text())
+            self.assertFalse(feedback["emulator_config"]["disable_surface_sync"])
+
     def test_closed_black_guest_file_is_retained_and_losslessly_converted(self):
         directory = ROOT / ".audit/native-room-vita/correction-tests"
         directory.mkdir(parents=True,exist_ok=True)

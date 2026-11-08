@@ -244,6 +244,7 @@ def main():
     output.mkdir(parents=True,exist_ok=False)
     feedback_path = (args.feedback or output / "feedback.json").resolve()
     feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
+    fs, config = prepare(state,existing)
     frozen_config = output / "effective-config.yml"
     frozen_config.write_bytes(config.read_bytes())
     feedback["emulator_config"] = {"path":str(config),"frozen_path":str(frozen_config),
@@ -251,7 +252,6 @@ def main():
                                   "backend":"OpenGL","resolution_multiplier":1,"disable_surface_sync":False,
                                   "override_scope":"fresh private state only; shared config untouched"}
     save_feedback(feedback_path,feedback)
-    fs, config = prepare(state,existing)
     if (fs / "ux0/app" / TITLE).exists():
         parser.error("Use a fresh isolated state; never overwrite an installed title")
     x = X11()
