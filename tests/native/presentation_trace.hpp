@@ -6,6 +6,16 @@
 
 namespace native_test {
 inline const celeste::PlayerFrameBank* presentation_bank=nullptr;
+inline void print_player_draw(const std::string& name,int tick,unsigned index,const celeste::PlayerFrameBank& bank,const celeste::PlayerDraw& draw) {
+    const auto& frame=bank.frames[draw.frame];
+    std::cout<<"D\t"<<name<<'\t'<<tick<<'\t'<<index<<'\t'<<frame.name<<'\t'
+        <<bits(draw.position.x)<<'\t'<<bits(draw.position.y)<<'\t'<<bits(draw.origin.x-frame.trim_x)<<'\t'<<bits(draw.origin.y-frame.trim_y)<<'\t'
+        <<bits(draw.scale.x)<<'\t'<<bits(draw.scale.y)<<'\t'<<bits(draw.rotation)<<'\t'
+        <<unsigned(draw.color.r)<<'\t'<<unsigned(draw.color.g)<<'\t'<<unsigned(draw.color.b)<<'\t'<<unsigned(draw.color.a)<<"\t0\n";
+    std::cout<<"V\t"<<name<<'\t'<<tick<<'\t'<<index;
+    for(const auto& vertex:celeste::diagnostic::player_vertices(frame,draw)) std::cout<<'\t'<<bits(vertex.x)<<'\t'<<bits(vertex.y);
+    std::cout<<'\n';
+}
 inline const char* phase_name(celeste::PlayerCosmeticPhase phase) {
     using P=celeste::PlayerCosmeticPhase;
     switch(phase) {
@@ -29,16 +39,7 @@ public:
         auto draws=view_.draw(p);
         state(name,tick,"render");
         unsigned i=0;
-        for(const auto& d:draws) {
-            const auto& f=bank_.frames[d.frame];
-            std::cout<<"D\t"<<name<<'\t'<<tick<<'\t'<<i<<'\t'<<f.name<<'\t'
-                <<bits(d.position.x)<<'\t'<<bits(d.position.y)<<'\t'<<bits(d.origin.x-f.trim_x)<<'\t'<<bits(d.origin.y-f.trim_y)<<'\t'
-                <<bits(d.scale.x)<<'\t'<<bits(d.scale.y)<<'\t'<<bits(d.rotation)<<'\t'
-                <<unsigned(d.color.r)<<'\t'<<unsigned(d.color.g)<<'\t'<<unsigned(d.color.b)<<'\t'<<unsigned(d.color.a)<<"\t0\n";
-            std::cout<<"V\t"<<name<<'\t'<<tick<<'\t'<<i++;
-            for(const auto& v:celeste::diagnostic::player_vertices(f,d)) std::cout<<'\t'<<bits(v.x)<<'\t'<<bits(v.y);
-            std::cout<<'\n';
-        }
+        for(const auto& draw:draws) print_player_draw(name,tick,i++,bank_,draw);
     }
 private:
     const celeste::PlayerFrameBank& bank_;

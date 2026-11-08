@@ -68,9 +68,52 @@ separate. Required coverage includes reversal, jumps/apex/landing, duck/fastfall
 wall slide, Climb/look-back/dangling, tired/boost, Dash/freeze/tail/refill, and long
 idle/RNG, plus the remaining grounded selector branches.
 
+## Reproduce the source proof offline
+
+All handwritten preparation, range metadata, C# service/recording shims, replay,
+comparison, whitelist, coverage assertions, and mutation tests are tracked.
+Original binaries, original decompiled bodies, generated reference code, art,
+and output traces remain private. The following uses only the already installed
+SDK 8.0.425/runtime 8.0.31 and pinned ILSpy tool; no installation or downloads:
+
+```sh
+proof=".audit/native-player-presentation/$(git rev-parse HEAD)-repro"
+/usr/bin/python3 -B scripts/read_player_presentation_sources.py --output "$proof/source"
+/usr/bin/python3 -B scripts/prepare_player_presentation_oracle.py --source "$proof/source" --output "$proof/oracle"
+/usr/bin/python3 -B scripts/prepare_player_presentation.py --oracle "$proof/oracle" --output "$proof/assets"
+/usr/bin/cmake -S . -B "$proof/release" -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE=/usr/bin/python3
+/usr/bin/cmake --build "$proof/release" -j2
+/usr/bin/ctest --test-dir "$proof/release" --output-on-failure
+/usr/bin/python3 -B scripts/compare_player_presentation.py --native "$proof/release/native_presentation_trace_runner" --geometry-native "$proof/release/native_presentation_geometry_runner" --oracle "$proof/oracle" --player-dir "$proof/assets" --output "$proof/presentation"
+```
+
+Use a fresh output root. The checker requires a clean committed source/config
+revision and re-extracts/recompiles the reference from the hash-pinned original
+source closure using the current tracked harness. It records recipe, native
+binary, source assembly, original inputs, fixture, bank, and page identities.
+The source replay receives **only** validated physics/probe `P` records. Native
+`R/D/V` records never enter that input file; the C# replay also rejects them.
+Actual native `R/D/V` mutations and a long-idle RNG-ordinal mutation must fail
+comparison while leaving a freshly executed original reference unchanged.
+Empty traces, omitted presentation ticks, phase reordering, undeclared input,
+and incomplete independent source-family coverage cannot establish parity.
+
+The separate low-level geometry contract uses twelve fixed caller cases with
+both facings, fractional positions, signed squash, body/bangs/tail origins, and
+zero/nonzero rotation. Its source driver calls the unchanged original draw and
+vertex methods, not native output or a second canvas renderer.
+
 Actual native feedback and independent review remain separate acceptance gates.
 Death/respawn animation, sweat/particles/audio, decals, backdrops, faithful spike
 art, menus, additional states, and full-game fidelity are excluded. A removed
 player may retain its diagnostic pose until manual reset; that is not original
 death presentation. Emulator completion is not healthy-host, hardware, or
 performance proof.
+
+The actual animated Climb image and complete guest lifecycle were executed at
+`d4f512b2a137877bf39aa059336b465fdc0a900f`. A host-proof-only corrective revision
+does not become guest-executed by reusing that evidence. Reuse requires an
+explicit comparison of runtime source/header bytes, effective application
+compile settings, dependency bytes, and every staged asset/page/command byte
+against the original d4 package, apart from generated revision metadata.
+Fresh corrective-tip ELF/SELF/VPK inspection is static evidence only.
