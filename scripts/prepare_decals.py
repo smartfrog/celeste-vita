@@ -328,6 +328,9 @@ def prepare(oracle, raw_room, archive, visuals, hazards, output):
     (output / "decals.txt").write_bytes(protocol)
     manifest = {"input_sha256": INPUT_SHA, "map_sha256": MAP_SHA, "selected_room": "1",
                 "raw_room": {"path": str(Path(raw_room).resolve()), "sha256": RAW_ROOM_SHA},
+                "placement_source": {"raw_room_fields": {"level_name": "lvl_1", "bounds": [0, 0, 320, 184]},
+                                     "runtime_normalization": {"level_name": "1", "load_seed": 49, "logical_size": [320, 180]},
+                                     "note": "raw map labels only; decal x/y are used through the unchanged Decal source path, not a runtime LevelData/seed-478 claim"},
                 "oracle": {"path": str(Path(oracle).resolve()),
                            "result_sha256": hashlib.sha256((Path(oracle) / "result.json").read_bytes()).hexdigest(),
                            "source_manifest_sha256": hashlib.sha256((Path(oracle) / "source-manifest.json").read_bytes()).hexdigest()},

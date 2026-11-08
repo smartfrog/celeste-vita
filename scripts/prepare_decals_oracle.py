@@ -128,6 +128,11 @@ def prepare(discovery, pins, archive, raw_room, corrections, output):
     manifest = compose(discovery, pins, archive, output)
     manifest["raw_room"] = {"path": str(raw_room), "sha256": RAW_ROOM_SHA}
     manifest["corrections"] = {"path": str(corrections), "sha256": CORRECTIONS_SHA}
+    manifest["provenance_labels"] = {
+        "raw_room_fields": {"level_name": "lvl_1", "bounds": [0, 0, 320, 184]},
+        "runtime_normalization": {"level_name": "1", "load_seed": 49, "logical_size": [320, 180],
+                                  "source": "Celeste.LevelData.cs:113-122 strips the raw prefix; :99-110 sums the runtime Name; source height normalization is not a raw-map field"},
+        "note": "room level/bounds are RAW map fields. Decal positions use raw x/y through the unchanged Decal constructor; this is not a runtime LevelData/height-184/seed-478 claim"}
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
     commands = []
