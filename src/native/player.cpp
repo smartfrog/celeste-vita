@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include "presentation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -137,6 +138,9 @@ bool Player::check_hazards() {
 void Player::emit(const char* phase, const CollisionData* collision) const {
     if (observer_) observer_(phase, collision);
 }
+void Player::cosmetic(PlayerCosmeticPhase phase) const {
+    if (cosmetic_) cosmetic_(phase);
+}
 
 void Player::set_ducking(bool value) {
     state_.ducking = value;
@@ -187,7 +191,7 @@ int Player::normal_update() {
     }
     if (s.ducking) {
         if (s.on_ground && input_.y != 1) {
-            if (can_unduck(pos)) set_ducking(false);
+            if (can_unduck(pos)) { set_ducking(false); cosmetic(PlayerCosmeticPhase::stand); }
             else if (s.speed.x == 0.0f) {
                 for (int offset = 4; offset > 0; --offset) {
                     if (can_unduck({pos.x + static_cast<float>(offset), pos.y})) {
@@ -201,7 +205,10 @@ int Player::normal_update() {
                 }
             }
         }
-    } else if (s.on_ground && input_.y == 1 && s.speed.y >= 0.0f) set_ducking(true);
+    } else if (s.on_ground && input_.y == 1 && s.speed.y >= 0.0f) {
+        set_ducking(true);
+        cosmetic(PlayerCosmeticPhase::duck);
+    }
 
     if (s.ducking && s.on_ground) s.speed.x = approach(s.speed.x, 0.0f, 500.0f * delta_);
     else {
@@ -209,7 +216,10 @@ int Player::normal_update() {
         const float acceleration = std::abs(s.speed.x) > 90.0f && sign(s.speed.x) == s.move_x ? 400.0f : 1000.0f;
         s.speed.x = approach(s.speed.x, 90.0f * static_cast<float>(s.move_x), acceleration * multiplier * delta_);
     }
-    if (input_.y == 1 && s.speed.y >= 160.0f) s.max_fall = approach(s.max_fall, 240.0f, 300.0f * delta_);
+    if (input_.y == 1 && s.speed.y >= 160.0f) {
+        s.max_fall = approach(s.max_fall, 240.0f, 300.0f * delta_);
+        cosmetic(PlayerCosmeticPhase::fast_fall);
+    }
     else s.max_fall = approach(s.max_fall, 160.0f, 300.0f * delta_);
     if (!s.on_ground) {
         float target = s.max_fall;
@@ -308,6 +318,7 @@ void Player::collide_v(CollisionData data) {
             s.speed.x *= 1.2f;
             set_ducking(true);
         }
+        if (machine_.state()!=1) cosmetic(PlayerCosmeticPhase::landing);
     }
     if (s.speed.y < 0.0f) {
         const int reach = dash_attacking() && std::abs(s.speed.x) < 0.01f ? 5 : 4;
@@ -339,7 +350,7 @@ void Player::collide_v(CollisionData data) {
     emit("collided_v", &data);
 }
 
-void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer) {
+void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer, PlayerCosmeticObserver cosmetic_observer) {
     if (updating_) throw std::logic_error("Recursive Player frame is unsupported");
     if (death_.removed) throw std::invalid_argument("Removed Player cannot simulate another frame");
     if (!std::isfinite(delta_time) || delta_time < 0.0f || !std::isfinite(1000.0f * delta_time) ||
@@ -353,6 +364,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
     finite(actor_.body.position);
     updating_ = true;
     observer_ = std::move(observer);
+    cosmetic_ = std::move(cosmetic_observer);
     try {
         clock_.sample(delta_time);
         delta_ = clock_.delta;
@@ -369,9 +381,11 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         if (!clock_.simulate()) {
             emit("freeze");
             observer_ = {};
+            cosmetic_ = {};
             updating_ = false;
             return;
         }
+        cosmetic(PlayerCosmeticPhase::scene_tick);
         s.previous_position = pos;
         if (s.glider_boost_timer > 0.0f) s.glider_boost_timer -= delta_;
         if (s.low_friction_stop_timer > 0.0f) s.low_friction_stop_timer -= delta_;
@@ -383,6 +397,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         s.on_ground = ground != nullptr;
         s.on_safe_ground = ground && std::find(world_.safe_ground.begin(), world_.safe_ground.end(), ground) != world_.safe_ground.end();
         emit("ground");
+        cosmetic(PlayerCosmeticPhase::ground);
         if (s.wall_slide_dir != 0) {
             s.wall_slide_timer = std::max(s.wall_slide_timer - delta_, 0.0f);
             s.wall_slide_dir = 0;
@@ -425,7 +440,10 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         else if (s.climb_hop_solid && (s.climb_hop_solid->position.x != s.climb_hop_solid_position.x ||
                                       s.climb_hop_solid->position.y != s.climb_hop_solid_position.y))
             throw std::invalid_argument("Hop solid moved outside the static Player profile");
-        if (s.move_x != 0 && machine_.state() != 1) s.facing = s.move_x;
+        if (s.move_x != 0 && machine_.state() != 1) {
+            if (s.facing!=s.move_x && s.ducking) cosmetic(PlayerCosmeticPhase::duck_turn);
+            s.facing = s.move_x;
+        }
         if (input.aim_x == 0 && input.aim_y == 0) s.last_aim = {1.0f * static_cast<float>(s.facing), 0.0f * static_cast<float>(s.facing)};
         else {
             const float scale = input.aim_x != 0 && input.aim_y != 0 ? 1.0f / std::sqrt(2.0f) : 1.0f;
@@ -447,6 +465,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
             }
         }
         emit("preamble");
+        cosmetic(PlayerCosmeticPhase::components);
         machine_.update(delta_, delta_);
         emit("normal");
         if (!s.on_ground && s.speed.y <= 0.0f) {
@@ -470,18 +489,23 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         emit("horizontal");
         actor_.move_v(s.speed.y * delta_, [this](CollisionData data) { collide_v(data); });
         emit("vertical");
+        cosmetic(PlayerCosmeticPhase::select);
         if (check_hazards()) emit("removed");
         else {
             emit("hazards");
+            cosmetic(PlayerCosmeticPhase::hair_color);
             s.was_on_ground = s.on_ground;
             emit("complete");
+            cosmetic(PlayerCosmeticPhase::after_update);
         }
     } catch (...) {
         observer_ = {};
+        cosmetic_ = {};
         updating_ = false;
         throw;
     }
     observer_ = {};
+    cosmetic_ = {};
     updating_ = false;
 }
 

@@ -45,7 +45,7 @@ def verified_bytes(path, expected, limit=4_000_512):
     return data
 
 
-def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None):
+def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_dir=None):
     output = output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit"):
         raise ValueError("Private diagnostic assets must remain under .audit")
@@ -88,9 +88,26 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None):
         bake = Path(visuals["source_bake"]["path"])
         verified_bytes(bake / "result.json",visuals["source_bake"]["result_sha256"])
         verified_bytes(bake / "source-manifest.json",visuals["source_bake"]["source_manifest_sha256"])
+    player = None
+    if player_dir is not None:
+        if visuals is None:
+            raise ValueError("Animated player requires unchanged source-baked room visuals")
+        player = json.loads((player_dir / "provenance.json").read_text())
+        if (player["input_sha256"], player["map_sha256"], player["mode"], player["bank"], player["hair_count"]) != (INPUT_SHA, MAP_SHA, "Madeline", "player", 4):
+            raise ValueError("Wrong bounded player provenance")
+        pages = player["pages"]
+        if not 1 <= pages <= 10 or set(player["files"]) != {"player.txt", *(f"player{i}.rgba" for i in range(pages))}:
+            raise ValueError("Unexpected bounded player asset set")
+        if player["submitted_player_rgba_bytes"] != pages * 128 * 64 * 4 or 164864 + player["submitted_player_rgba_bytes"] > 512 * 1024:
+            raise ValueError("Required player closure exceeds upload budget")
+        for name, digest in player["files"].items():
+            files[name] = verified_bytes(player_dir / name, digest, 65_536 if name == "player.txt" else 32_768)
+        source = Path(player["source_oracle"])
+        verified_bytes(source / "source-manifest.json", player["source_manifest_sha256"])
+        verified_bytes(source / "bank.json", player["bank_sha256"])
     manifest = {"revision": revision, "tracked_changes": dirty, "input_sha256": INPUT_SHA,
                 "map_sha256": MAP_SHA, "selected_room": "1", "spawn": [19, 144],
-                "render_style": "textured_partial" if visuals else "debug", "visuals": visuals,
+                "render_style": "animated_player_partial" if player else "textured_partial" if visuals else "debug", "visuals": visuals, "player": player,
                 "mask_provenance_sha256": hashlib.sha256((mask_dir / "provenance.json").read_bytes()).hexdigest(),
                 "hazard_provenance_sha256": hashlib.sha256((hazard_dir / "provenance.json").read_bytes()).hexdigest(),
                 "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "fnv1a32": checksum(data), "bytes": len(data)}
@@ -104,6 +121,7 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None):
         f'constexpr std::uint32_t mask_checksum = {checksum(mask)}u;\n'
         f'constexpr std::uint32_t spike_checksum = {checksum(hazard_data)}u;\n'
         + (f'constexpr std::uint32_t visual_checksum = {checksum(files["visuals.txt"])}u;\n' if visuals else '') +
+        (f'constexpr std::uint32_t player_checksum = {checksum(files["player.txt"])}u;\nconstexpr const char* player_bank_sha256 = "{player["bank_sha256"]}";\n' if player else '') +
         f'constexpr const char* revision = "{revision}{"-dirty" if dirty else ""}";\n' + '}\n')
     return manifest
 
@@ -115,8 +133,9 @@ def main():
     parser.add_argument("--hazard-dir", type=Path, default=Path(".audit/native-room-hazards/prepared"))
     parser.add_argument("--archive", type=Path, default=Path("game/celeste-linux.zip"))
     parser.add_argument("--visual-dir", type=Path, help="Explicit source-closed private textured-room assets; absent keeps debug mode")
+    parser.add_argument("--player-dir", type=Path, help="Explicit source-closed animated player and simulated hair; requires visual-dir")
     args = parser.parse_args()
-    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir)
+    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir, args.player_dir)
     print(json.dumps(manifest, indent=2))
 
 

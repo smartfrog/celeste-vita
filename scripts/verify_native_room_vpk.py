@@ -22,8 +22,10 @@ def verify(vpk, build, staging):
     if elf[:7] != b"\x7fELF\x01\x01\x01" or struct.unpack_from("<H",elf,18)[0] != 40:
         raise ValueError("Expected ELF32 little-endian ARM executable")
     asset_names = {"global.mask", "hazards.txt"}
-    if manifest.get("render_style", "debug") == "textured_partial":
+    if manifest.get("render_style", "debug") in {"textured_partial", "animated_player_partial"}:
         asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(6))})
+    if manifest.get("render_style") == "animated_player_partial":
+        asset_names.update({"player.txt", *(f"player{i}.rgba" for i in range(manifest["player"]["pages"]))})
     if set(manifest["files"]) != asset_names:
         raise ValueError("Unexpected manifest asset set for render style")
     expected = {"eboot.bin","sce_sys/param.sfo","assets/native-room/provenance.json", *("assets/native-room/"+name for name in asset_names)}

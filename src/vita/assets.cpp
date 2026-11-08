@@ -1,5 +1,6 @@
 #include "assets.hpp"
 #include <charconv>
+#include <cstring>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -31,6 +32,14 @@ void header(std::string_view& text, std::string_view version) {
 void integrity(std::string_view text, std::size_t limit, std::uint32_t expected) {
     if (text.size() > limit || checksum(text) != expected)
         throw std::invalid_argument("Asset exceeds bound or fails build-pinned FNV-1a integrity");
+}
+std::uint32_t hex_value(std::string_view text) {
+    std::uint32_t value=0;
+    if(text.size()!=8 || text.find_first_not_of("0123456789abcdef")!=std::string_view::npos)
+        throw std::invalid_argument("Invalid asset hexadecimal field");
+    const auto parsed=std::from_chars(text.data(),text.data()+text.size(),value,16);
+    if(parsed.ec!=std::errc{} || parsed.ptr!=text.data()+text.size()) throw std::invalid_argument("Invalid asset hexadecimal field");
+    return value;
 }
 PlayerWorld make_world(Body& solids, const std::vector<StaticSpike>& spikes) {
     PlayerWorld world{};
@@ -105,10 +114,7 @@ VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksu
         auto& t = result.textures[i];
         for (auto field : {&t.width,&t.height,&t.crop_width,&t.crop_height,&t.trim_x,&t.trim_y,&t.frame_width,&t.frame_height})
             *field = integer(take(row,' '));
-        if (row.size() != 8 || row.find_first_not_of("0123456789abcdef") != std::string_view::npos)
-            throw std::invalid_argument("Invalid texture checksum");
-        const auto parsed = std::from_chars(row.data(),row.data()+row.size(),t.checksum,16);
-        if (parsed.ec != std::errc{} || parsed.ptr != row.data()+row.size()) throw std::invalid_argument("Invalid texture checksum");
+        t.checksum=hex_value(row);
         if (i < 5 ? (t.width != 64 || t.height != 128 || t.crop_width != 48 || t.crop_height != 120 ||
                      t.trim_x != 0 || t.trim_y != 0 || t.frame_width != 48 || t.frame_height != 120) :
                     (t.width != 16 || t.height != 16 || t.crop_width <= 0 || t.crop_width > 14 ||
@@ -140,6 +146,52 @@ VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksu
         result.commands.push_back(command);
     }
     if (!text.empty()) throw std::invalid_argument("Trailing room commands");
+    return result;
+}
+PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {
+    integrity(text,65'536,expected_checksum);
+    header(text,"CSPP1");
+    PlayerAssets result;
+    const int pages=integer(take(text));
+    if(pages<1 || pages>10) throw std::invalid_argument("Invalid player page count");
+    result.bank.pages=unsigned(pages);
+    for(int i=0;i<pages;++i) result.checksums.push_back(hex_value(take(text)));
+    const int frames=integer(take(text));
+    if(frames<1 || frames>256) throw std::invalid_argument("Invalid player frame count");
+    for(int i=0;i<frames;++i) {
+        auto row=take(text);
+        PlayerFrame frame{};
+        frame.name=take(row,' ');
+        if(frame.name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/")!=std::string::npos)
+            throw std::invalid_argument("Invalid player frame identity");
+        frame.page=unsigned(integer(take(row,' ')));
+        for(auto field:{&frame.u,&frame.v,&frame.width,&frame.height,&frame.trim_x,&frame.trim_y,&frame.frame_width,&frame.frame_height})
+            *field=integer(take(row,' '));
+        frame.hair_offset.x=float(integer(take(row,' '))); frame.hair_offset.y=float(integer(take(row,' ')));
+        frame.hair_frame=integer(take(row,' '));
+        if(row!="0" && row!="1") throw std::invalid_argument("Invalid hair visibility");
+        frame.has_hair=row=="1";
+        result.bank.frames.push_back(std::move(frame));
+    }
+    if(integer(take(text))!=24) throw std::invalid_argument("Expected bounded 24-animation closure");
+    for(int i=0;i<24;++i) {
+        auto row=take(text);
+        PlayerAnimation animation;
+        animation.id=take(row,' ');
+        const auto delay=hex_value(take(row,' '));
+        std::memcpy(&animation.delay,&delay,sizeof delay);
+        animation.next=take(row,' ');
+        if(animation.next=="-") animation.next.clear();
+        const int count=integer(take(row,' '));
+        if(count<1 || count>32) throw std::invalid_argument("Invalid animation frame count");
+        for(int f=0;f<count;++f) animation.frames.push_back(unsigned(integer(f==count-1 ? row : take(row,' '))));
+        result.bank.animations.push_back(std::move(animation));
+    }
+    auto row=take(text);
+    for(auto& frame:result.bank.bangs) frame=unsigned(integer(take(row,' ')));
+    result.bank.hair=unsigned(integer(row));
+    if(!text.empty()) throw std::invalid_argument("Trailing player presentation metadata");
+    result.bank.validate();
     return result;
 }
 void validate_texture_bytes(std::string_view bytes, const TextureInfo& texture) {

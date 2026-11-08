@@ -66,23 +66,41 @@ void run() {
 #ifdef CELESTE_ROOM_TEXTURED
     const auto visuals = parse_visuals(read_asset("app0:assets/native-room/visuals.txt",65'536),visual_checksum);
     visual_assets = &visuals;
+#ifndef CELESTE_ROOM_ANIMATED_PLAYER
     log("render style=textured_partial static_BG_BODY_FG body=idle00_static_no_animation camera=0,0 diagnostic_spike_markers=5 not_faithful_spike_art no_hair_decals_backdrops_animation_audio_menu_fullgame_fidelity submitted_RGBA_bytes=164864 not_physical_GPU_allocation");
+#endif
 #else
     log("render style=debug hitboxes_and_diagnostic_spike_markers camera=0,0");
+#endif
+    const PlayerAssets* player_assets=nullptr;
+#ifdef CELESTE_ROOM_ANIMATED_PLAYER
+    const auto player_frames=parse_player_assets(read_asset("app0:assets/native-room/player.txt",65'536),player_checksum);
+    player_assets=&player_frames;
+    log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_diagnostic_markers_FG no_death_art_decals_backdrops_audio_menu_fullgame_fidelity",
+        player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4);
 #endif
     initialize_graphics();
     try {
     if (visual_assets) load_textures(*visual_assets);
+    if (player_assets) load_player_textures(*player_assets);
     const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_DIGITAL);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
-    Session session(room.world);
+    Session session(room.world,{19,144},player_assets ? &player_assets->bank : nullptr,0);
+    const auto render=[&](const char* path,unsigned frame) {
+        const auto projection=session.projection();
+        if(player_assets) {
+            PlayerRender animated{*player_assets,*session.presentation(),projection};
+            return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated);
+        }
+        return draw(room,session.player(),path,frame,session.resets(),visual_assets);
+    };
     Controller controller;
     unsigned previous = 0, frame = 0;
     const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
     bool captured = !capture_after_wall_jump && !capture_after_climb, wall_near = false, wall_forced = false;
     bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
     float climb_entry_y = 0.0f;
-    const auto exported = draw(room,session.player(),captured ? frame_path.c_str() : nullptr,0,0,visual_assets);
+    const auto exported = render(captured ? frame_path.c_str() : nullptr,0);
     if (captured) log("%s",exported.c_str());
     log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
     state("frame ready",frame,session);
@@ -111,11 +129,17 @@ void run() {
         const auto& player = session.player();
         const bool jumped = !sample.reset && player.jump_count() != jumps;
         const bool wall_jumped = jumped && player.jump_kind() == celeste::JumpKind::wall_jump;
+        const auto* presentation=session.presentation();
+        const bool animated_climb_ready=!presentation ||
+            ((presentation->pose().animation=="climbUp" || presentation->pose().animation=="climbup") &&
+             presentation->pose().animation_frame>0 && player.state().speed.y<0 &&
+             presentation->pose().hair_nodes[0].x>=0 && presentation->pose().hair_nodes[0].x<320 &&
+             presentation->pose().hair_nodes[0].y>=0 && presentation->pose().hair_nodes[0].y<180);
         if (capture_after_climb && !climbed && player.state_machine().state() == 1) climb_entry_y = player.actor().body.position.y;
         const bool capture = !captured && ((capture_after_wall_jump && wall_jumped) ||
             (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
-             player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y));
-        const auto saved = draw(room,player,capture ? frame_path.c_str() : nullptr,frame,session.resets(),visual_assets);
+              player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
+        const auto saved = render(capture ? frame_path.c_str() : nullptr,frame);
         if (capture) { captured = true; log("%s",saved.c_str()); }
         if (jumped) state("jump",frame,session);
         const int new_state = player.state_machine().state();

@@ -67,6 +67,8 @@ struct PlayerState {
 };
 
 using PlayerObserver = std::function<void(const char*, const CollisionData*)>;
+enum class PlayerCosmeticPhase;
+using PlayerCosmeticObserver = std::function<void(PlayerCosmeticPhase)>;
 
 class Player final {
 public:
@@ -90,7 +92,7 @@ public:
     bool grab_held() const { return grab_check(); }
     bool die(Vec2 direction);
     void request_state(int state);
-    void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {});
+    void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {}, PlayerCosmeticObserver cosmetic = {});
 
 private:
     const PlayerWorld& world_;
@@ -103,6 +105,7 @@ private:
     PlayerInput input_{};
     float delta_ = 0.0f;
     PlayerObserver observer_;
+    PlayerCosmeticObserver cosmetic_;
     bool updating_ = false;
     PlayerDeath death_;
     HazardFrame hazard_frame_;
@@ -111,6 +114,7 @@ private:
 
     void validate_world() const;
     void emit(const char* phase, const CollisionData* collision = nullptr) const;
+    void cosmetic(PlayerCosmeticPhase phase) const;
     void set_ducking(bool value);
     bool can_unduck(Vec2 at) const;
     bool climb_bounds_check(int dir) const;

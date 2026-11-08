@@ -27,10 +27,13 @@ def new_feedback(revision, vpk):
             "method":"OUR guest glReadPixels GL_BACK once; lossless P6-to-PNG conversion; no OS screen capture"}
 
 
-def validate_textured_pixels(pixels, metadata, visuals, capture):
+def validate_textured_pixels(pixels, metadata, visuals, capture, player=None):
     expected = {"render_style":"textured_partial", "camera":"0,0", "body_draws":"1", "diagnostic_spike_markers":"5",
                 "submitted_rgba_bytes":"164864", "alpha":"premultiplied_ONE_ONE_MINUS_SRC_ALPHA", "body_pose":"idle00_static_no_animation",
-                "bg_draws":str(visuals["draw_counts"]["B"]), "fg_draws":str(visuals["draw_counts"]["F"])}
+                 "bg_draws":str(visuals["draw_counts"]["B"]), "fg_draws":str(visuals["draw_counts"]["F"])}
+    if player is not None:
+        expected.update(render_style="animated_player_partial", body_pose="source_animated_with_simulated_hair",
+                        submitted_rgba_bytes=str(164864 + player["submitted_player_rgba_bytes"]))
     if any(metadata.get(key) != value for key, value in expected.items()):
         raise ValueError("Textured native receipt lacks exact style/camera/layers/bytes/alpha scope")
     colors = len({pixels[i:i+3] for i in range(0,len(pixels),3)})
@@ -38,18 +41,55 @@ def validate_textured_pixels(pixels, metadata, visuals, capture):
         raise ValueError("Textured frame lacks texture color diversity; debug palette is not textured proof")
     probes = []
     for probe in visuals["spawn_content_probes"]:
-        if capture != "spawn" and probe["texture"] == 5:
+        if (capture != "spawn" or player is not None) and probe["texture"] == 5:
             continue
         x, y = probe["screen_pixel"]
         actual = list(pixels[(y*960+x)*3:(y*960+x+1)*3])
         if actual != probe["expected_rgb"]:
             raise ValueError(f"Native source texture content/orientation probe failed for texture {probe['texture']}: {actual} != {probe['expected_rgb']}")
         probes.append({**probe,"actual_rgb":actual})
-    return {"unique_rgb_colors":colors,"opaque_source_probes":probes,"partial_alpha_room_probe":visuals["alpha_probe"],
+    animated = validate_animated_pixels(pixels, metadata, player, capture) if player is not None else None
+    return {"unique_rgb_colors":colors,"opaque_source_probes":probes,"animated_player":animated,"partial_alpha_room_probe":visuals["alpha_probe"],
             "partial_alpha_claim":"Requested six crops contain only alpha 0/255; separate GPU blend diagnostic required" if visuals["alpha_probe"] is None else "source edge present"}
 
 
-def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None):
+def validate_animated_pixels(pixels, metadata, player, capture):
+    expected = {"hair_simulated":"1", "hair_count":"4", "hair_outline":"black_16_draws", "diagnostic_rng_seed":"0",
+                "original_startup_rng_parity":"false", "source_phase":"level_after_update_then_render"}
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise ValueError("Animated player receipt lacks bounded source/hair/seed scope")
+    bank_path = Path(player["source_oracle"]) / "bank.json"
+    bank_bytes = bank_path.read_bytes()
+    if hashlib.sha256(bank_bytes).hexdigest() != player["bank_sha256"]:
+        raise ValueError("Source frame bank identity changed")
+    bank = json.loads(bank_bytes)
+    animation = next((a for a in bank["animations"] if a["id"].lower() == metadata["animation"].lower()), None)
+    frame = int(metadata["body_frame"])
+    if animation is None or not 0 <= frame < len(animation["frames"]) or animation["frames"][frame] != metadata["source_texture"]:
+        raise ValueError("Native animated texture does not match original source bank frame")
+    if capture == "climb" and (metadata["animation"].lower() != "climbup" or frame <= 0 or float(metadata["vy"]) >= 0):
+        raise ValueError("Animated Climb capture is not a meaningful moving animation frame")
+    nodes = [[float(v) for v in pair.split(",")] for pair in metadata["hair_nodes"].rstrip(";").split(";")]
+    if len(nodes) != 4 or any(len(node) != 2 or not all(math.isfinite(v) for v in node) for node in nodes):
+        raise ValueError("Native simulated hair nodes are missing or nonfinite")
+    color = [int(v) for v in metadata["hair_color"].split(",")]
+    if color != [172, 50, 50, 255] and capture == "climb":
+        raise ValueError("Default-inventory held Climb hair is not source normal red")
+    hits = set()
+    for nx, ny in nodes:
+        sx, sy = int(nx * 3 + 1), int(ny * 3 + 3)
+        for y in range(max(2, sy - 6), min(542, sy + 7)):
+            for x in range(max(0, sx - 6), min(960, sx + 7)):
+                if list(pixels[(y * 960 + x) * 3:(y * 960 + x + 1) * 3]) == color[:3]:
+                    hits.add((x, y))
+    if capture == "climb" and not hits:
+        raise ValueError("Actual native framebuffer lacks visible source-red fill near simulated hair nodes")
+    return {"animation":metadata["animation"], "frame":frame, "texture":metadata["source_texture"], "nodes":nodes,
+            "color":color, "native_hair_color_pixels_near_nodes":len(hits),
+            "claim":"Bounded native color/location evidence plus source-bank identity; not a full compositing reference or semialpha proof"}
+
+
+def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None, player_provenance=None):
     if capture not in {"spawn", "wall_jump", "climb"}:
         raise ValueError("Unsupported explicit native capture policy")
     guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
@@ -101,7 +141,7 @@ def collect_native_frame(filesystem, output, revision, capture="spawn", visual_p
         artifacts[name] = {"path":str(destination),"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()}
     pixels = ppm.split(b"\n",3)[3]
     black_bars = pixels[:960*2*3] == bytes(960*2*3) and pixels[-960*2*3:] == bytes(960*2*3)
-    textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture) if visual_provenance is not None else None
+    textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture,player_provenance) if visual_provenance is not None else None
     if visual_provenance is None and metadata.get("render_style","debug") != "debug":
         raise ValueError("Textured export requires its exact staged visual provenance, not debug intent")
     return {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,

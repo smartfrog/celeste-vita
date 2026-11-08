@@ -34,17 +34,25 @@ Viewport letterbox(int width, int height) {
     if (!scale) throw std::invalid_argument("Display smaller than logical room");
     return {(width - 320*scale)/2, (height - 180*scale)/2, 320*scale, 180*scale};
 }
-Session::Session(const PlayerWorld& world, Vec2 spawn)
-    : world_(world), spawn_(spawn), player_(std::make_unique<Player>(world, spawn)) {}
+Session::Session(const PlayerWorld& world, Vec2 spawn, const PlayerFrameBank* bank, std::int32_t diagnostic_seed)
+    : world_(world), spawn_(spawn), player_(std::make_unique<Player>(world, spawn)),
+      presentation_(bank ? std::make_unique<PlayerPresentation>(*bank,player_->actor().body.position,diagnostic_seed) : nullptr) {}
+PlayerProjection Session::projection() const { return project_player(*player_,world_,presentation_input_); }
 void Session::step(const Sample& sample) {
     if (exiting_) return;
     if (sample.exit) { exiting_ = true; return; }
     if (sample.reset) {
         auto fresh = std::make_unique<Player>(world_, spawn_);
         player_ = std::move(fresh);
+        if(presentation_) presentation_->reset(player_->actor().body.position);
+        presentation_input_={};
         ++resets_;
         return;
     }
-    if (!player_->death().dead) player_->frame(1.0f / 60.0f, sample.player);
+    presentation_input_=sample.player;
+    if (!player_->death().dead) player_->frame(1.0f / 60.0f, sample.player,{},
+        presentation_ ? PlayerCosmeticObserver{[this](PlayerCosmeticPhase phase) {
+            presentation_->observe(phase,projection(),player_->clock().delta);
+        }} : PlayerCosmeticObserver{});
 }
 }

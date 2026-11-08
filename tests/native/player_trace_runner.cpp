@@ -1,5 +1,9 @@
 #include "player.hpp"
 #include "fixture_io.hpp"
+#ifdef PRESENTATION_TRACE
+#include "assets.hpp"
+#include "presentation_trace.hpp"
+#endif
 
 #include <deque>
 #include <map>
@@ -14,7 +18,19 @@ class PlayerRunner {
 public:
     void run(const std::vector<std::string>& f) {
         const auto& op = f.at(0);
+#ifdef PRESENTATION_TRACE
+        if(op=="frames") {
+            const int count=std::stoi(f.at(1));
+            if(count<1 || count>10000) throw std::invalid_argument("Invalid presentation repetition count");
+            std::vector<std::string> tick{"tick"};tick.insert(tick.end(),f.begin()+2,f.end());
+            for(int i=0;i<count;++i) run(tick);
+            return;
+        }
+#endif
         if (op == "case") {
+#ifdef PRESENTATION_TRACE
+            presentation_.reset();
+#endif
             player_.reset();
             world_ = {};
             bodies_.clear();
@@ -88,6 +104,9 @@ public:
 #endif
         if (op != "tick") throw std::invalid_argument("Unknown Player operation");
         if (!player_) player_ = std::make_unique<Player>(world_, spawn_, speed_);
+#ifdef PRESENTATION_TRACE
+        if (!presentation_) presentation_=std::make_unique<PresentationTrace>(*presentation_bank,spawn_);
+#endif
         ++frame_;
         delta_ = parse_float(f.at(1));
         input_ = {std::stoi(f.at(2)), std::stoi(f.at(3)),
@@ -96,7 +115,14 @@ public:
         input_.aim_x = std::stoi(f.at(10)); input_.aim_y = std::stoi(f.at(11));
         input_.dash_button = {flag(f.at(12)), flag(f.at(13)), flag(f.at(14)), flag(f.at(7))};
         try {
-            player_->frame(delta_, input_, [this](const char* phase, const CollisionData* data) { trace(phase, data); });
+            player_->frame(delta_, input_, [this](const char* phase, const CollisionData* data) { trace(phase, data); }
+#ifdef PRESENTATION_TRACE
+                ,[this](PlayerCosmeticPhase phase){presentation_->observe(name_,frame_,phase,project_player(*player_,world_,input_),player_->clock().delta);}
+#endif
+            );
+#ifdef PRESENTATION_TRACE
+            presentation_->render(name_,frame_,project_player(*player_,world_,input_),delta_);
+#endif
         } catch (const std::invalid_argument&) { trace("rejected", nullptr); }
 #elif defined(HAZARD_TRACE)
         phases_.clear();
@@ -134,6 +160,9 @@ private:
     int frame_ = 0;
     float delta_ = 0.0f;
     PlayerInput input_;
+#ifdef PRESENTATION_TRACE
+    std::unique_ptr<PresentationTrace> presentation_;
+#endif
 #ifdef HAZARD_TRACE
     std::deque<StaticSpike> spikes_;
     std::vector<std::string> spike_ids_;
@@ -155,6 +184,10 @@ private:
     }
 
     void trace(const char* phase, const CollisionData* data) const {
+#ifdef PRESENTATION_TRACE
+        (void)phase; (void)data;
+        return;
+#endif
         const auto& p = *player_;
         const auto& s = p.state();
         const auto pos = p.actor().body.position;
@@ -238,4 +271,14 @@ private:
 
 }
 
-int main(int argc, char** argv) { return run_fixture<PlayerRunner>(argc, argv); }
+int main(int argc, char** argv) {
+#ifdef PRESENTATION_TRACE
+    if(argc!=3) {std::cerr<<"Expected fixtures and private player bank paths\n";return 1;}
+    const auto bytes=celeste::diagnostic::read_asset(argv[2],65'536);
+    const auto assets=celeste::diagnostic::parse_player_assets(bytes,celeste::diagnostic::checksum(bytes));
+    presentation_bank=&assets.bank;
+    return run_fixture<PlayerRunner>(2,argv);
+#else
+    return run_fixture<PlayerRunner>(argc, argv);
+#endif
+}

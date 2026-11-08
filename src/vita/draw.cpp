@@ -11,10 +11,21 @@ namespace celeste::diagnostic {
 namespace {
 std::array<GLuint,6> textures{};
 unsigned uploaded = 0;
+std::array<GLuint,10> player_textures{};
+unsigned player_uploaded=0;
 constexpr unsigned submitted_rgba_bytes = 5*64*128*4+16*16*4;
 void check(const char* stage) {
     const auto error = glGetError();
     if (error != GL_NO_ERROR) throw std::runtime_error(std::string(stage) + ": GL error " + std::to_string(error));
+}
+void upload_texture(GLuint texture,int width,int height,std::string_view pixels) {
+    glBindTexture(GL_TEXTURE_2D,texture);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+    check("bounded RGBA texture upload");
 }
 void rectangle(float x, float y, float width, float height) {
     glBegin(GL_QUADS);
@@ -51,12 +62,24 @@ void tile_layer(const VisualAssets& visuals, bool background) {
     }
     if (active_texture != -1) glEnd();
 }
+void player_layer(PlayerRender& animated) {
+    if(player_uploaded!=animated.assets.bank.pages) throw std::logic_error("Incomplete player texture ownership");
+    const auto draws=animated.presentation.draw(animated.projection);
+    for(const auto& d:draws) {
+        const auto& f=animated.assets.bank.frames[d.frame];
+        glBindTexture(GL_TEXTURE_2D,player_textures.at(f.page));
+        glColor4ub(d.color.r,d.color.g,d.color.b,d.color.a);
+        glBegin(GL_QUADS);
+        for(const auto& v:player_vertices(f,d)) {glTexCoord2f(v.u,v.v);glVertex2f(v.x,v.y);}
+        glEnd();
+    }
+}
 void hazard_markers(const Room& room) {
     glDisable(GL_TEXTURE_2D);
     glColor3f(1,0.2f,0.2f);
     for (const auto& spike : room.spikes) body(spike.body());
 }
-std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals) {
+std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
     glReadBuffer(GL_BACK);
     glFinish();
     check("frame export GPU finish");
@@ -68,6 +91,19 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
     const auto position = player.actor().body.position;
     unsigned bg_count = 0, fg_count = 0;
     if (visuals) for (const auto& command : visuals->commands) command.background ? ++bg_count : ++fg_count;
+    std::string presentation;
+    if(animated) {
+        const auto& pose=animated->presentation.pose();
+        const auto& texture=animated->assets.bank.frames[pose.frame];
+        presentation=" animation="+pose.animation+" body_frame="+std::to_string(pose.animation_frame)+" source_texture="+texture.name+
+            " player_page="+std::to_string(texture.page)+" scale="+std::to_string(pose.scale.x)+","+std::to_string(pose.scale.y)+
+            " rotation="+std::to_string(pose.rotation)+" hair_simulated=1 hair_count=4 hair_outline=black_16_draws hair_nodes=";
+        for(auto node:pose.hair_nodes) presentation+=std::to_string(node.x)+","+std::to_string(node.y)+";";
+        const auto c=pose.hair_color;
+        presentation+=" hair_color="+std::to_string(c.r)+","+std::to_string(c.g)+","+std::to_string(c.b)+","+std::to_string(c.a)+
+            " diagnostic_rng_seed="+std::to_string(animated->presentation.diagnostic_seed())+" rng_calls="+std::to_string(animated->presentation.random_calls())+
+            " original_startup_rng_parity=false source_phase=level_after_update_then_render";
+    }
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
         " stage=after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap frame="+std::to_string(frame)+" x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
@@ -75,10 +111,10 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         " resets="+std::to_string(resets)+" state="+std::to_string(player.state_machine().state())+
         " stamina="+std::to_string(player.state().stamina)+" grab="+std::to_string(player.grab_held())+
         " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : player.state_machine().state() == 1 ? "climb" : "wall_jump")+
-        " render_style="+(visuals ? "textured_partial" : "debug")+" camera=0,0 bg_draws="+std::to_string(bg_count)+" fg_draws="+std::to_string(fg_count)+
-        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers=5 submitted_rgba_bytes="+std::to_string(visuals ? submitted_rgba_bytes : 0)+
-        " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(visuals ? "idle00_static_no_animation" : "hitboxes")+
-        " format=P6_RGB_top_down\n";
+        " render_style="+(animated ? "animated_player_partial" : visuals ? "textured_partial" : "debug")+" camera=0,0 bg_draws="+std::to_string(bg_count)+" fg_draws="+std::to_string(fg_count)+
+        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers=5 submitted_rgba_bytes="+std::to_string(visuals ? submitted_rgba_bytes+player_uploaded*128*64*4 : 0)+
+        " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(animated ? "source_animated_with_simulated_hair" : visuals ? "idle00_static_no_animation" : "hitboxes")+
+        presentation+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
     return receipt;
 }
@@ -104,19 +140,26 @@ void load_textures(const VisualAssets& visuals) {
         const auto pixels = read_asset(("app0:assets/native-room/texture"+std::to_string(i)+".rgba").c_str(),64*128*4);
         const auto& info = visuals.textures[i];
         validate_texture_bytes(pixels,info);
-        glBindTexture(GL_TEXTURE_2D,textures[i]);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,info.width,info.height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
-        check("bounded RGBA texture upload");
+        upload_texture(textures[i],info.width,info.height,pixels);
         ++uploaded;
     }
     glBindTexture(GL_TEXTURE_2D,0);
     check("texture upload completion");
 }
-std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals) {
+void load_player_textures(const PlayerAssets& assets) {
+    if(player_uploaded || !assets.bank.pages || assets.bank.pages>player_textures.size()) throw std::logic_error("Invalid player texture ownership");
+    glGenTextures(assets.bank.pages,player_textures.data());
+    check("player texture ownership allocation");
+    for(unsigned i=0;i<assets.bank.pages;++i) {
+        const auto pixels=read_asset(("app0:assets/native-room/player"+std::to_string(i)+".rgba").c_str(),128*64*4);
+        if(pixels.size()!=128*64*4 || checksum(pixels)!=assets.checksums.at(i)) throw std::invalid_argument("Player page integrity mismatch");
+        upload_texture(player_textures[i],128,64,pixels);
+        ++player_uploaded;
+    }
+    glBindTexture(GL_TEXTURE_2D,0);
+}
+std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
+    if(animated && !visuals) throw std::invalid_argument("Animated player requires source-baked room layers");
     glViewport(0,0,960,544);
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -137,7 +180,8 @@ std::string draw(const Room& room, const Player& player, const char* export_path
         glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
         glColor4f(1,1,1,1);
         tile_layer(*visuals,true);
-        textured_quad(body_quad(visuals->textures[5],player.actor().body.position,static_cast<int>(player.state().facing)),5);
+        if(animated) player_layer(*animated);
+        else textured_quad(body_quad(visuals->textures[5],player.actor().body.position,static_cast<int>(player.state().facing)),5);
         hazard_markers(room);
         glEnable(GL_TEXTURE_2D);
         glColor4f(1,1,1,1);
@@ -163,7 +207,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     rectangle(position.x+hurtbox.offset.x,position.y+hurtbox.offset.y,hurtbox.width,hurtbox.height);
     }
     check("room draw");
-    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals) : std::string{};
+    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated) : std::string{};
     vglSwapBuffers(GL_FALSE);
     check("buffer swap");
     return exported;
@@ -172,8 +216,11 @@ void finish_graphics() {
     glFinish();
     const auto finish_error = glGetError();
     glDeleteTextures(textures.size(),textures.data());
+    glDeleteTextures(player_textures.size(),player_textures.data());
     textures.fill(0);
     uploaded = 0;
+    player_textures.fill(0);
+    player_uploaded=0;
     const auto delete_error = glGetError();
     if (finish_error != GL_NO_ERROR || delete_error != GL_NO_ERROR)
         throw std::runtime_error("Graphics finish/texture teardown GL errors "+std::to_string(finish_error)+","+std::to_string(delete_error));

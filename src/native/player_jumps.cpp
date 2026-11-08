@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include "presentation.hpp"
 
 #include <cmath>
 
@@ -27,6 +28,7 @@ void Player::begin_jump(JumpKind kind, float var_time) {
     state_.glider_boost_timer = 0.0f;
     state_.wall_slide_timer = 1.2f;
     state_.wall_boost_timer = 0.0f;
+    cosmetic(PlayerCosmeticPhase::jump);
 }
 
 void Player::jump() {
