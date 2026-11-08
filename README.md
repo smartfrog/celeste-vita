@@ -7,6 +7,10 @@ Portage homebrew natif de **Celeste 1.4.0.0** sur PlayStation Vita, en cours.
 Grid statique, masque global ForsakenCity et pics Up/Left avec mort immédiate
 vérifiés sur hôte, essais bornés dans la salle `1` ;
 exécution du jeu sur Vita non démontrée.** Le noyau n'embarque ni Mono ni CLR.
+An opt-in [native Vita room diagnostic](docs/NATIVE_VITA_DIAGNOSTIC.md) builds our
+own C++ executable/VPK with debug rectangles, sampled controls and manual reset.
+This is not faithful rendering/audio, original respawn or a completed playable port;
+target execution evidence and limits are recorded separately from host compatibility.
 Voir [le noyau natif](docs/NATIVE_KERNEL.md) et
 [la compatibilité d'ordonnancement](docs/NATIVE_SCHEDULING.md) et
 [les boutons échantillonnés](docs/NATIVE_INPUT.md) et
