@@ -81,13 +81,23 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_di
         visuals = json.loads((visual_dir / "provenance.json").read_text())
         if (visuals["input_sha256"], visuals["map_sha256"], visuals["selected_room"]) != (INPUT_SHA, MAP_SHA, "1"):
             raise ValueError("Wrong visual input provenance")
-        if set(visuals["files"]) != {"visuals.txt", *(f"texture{i}.rgba" for i in range(6))} or visuals["submitted_rgba_bytes"] != 164864:
+        spike_art = visuals.get("spike_art") is not None or visuals.get("spike_textures") is not None
+        expected_files = {"visuals.txt", *(f"texture{i}.rgba" for i in range(8 if spike_art else 6))}
+        expected_bytes = 166912 if spike_art else 164864
+        if set(visuals["files"]) != expected_files or visuals["submitted_rgba_bytes"] != expected_bytes:
             raise ValueError("Unexpected visual asset set or submitted byte count")
         for name, digest in visuals["files"].items():
             files[name] = verified_bytes(visual_dir / name,digest,65_536)
-        bake = Path(visuals["source_bake"]["path"])
-        verified_bytes(bake / "result.json",visuals["source_bake"]["result_sha256"])
-        verified_bytes(bake / "source-manifest.json",visuals["source_bake"]["source_manifest_sha256"])
+        if spike_art:
+            oracle = visuals["spike_oracle"]
+            verified_bytes(Path(oracle["path"]) / "result.json",oracle["result_sha256"],16*1024*1024)
+            verified_bytes(Path(oracle["path"]) / "source-manifest.json",oracle["source_manifest_sha256"],16*1024*1024)
+            if visuals["additional_spike_rgba_bytes"] != 2048 or len(visuals["spike_textures"]) != 2:
+                raise ValueError("Unexpected source spike texture closure")
+        else:
+            bake = Path(visuals["source_bake"]["path"])
+            verified_bytes(bake / "result.json",visuals["source_bake"]["result_sha256"])
+            verified_bytes(bake / "source-manifest.json",visuals["source_bake"]["source_manifest_sha256"])
     player = None
     if player_dir is not None:
         if visuals is None:
@@ -107,7 +117,8 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_di
         verified_bytes(source / "bank.json", player["bank_sha256"])
     manifest = {"revision": revision, "tracked_changes": dirty, "input_sha256": INPUT_SHA,
                 "map_sha256": MAP_SHA, "selected_room": "1", "spawn": [19, 144],
-                "render_style": "animated_player_partial" if player else "textured_partial" if visuals else "debug", "visuals": visuals, "player": player,
+                "render_style": "animated_player_partial" if player else "textured_partial" if visuals else "debug",
+                "spike_art": bool(visuals and visuals.get("spike_textures") is not None), "visuals": visuals, "player": player,
                 "mask_provenance_sha256": hashlib.sha256((mask_dir / "provenance.json").read_bytes()).hexdigest(),
                 "hazard_provenance_sha256": hashlib.sha256((hazard_dir / "provenance.json").read_bytes()).hexdigest(),
                 "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "fnv1a32": checksum(data), "bytes": len(data)}

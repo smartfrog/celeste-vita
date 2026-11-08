@@ -106,21 +106,32 @@ std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expec
 }
 VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text,65'536,expected_checksum);
-    header(text,"CSRV1");
-    if (take(text) != "6") throw std::invalid_argument("Expected six bounded room textures");
+    const auto version = take(text);
+    if (version != "CSRV1" && version != "CSRV2")
+        throw std::invalid_argument("Wrong visual asset version");
+    if (take(text) != input_sha || take(text) != map_sha)
+        throw std::invalid_argument("Wrong asset version or pinned input hashes");
     VisualAssets result{};
-    for (std::size_t i=0; i<result.textures.size(); ++i) {
+    result.texture_count = integer(take(text));
+    if (result.texture_count != (version == "CSRV1" ? 6 : 8))
+        throw std::invalid_argument("Unexpected bounded room texture count");
+    for (int i=0; i<result.texture_count; ++i) {
         auto row = take(text);
         auto& t = result.textures[i];
         for (auto field : {&t.width,&t.height,&t.crop_width,&t.crop_height,&t.trim_x,&t.trim_y,&t.frame_width,&t.frame_height})
             *field = integer(take(row,' '));
         t.checksum=hex_value(row);
-        if (i < 5 ? (t.width != 64 || t.height != 128 || t.crop_width != 48 || t.crop_height != 120 ||
-                     t.trim_x != 0 || t.trim_y != 0 || t.frame_width != 48 || t.frame_height != 120) :
-                    (t.width != 16 || t.height != 16 || t.crop_width <= 0 || t.crop_width > 14 ||
-                     t.crop_height <= 0 || t.crop_height > 14 || t.frame_width != 32 || t.frame_height != 32 ||
-                     t.trim_x < 0 || t.trim_x > 32-t.crop_width || t.trim_y < 0 || t.trim_y > 32-t.crop_height))
-            throw std::invalid_argument("Unsupported bounded texture profile");
+        const bool valid = i < 5 ? (t.width == 64 && t.height == 128 && t.crop_width == 48 && t.crop_height == 120 &&
+                                    t.trim_x == 0 && t.trim_y == 0 && t.frame_width == 48 && t.frame_height == 120) :
+                           i == 5 ? (t.width == 16 && t.height == 16 && t.crop_width > 0 && t.crop_width <= 14 &&
+                                     t.crop_height > 0 && t.crop_height <= 14 && t.frame_width == 32 && t.frame_height == 32 &&
+                                     t.trim_x >= 0 && t.trim_x <= 32-t.crop_width && t.trim_y >= 0 && t.trim_y <= 32-t.crop_height) :
+                           i == VisualAssets::up_texture ? (t.width == 16 && t.height == 16 && t.crop_width == 7 &&
+                                                            t.crop_height == 6 && t.trim_x == 1 && t.trim_y == 1 &&
+                                                            t.frame_width == 7 && t.frame_height == 6) :
+                           (t.width == 16 && t.height == 16 && t.crop_width == 6 && t.crop_height == 7 &&
+                            t.trim_x == 1 && t.trim_y == 1 && t.frame_width == 6 && t.frame_height == 7);
+        if (!valid) throw std::invalid_argument("Unsupported bounded texture profile");
     }
     const int count = integer(take(text));
     if (count < 0 || count > 1840) throw std::invalid_argument("Excessive room commands");
@@ -145,8 +156,62 @@ VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksu
         occupied[cell] = true;
         result.commands.push_back(command);
     }
+    if (version == "CSRV2") {
+        const int families = integer(take(text));
+        if (families != 2) throw std::invalid_argument("Expected two singleton spike families");
+        bool up = false, left = false;
+        for (int i=0; i<families; ++i) {
+            auto row = take(text);
+            const auto name = take(row,' ');
+            if (integer(row) != 1 || ((name == "default_up") ? up : (name == "default_left") ? left : true))
+                throw std::invalid_argument("Spike family is not the pinned singleton");
+            (name == "default_up" ? up : left) = true;
+        }
+        if (!up || !left) throw std::invalid_argument("Missing pinned spike family");
+        const int pieces = integer(take(text));
+        if (pieces < 1 || pieces > 64) throw std::invalid_argument("Invalid spike piece count");
+        for (int i=0; i<pieces; ++i) {
+            auto row = take(text);
+            const auto direction = take(row,' ');
+            SpikePiece piece{};
+            piece.up = direction == "up";
+            piece.x = integer(take(row,' ')); piece.y = integer(take(row,' '));
+            piece.width = integer(take(row,' ')); piece.height = integer(take(row,' '));
+            piece.u = integer(take(row,' ')); piece.v = integer(row);
+            if ((direction != "up" && direction != "left") ||
+                piece.x < -1'000'000 || piece.x > 1'000'000 || piece.y < -1'000'000 || piece.y > 1'000'000 ||
+                piece.width != (piece.up ? 7 : 6) || piece.height != (piece.up ? 6 : 7) ||
+                piece.u != 1 || piece.v != 1)
+                throw std::invalid_argument("Invalid spike image piece");
+            result.spike_pieces.push_back(piece);
+        }
+    }
     if (!text.empty()) throw std::invalid_argument("Trailing room commands");
     return result;
+}
+
+void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes) {
+    if (!visuals.spike_art()) throw std::invalid_argument("Spike art requires the optional eight-texture protocol");
+    std::vector<SpikePiece> expected;
+    for (const auto& spike : spikes) {
+        const auto& box = spike.body().collider.value();
+        const auto position = spike.body().position;
+        const int pieces = static_cast<int>(spike.direction() == SpikeDirection::up ? box.width : box.height)/8;
+        for (int i=0; i<pieces; ++i) {
+            expected.push_back(spike.direction() == SpikeDirection::up
+                ? SpikePiece{true, static_cast<int>(position.x)+8*i, static_cast<int>(position.y)-5, 7, 6, 1, 1}
+                : SpikePiece{false, static_cast<int>(position.x)-5, static_cast<int>(position.y)+1+8*i, 6, 7, 1, 1});
+        }
+    }
+    if (expected.size() != visuals.spike_pieces.size())
+        throw std::invalid_argument("Spike source image piece count differs from hazard size/8");
+    for (std::size_t i=0; i<expected.size(); ++i) {
+        const auto& want = expected[i];
+        const auto& have = visuals.spike_pieces[i];
+        if (want.up != have.up || want.x != have.x || want.y != have.y || want.width != have.width ||
+            want.height != have.height || want.u != have.u || want.v != have.v)
+            throw std::invalid_argument("Spike source image placement differs from actual hazards");
+    }
 }
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text,65'536,expected_checksum);

@@ -66,8 +66,14 @@ void run() {
 #ifdef CELESTE_ROOM_TEXTURED
     const auto visuals = parse_visuals(read_asset("app0:assets/native-room/visuals.txt",65'536),visual_checksum);
     visual_assets = &visuals;
+#ifdef CELESTE_ROOM_SPIKE_ART
+    if (!visuals.spike_art()) throw std::runtime_error("Spike-art intent requires the eight-texture source protocol");
+    validate_spike_art(visuals,room.spikes);
+    log("render source_static_spikes physical_spikes=5 draw_pieces=19 diagnostic_red_markers=0 depth=-1 FG_occludes_source_parts");
+#else
 #ifndef CELESTE_ROOM_ANIMATED_PLAYER
     log("render style=textured_partial static_BG_BODY_FG body=idle00_static_no_animation camera=0,0 diagnostic_spike_markers=5 not_faithful_spike_art no_hair_decals_backdrops_animation_audio_menu_fullgame_fidelity submitted_RGBA_bytes=164864 not_physical_GPU_allocation");
+#endif
 #endif
 #else
     log("render style=debug hitboxes_and_diagnostic_spike_markers camera=0,0");
@@ -76,8 +82,13 @@ void run() {
 #ifdef CELESTE_ROOM_ANIMATED_PLAYER
     const auto player_frames=parse_player_assets(read_asset("app0:assets/native-room/player.txt",65'536),player_checksum);
     player_assets=&player_frames;
+#ifdef CELESTE_ROOM_SPIKE_ART
+    log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_source_static_spikes_FG physical_spikes=5 draw_pieces=19 diagnostic_red_markers=0 no_death_art_decals_backdrops_audio_menu_fullgame_fidelity",
+        player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4);
+#else
     log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_diagnostic_markers_FG no_death_art_decals_backdrops_audio_menu_fullgame_fidelity",
         player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4);
+#endif
 #endif
     initialize_graphics();
     try {

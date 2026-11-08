@@ -41,6 +41,7 @@ SOURCE_PINS = {
     "Celeste.PlayerInventory.cs": "fca9bed434019cba9bbe937e18e5d170c420cbbe51740926a4e9d70aeac7ec5f",
     "Celeste.AreaData.cs": "d69d1c309aa4867ed0fd40e699cbbba4757a2d9fc6d2197174e162ce3be40876",
     "Celeste.GFX.cs": "b263291f1235c4c3b4ff25f1e185a5014019bad1b4aacdf84e5dd75137475918",
+    "Celeste.Spikes.cs": "fb485592822286d316d93fe029acf92b83e4a0b119492dd3d2fa77f6b5e11901",
 }
 ILSPY_SHA = "58ef1a86bea09f2e5a114720b607dd0bdaaf91cfe498c6b7a3412bd960d0f57d"
 ARCHIVE_SHA = "a613430411dbef3c0c45a0474f90f4845122964c7d177d69e88965bcb84741bf"

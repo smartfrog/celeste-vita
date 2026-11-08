@@ -28,12 +28,17 @@ def new_feedback(revision, vpk):
 
 
 def validate_textured_pixels(pixels, metadata, visuals, capture, player=None):
-    expected = {"render_style":"textured_partial", "camera":"0,0", "body_draws":"1", "diagnostic_spike_markers":"5",
-                "submitted_rgba_bytes":"164864", "alpha":"premultiplied_ONE_ONE_MINUS_SRC_ALPHA", "body_pose":"idle00_static_no_animation",
+    spike_art = visuals.get("spike_textures") is not None
+    room_bytes = 166912 if spike_art else 164864
+    expected = {"render_style":"textured_partial", "camera":"0,0", "body_draws":"1",
+                "diagnostic_spike_markers":"0" if spike_art else "5",
+                "submitted_rgba_bytes":str(room_bytes), "alpha":"premultiplied_ONE_ONE_MINUS_SRC_ALPHA", "body_pose":"idle00_static_no_animation",
                  "bg_draws":str(visuals["draw_counts"]["B"]), "fg_draws":str(visuals["draw_counts"]["F"])}
+    if spike_art:
+        expected.update(physical_spikes="5", draw_pieces="19", diagnostic_red_markers="0", spike_art="source_static_19")
     if player is not None:
         expected.update(render_style="animated_player_partial", body_pose="source_animated_with_simulated_hair",
-                        submitted_rgba_bytes=str(164864 + player["submitted_player_rgba_bytes"]))
+                        submitted_rgba_bytes=str(room_bytes + player["submitted_player_rgba_bytes"]))
     if any(metadata.get(key) != value for key, value in expected.items()):
         raise ValueError("Textured native receipt lacks exact style/camera/layers/bytes/alpha scope")
     colors = len({pixels[i:i+3] for i in range(0,len(pixels),3)})
@@ -49,8 +54,29 @@ def validate_textured_pixels(pixels, metadata, visuals, capture, player=None):
             raise ValueError(f"Native source texture content/orientation probe failed for texture {probe['texture']}: {actual} != {probe['expected_rgb']}")
         probes.append({**probe,"actual_rgb":actual})
     animated = validate_animated_pixels(pixels, metadata, player, capture) if player is not None else None
+    spike_probes = validate_spike_art_pixels(pixels, visuals) if spike_art else None
     return {"unique_rgb_colors":colors,"opaque_source_probes":probes,"animated_player":animated,"partial_alpha_room_probe":visuals["alpha_probe"],
+            "spike_art":spike_art,"spike_probes":spike_probes,
             "partial_alpha_claim":"Requested six crops contain only alpha 0/255; separate GPU blend diagnostic required" if visuals["alpha_probe"] is None else "source edge present"}
+
+
+def validate_spike_art_pixels(pixels, visuals):
+    probes = visuals["spike_content_probes"]
+    directions = {probe["direction"] for probe in probes}
+    kinds = {probe["kind"] for probe in probes}
+    if directions != {"up", "left"} or kinds != {"visible_source_spike", "foreground_occludes_spike"}:
+        raise ValueError("Spike art probes do not cover both orientations and foreground occlusion")
+    checked = []
+    for probe in probes:
+        x, y = probe["screen_pixel"]
+        actual = list(pixels[(y * 960 + x) * 3:(y * 960 + x + 1) * 3])
+        if actual != probe["expected_rgb"]:
+            raise ValueError(f"Native spike {probe['kind']} probe failed: {actual} != {probe['expected_rgb']}")
+        checked.append({**probe, "actual_rgb": actual})
+    if any(row["visible_opaque_texels"] == 0 or row["occluded_opaque_texels"] == 0 for row in visuals["piece_visibility"]):
+        raise ValueError("A source spike piece is fully hidden or has no foreground occlusion")
+    return {"probes": checked, "pieces": len(visuals["piece_visibility"]),
+            "claim": "Native framebuffer proves both source spike orientations and opaque foreground overdraw; not a full compositing reference"}
 
 
 def validate_animated_pixels(pixels, metadata, player, capture):

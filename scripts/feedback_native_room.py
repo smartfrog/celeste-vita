@@ -22,7 +22,8 @@ def main():
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--frame-only",action="store_true",help="Stop after closed native frame feedback; do not inject input")
     parser.add_argument("--textured",action="store_true",help="Explicit partial static source-textured presentation, not debug hitboxes")
-    parser.add_argument("--visual-dir",type=Path,help="Verified private six-texture preparation required for --textured")
+    parser.add_argument("--spike-art",action="store_true",help="Use the nineteen source spike images instead of red diagnostic markers")
+    parser.add_argument("--visual-dir",type=Path,help="Verified private six- or eight-texture preparation required for --textured")
     parser.add_argument("--player-dir",type=Path,help="Verified private animated player and simulated hair; requires --textured")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
@@ -32,6 +33,8 @@ def main():
         parser.error("Use --textured and --visual-dir together")
     if args.player_dir is not None and not args.textured:
         parser.error("Animated player requires --textured and --visual-dir")
+    if args.spike_art and not args.textured:
+        parser.error("Source spike art requires --textured and --visual-dir")
     if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input; it cannot use --frame-only")
     output = args.output.resolve()
@@ -47,6 +50,7 @@ def main():
     feedback["requested_scope"] = "native_frame_only" if args.frame_only else "full_runtime_smoke"
     feedback["capture_policy"] = "climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn"
     feedback["render_style"] = "animated_player_partial" if args.player_dir else "textured_partial" if args.textured else "debug"
+    feedback["spike_art"] = bool(args.spike_art)
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -79,6 +83,7 @@ def main():
                          "-DCELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP="+("ON" if args.after_wall_jump else "OFF"),
                          "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF"),
                          "-DCELESTE_ROOM_TEXTURED="+("ON" if args.textured else "OFF"),
+                         "-DCELESTE_ROOM_SPIKE_ART="+("ON" if args.spike_art else "OFF"),
                          "-DCELESTE_ROOM_ANIMATED_PLAYER="+("ON" if args.player_dir else "OFF")])
         run("build",["/usr/bin/cmake","--build",str(build),"--verbose","-j2"])
         feedback["stages"]["build"] = True

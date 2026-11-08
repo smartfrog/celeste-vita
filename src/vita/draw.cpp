@@ -9,11 +9,15 @@
 
 namespace celeste::diagnostic {
 namespace {
-std::array<GLuint,6> textures{};
+std::array<GLuint,8> textures{};
 unsigned uploaded = 0;
 std::array<GLuint,10> player_textures{};
 unsigned player_uploaded=0;
-constexpr unsigned submitted_rgba_bytes = 5*64*128*4+16*16*4;
+constexpr unsigned six_texture_rgba_bytes = 5*64*128*4+16*16*4;
+constexpr unsigned spike_rgba_bytes = 2*16*16*4;
+unsigned room_rgba_bytes(const VisualAssets& visuals) {
+    return six_texture_rgba_bytes + (visuals.spike_art() ? spike_rgba_bytes : 0);
+}
 void check(const char* stage) {
     const auto error = glGetError();
     if (error != GL_NO_ERROR) throw std::runtime_error(std::string(stage) + ": GL error " + std::to_string(error));
@@ -79,6 +83,18 @@ void hazard_markers(const Room& room) {
     glColor3f(1,0.2f,0.2f);
     for (const auto& spike : room.spikes) body(spike.body());
 }
+void spike_layer(const VisualAssets& visuals) {
+    if (!visuals.spike_art()) throw std::logic_error("Source spike art requires the eight-texture protocol");
+    glEnable(GL_TEXTURE_2D);
+    glColor4f(1,1,1,1);
+    for (const auto& piece : visuals.spike_pieces) {
+        const auto texture = piece.up ? VisualAssets::up_texture : VisualAssets::left_texture;
+        glBindTexture(GL_TEXTURE_2D,textures.at(texture));
+        glBegin(GL_QUADS);
+        textured_vertices(spike_quad(visuals.textures[texture],piece));
+        glEnd();
+    }
+}
 std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
     glReadBuffer(GL_BACK);
     glFinish();
@@ -104,6 +120,7 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
             " diagnostic_rng_seed="+std::to_string(animated->presentation.diagnostic_seed())+" rng_calls="+std::to_string(animated->presentation.random_calls())+
             " original_startup_rng_parity=false source_phase=level_after_update_then_render";
     }
+    const bool spike_art = visuals && visuals->spike_art();
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
         " stage=after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap frame="+std::to_string(frame)+" x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
@@ -112,7 +129,9 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         " stamina="+std::to_string(player.state().stamina)+" grab="+std::to_string(player.grab_held())+
         " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : player.state_machine().state() == 1 ? "climb" : "wall_jump")+
         " render_style="+(animated ? "animated_player_partial" : visuals ? "textured_partial" : "debug")+" camera=0,0 bg_draws="+std::to_string(bg_count)+" fg_draws="+std::to_string(fg_count)+
-        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers=5 submitted_rgba_bytes="+std::to_string(visuals ? submitted_rgba_bytes+player_uploaded*128*64*4 : 0)+
+        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers="+(spike_art ? "0" : "5")+
+        (spike_art ? " physical_spikes=5 draw_pieces="+std::to_string(visuals->spike_pieces.size())+" diagnostic_red_markers=0 spike_art=source_static_19" : "")+
+        " submitted_rgba_bytes="+std::to_string(visuals ? room_rgba_bytes(*visuals)+player_uploaded*128*64*4 : 0)+
         " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(animated ? "source_animated_with_simulated_hair" : visuals ? "idle00_static_no_animation" : "hitboxes")+
         presentation+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
@@ -134,9 +153,11 @@ void initialize_graphics() {
 }
 void load_textures(const VisualAssets& visuals) {
     if (uploaded) throw std::logic_error("Room textures already uploaded");
-    glGenTextures(textures.size(),textures.data());
+    if (visuals.texture_count < 6 || visuals.texture_count > static_cast<int>(textures.size()))
+        throw std::logic_error("Invalid bounded room texture ownership count");
+    glGenTextures(visuals.texture_count,textures.data());
     check("texture ownership allocation");
-    for (std::size_t i=0; i<textures.size(); ++i) {
+    for (int i=0; i<visuals.texture_count; ++i) {
         const auto pixels = read_asset(("app0:assets/native-room/texture"+std::to_string(i)+".rgba").c_str(),64*128*4);
         const auto& info = visuals.textures[i];
         validate_texture_bytes(pixels,info);
@@ -173,7 +194,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     glColor3f(0.035f,0.045f,0.07f);
     rectangle(0,0,320,180);
     if (visuals) {
-        if (uploaded != textures.size()) throw std::logic_error("Textured room requested without complete texture ownership");
+        if (uploaded != static_cast<unsigned>(visuals->texture_count)) throw std::logic_error("Textured room requested without complete texture ownership");
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_TEXTURE_2D);
@@ -181,8 +202,13 @@ std::string draw(const Room& room, const Player& player, const char* export_path
         glColor4f(1,1,1,1);
         tile_layer(*visuals,true);
         if(animated) player_layer(*animated);
-        else textured_quad(body_quad(visuals->textures[5],player.actor().body.position,static_cast<int>(player.state().facing)),5);
+        else textured_quad(body_quad(visuals->textures[VisualAssets::body_texture],player.actor().body.position,static_cast<int>(player.state().facing)),VisualAssets::body_texture);
+#ifdef CELESTE_ROOM_SPIKE_ART
+        if (visuals->spike_art()) spike_layer(*visuals);
+        else hazard_markers(room);
+#else
         hazard_markers(room);
+#endif
         glEnable(GL_TEXTURE_2D);
         glColor4f(1,1,1,1);
         tile_layer(*visuals,false);
@@ -215,8 +241,8 @@ std::string draw(const Room& room, const Player& player, const char* export_path
 void finish_graphics() {
     glFinish();
     const auto finish_error = glGetError();
-    glDeleteTextures(textures.size(),textures.data());
-    glDeleteTextures(player_textures.size(),player_textures.data());
+    glDeleteTextures(uploaded,textures.data());
+    glDeleteTextures(player_uploaded,player_textures.data());
     textures.fill(0);
     uploaded = 0;
     player_textures.fill(0);

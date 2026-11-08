@@ -23,7 +23,8 @@ def verify(vpk, build, staging):
         raise ValueError("Expected ELF32 little-endian ARM executable")
     asset_names = {"global.mask", "hazards.txt"}
     if manifest.get("render_style", "debug") in {"textured_partial", "animated_player_partial"}:
-        asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(6))})
+        texture_count = 8 if manifest.get("spike_art") else 6
+        asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(texture_count))})
     if manifest.get("render_style") == "animated_player_partial":
         asset_names.update({"player.txt", *(f"player{i}.rgba" for i in range(manifest["player"]["pages"]))})
     if set(manifest["files"]) != asset_names:

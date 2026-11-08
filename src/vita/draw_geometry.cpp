@@ -14,6 +14,10 @@ TexturedQuad tile_quad(const TextureInfo& t, const TileCommand& c) {
     return {float(c.x),float(c.y),8,8,float(1+c.u)/t.width,float(1+c.v)/t.height,
             float(9+c.u)/t.width,float(9+c.v)/t.height};
 }
+TexturedQuad spike_quad(const TextureInfo& t, const SpikePiece& p) {
+    return {float(p.x),float(p.y),float(p.width),float(p.height),float(p.u)/t.width,float(p.v)/t.height,
+            float(p.u+p.width)/t.width,float(p.v+p.height)/t.height};
+}
 std::array<PlayerVertex,4> player_vertices(const PlayerFrame& f, const PlayerDraw& d) {
     const float source_width=float(f.width)/4096.f, source_height=float(f.height)/4096.f;
     const float origin_x=(d.origin.x-f.trim_x)/source_width/4096.f;
