@@ -117,8 +117,10 @@ All earlier failed probes, including probe92, remain unchanged.
 The first LoadLevel-entry trace is retained in
 `native-guard-test-7858d793f5854f21905ee2d25adeaf0f/load-level-prefix.jsonl`.
 The first successful live-tick run is retained in
-`native-guard-test-f71a5f2b157f459eb8c1bdd62bdaa368/respawn-live-tick.jsonl`
-with its compiled source manifest and source identity beside it.
+`native-guard-test-1e4a6b94beed43cbac3b46a4c0cfff84/respawn-live-tick.jsonl`
+with its compiled source manifest and source identity beside it. The summarized
+private checkpoint is `room-core-checkpoint-79879e0/verification.json`; the
+tracked delivery revision follows the documentation-only update.
 The additional declaration source `room-core-declarations-extra-01` was generated
 with `scripts/read_frontier_declarations.py --require-type LedgeBlocker` and
 recorded in the tracked declaration pins.
