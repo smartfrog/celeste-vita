@@ -1,0 +1,13 @@
+{
+  "profile": {"inventory": 1, "backpack": true, "mode": "Madeline", "states": [0, 1, 2, 14]},
+  "diagnosticSeed": 0,
+  "callerBoundary": "Fixture Player shell and caller-supplied death direction, NOT hazard/physics execution",
+  "cases": [
+    {"id": "up-direction", "position": [19, 144], "direction": [0, -1], "animation": "deadup", "menuTick": -1, "actionDelay": 0, "firstLevel": true, "checkpoint": false},
+    {"id": "left-direction", "position": [19, 144], "direction": [-1, 0], "animation": "deadside", "menuTick": -1, "actionDelay": 0, "firstLevel": true, "checkpoint": false},
+    {"id": "menu-end", "position": [19, 144], "direction": [0, -1], "animation": "deadup", "menuTick": 7, "actionDelay": 0, "firstLevel": true, "checkpoint": false},
+    {"id": "delayed-action", "position": [19, 144], "direction": [0, -1], "animation": "deadup", "menuTick": -1, "actionDelay": 0.2, "firstLevel": true, "checkpoint": false},
+    {"id": "checkpoint-retains-session", "position": [19, 144], "direction": [0, -1], "animation": "deadup", "menuTick": -1, "actionDelay": 0, "firstLevel": true, "checkpoint": true},
+    {"id": "nonfirst-retains-session", "position": [19, 144], "direction": [0, -1], "animation": "deadup", "menuTick": -1, "actionDelay": 0, "firstLevel": false, "checkpoint": false}
+  ]
+}

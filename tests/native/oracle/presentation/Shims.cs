@@ -54,7 +54,20 @@ namespace PresentationOracle
 namespace Monocle
 {
     [AttributeUsage(AttributeTargets.Class)]
-    public sealed class TrackedAttribute : Attribute { public TrackedAttribute(bool inherited) { } }
+#if DEATH_SOURCE_GATE
+    public sealed class Tracked : Attribute
+    {
+        public bool Inherited;
+        public Tracked(bool inherited) { Inherited = inherited; }
+    }
+#else
+    public sealed class TrackedAttribute : Attribute
+    {
+        public bool Inherited;
+        public TrackedAttribute(bool inherited) { Inherited = inherited; }
+    }
+#endif
+#if !DEATH_SOURCE_GATE
     public class Component
     {
         public Entity Entity;
@@ -82,8 +95,15 @@ namespace Monocle
     }
     public sealed class StateMachine { public int State; }
     public sealed class Engine { public static float DeltaTime, RawDeltaTime; }
+#endif
     public sealed class VirtualTexture { public int Width = 4096, Height = 4096; public Texture2D Texture; }
-    public static class Draw { public static PresentationOracle.RecordingBatch SpriteBatch = new(); }
+    public static class Draw
+    {
+        public static PresentationOracle.RecordingBatch SpriteBatch = new();
+#if DEATH_SOURCE_GATE
+        public static Renderer Renderer;
+#endif
+    }
     public static partial class Calc
     {
         public static XmlDocument LoadContentXML(string path) { var xml = new XmlDocument(); xml.Load(path); return xml; }
@@ -102,7 +122,7 @@ namespace Monocle
 
 namespace Celeste
 {
-    public static class GFX { public static Atlas Game; public static SpriteBank SpriteBank; }
+    public static partial class GFX { public static Atlas Game; public static SpriteBank SpriteBank; }
     public class Platform : Entity
     {
         public int GetStepSoundIndex(Player player) => 0;
@@ -118,6 +138,7 @@ namespace Celeste
         public static void BurstFG(Vector2 position, float angle, int count, float range) { Calls++; }
         public static void Burst(Vector2 position, float angle) { Calls++; }
     }
+#if !DEATH_SOURCE_GATE
     public static class Audio { public static int Stops; public static void Stop(object handle) { Stops++; } }
     public sealed class VirtualAxis
     {
@@ -163,4 +184,5 @@ namespace Celeste
             idleTimer, highestAirY, flash, rng = Calc.Random.Calls
         };
     }
+#endif
 }
