@@ -72,9 +72,10 @@ fixture twice; those reads are recorded rather than counted as native activity.
 The unchanged `LoadLevel(Respawn)` body now returns after creating the state14
 `Player` and room entities. The execution trace records `state = 14` at return.
 A real `Level.BeforeUpdate`, `Level.Update`, `Level.AfterUpdate` tick loop then
-reaches state `0` on tick 35 and executes exactly one further controlled live
-tick on tick 36. Both state0 ticks use original Level update and Player
-`NormalUpdate`; no state0 teleport, unsupported closure, native attempt, or
+executes original Level and Player update. Tick 35 still runs `StateMachine`
+update in state14; later tween completion transitions to state0 through
+`IntroRespawnEnd`/`NormalBegin`. Only tick 36 executes one original
+`NormalUpdate`. No state0 teleport, unsupported closure, native attempt, or
 native mapping occurs.
 
 Reached source members now include the original `SFX.EventnameByHandle`,
