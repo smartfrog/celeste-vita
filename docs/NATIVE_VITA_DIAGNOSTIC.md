@@ -110,16 +110,27 @@ before input testing; image/startup/input/clean-exit/full-completion flags are
 separate. A later input failure returns nonzero while preserving the frame,
 logs, state, exact revision/VPK hash and concrete error. No required image stage
 is replaced by a `ready frame=0` marker.
+For the first-image checkpoint, add `--frame-only`: no keys are injected, only
+the owned emulator is stopped after the closed frame, and input/clean-exit/full
+completion remain false pending parent inspection. The frozen effective private
+`runtime/effective-config.yml`, its before/after hashes and exact launch command
+are retained in feedback/evidence.
 
 The first draw reads full 960×544 `GL_BACK`, after `glFinish` and before swap,
-using `vglReadPixels(..., GL_RGBA, GL_UNSIGNED_BYTE, ...)` into owned GPU-mapped
-`vglMalloc` memory, then checks GL errors and frees it with `vglFree`.
-The initial CPU readback returned zero RGB; the RGB-transfer attempt exposed
-Vita3K's `Unhandled format conversion from 0x60000 to 0x50000`. Neither failed
-attempt is valid room feedback. The mapped RGBA request explicitly selects pinned
-vitaGL's same-format GPU-transfer path (`framebuffers.c` 52–193, 788–797), copies
-the selected back buffer via `sceGxmTransferCopy`, calls `sceGxmTransferFinish`,
-and returns bottom-up RGBA with width×4 stride without unsupported conversion.
+using safe CPU `glReadPixels(..., GL_RGBA, GL_UNSIGNED_BYTE, vector.data())`, then
+checks GL errors. The writable vector is 2,088,960 bytes; pinned vitaGL
+`framebuffers.c` 657–678 and 749–767 select the back buffer and copy bottom-up
+RGBA with pitch 3840, bypassing GPU transfer/conversion.
+
+Only the fresh private emulator config forces `backend-renderer: OpenGL`,
+`resolution-multiplier: 1`, and `disable-surface-sync: false`. In the inspected
+local Vita3K source, `renderer/src/scene.cpp` 124–174 skips GPU-to-guest copying
+when surface sync is disabled; `modules/SceGxm/SceGxm.cpp` 2620–2634 queues that
+copy at EndScene. This explains the earlier CPU export's zero data with the
+inherited disabled-sync config; `glFinish` cannot restore a skipped copy.
+The GPU-transfer experiments are not used: RGB conversion was unsupported and
+the mapped RGBA attempt crashed the host. The exact mapped-transfer crash cause
+is unestablished. All failed artifacts/logs remain preserved.
 `glReadBuffer` is implemented at 957–974; `gxm.c` 962–969 finishes GPU
 work and 928–929 advances the buffer indices only during swap. The display
 surface is A8B8G8R8; width 960 is 64-pixel aligned. The tested encoder reverses

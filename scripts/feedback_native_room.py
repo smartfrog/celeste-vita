@@ -14,6 +14,7 @@ from native_room_revision import REPO_ROOT, source_state
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path,required=True)
+    parser.add_argument("--frame-only",action="store_true",help="Stop after closed native frame feedback; do not inject input")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
@@ -25,6 +26,7 @@ def main():
     vpk = build / "src/vita/celeste_native_room.vpk"
     feedback_path = output / "feedback.json"
     feedback = new_feedback(revision,vpk)
+    feedback["requested_scope"] = "native_frame_only" if args.frame_only else "full_runtime_smoke"
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -61,7 +63,8 @@ def main():
         feedback["stages"]["package_verified"] = True
         save_feedback(feedback_path,feedback)
         run("runtime",["python3","-B","scripts/smoke_native_room.py","--state",str(output / "vita3k-state"),
-                       "--output",str(output / "runtime"),"--vpk",str(vpk),"--feedback",str(feedback_path)])
+                       "--output",str(output / "runtime"),"--vpk",str(vpk),"--feedback",str(feedback_path)]+
+                      (["--frame-only"] if args.frame_only else []))
     except Exception as error:
         feedback = json.loads(feedback_path.read_text())
         feedback["errors"].append({"stage":"toolchain","type":type(error).__name__,"message":str(error)})

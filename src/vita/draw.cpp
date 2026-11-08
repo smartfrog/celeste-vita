@@ -6,8 +6,6 @@
 #include <vitaGL.h>
 #include <stdexcept>
 #include <string>
-#include <memory>
-#include <algorithm>
 
 namespace celeste::diagnostic {
 namespace {
@@ -28,18 +26,14 @@ std::string export_back_buffer(const char* path, const Player& player) {
     glReadBuffer(GL_BACK);
     glFinish();
     check("frame export GPU finish");
-    constexpr std::size_t bytes = 960*544*4;
-    const auto release = [](std::uint8_t* data) { vglFree(data); };
-    std::unique_ptr<std::uint8_t,decltype(release)> mapped(static_cast<std::uint8_t*>(vglMalloc(bytes)),release);
-    if (!mapped) throw std::runtime_error("Native frame GPU-mapped allocation failed");
-    std::fill_n(mapped.get(),bytes,0);
-    vglReadPixels(0,0,960,544,GL_RGBA,GL_UNSIGNED_BYTE,mapped.get());
-    check("frame export vglReadPixels GL_BACK RGBA mapped transfer");
-    const auto ppm = encode_frame_ppm(960,544,std::vector<std::uint8_t>(mapped.get(),mapped.get()+bytes));
+    std::vector<std::uint8_t> rgba(960*544*4);
+    glReadPixels(0,0,960,544,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());
+    check("frame export glReadPixels GL_BACK RGBA CPU");
+    const auto ppm = encode_frame_ppm(960,544,rgba);
     write_guest_file(path,ppm,SCE_O_EXCL);
     const auto position = player.actor().body.position;
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
-        " stage=after_draw_glFinish_GL_BACK_RGBA_mapped_transfer_before_swap frame=0 x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
+        " stage=after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap frame=0 x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
         " ground="+std::to_string(player.state().on_ground)+" dead="+std::to_string(player.death().dead)+
         " resets=0 format=P6_RGB_top_down\n";

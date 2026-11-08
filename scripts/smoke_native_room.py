@@ -3,6 +3,7 @@
 
 import argparse
 import ctypes as C
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -235,6 +236,7 @@ def main():
     parser.add_argument("--vpk", type=Path, required=True)
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
     parser.add_argument("--feedback",type=Path)
+    parser.add_argument("--frame-only",action="store_true")
     args = parser.parse_args()
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
@@ -242,6 +244,12 @@ def main():
     output.mkdir(parents=True,exist_ok=False)
     feedback_path = (args.feedback or output / "feedback.json").resolve()
     feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
+    frozen_config = output / "effective-config.yml"
+    frozen_config.write_bytes(config.read_bytes())
+    feedback["emulator_config"] = {"path":str(config),"frozen_path":str(frozen_config),
+                                  "sha256":hashlib.sha256(frozen_config.read_bytes()).hexdigest(),
+                                  "backend":"OpenGL","resolution_multiplier":1,"disable_surface_sync":False,
+                                  "override_scope":"fresh private state only; shared config untouched"}
     save_feedback(feedback_path,feedback)
     fs, config = prepare(state,existing)
     if (fs / "ux0/app" / TITLE).exists():
@@ -264,6 +272,7 @@ def main():
     process_fd = None
     ready = fs / "ux0/data/celeste_native_room.ready"
     last_ready = ""
+    frame_only_complete = False
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
@@ -365,6 +374,10 @@ def main():
                 raise RuntimeError("Guest startup ready without its required closed native frame export")
             feedback["stages"]["startup"] = True
             save_feedback(feedback_path,feedback)
+            if args.frame_only:
+                frame_only_complete = True
+                events.append({"frame_only_checkpoint":True,"input_not_attempted":True,"guest_clean_exit_not_claimed":True})
+                return
             x.x.XSelectInput(x.display,wid,(1<<0)|(1<<1)|(1<<21)|(1<<22))
             x.activate(wid)
             wait(lambda: x.focused(wid),10)
@@ -414,7 +427,7 @@ def main():
             if process is not None and process.returncode is None:
                 process.terminate()
                 process.wait(timeout=15)
-                events.append({"stopped_owned_host_on_failure":True})
+                events.append({"stopped_owned_host_after_frame_checkpoint" if frame_only_complete else "stopped_owned_host_on_failure":True})
             guest = fs / "ux0/data/celeste_native_room.log"
             if guest.is_file():
                 (output / "guest.log").write_bytes(guest.read_bytes())
@@ -422,6 +435,7 @@ def main():
             (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
             feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
                                             "host":str(output / "host.log"),"guest":str(output / "guest.log")}
+            feedback["emulator_config"]["sha256_after"] = hashlib.sha256(config.read_bytes()).hexdigest()
             save_feedback(feedback_path,feedback)
 
 

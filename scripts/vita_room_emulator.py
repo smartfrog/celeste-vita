@@ -49,18 +49,25 @@ def prepare(state, existing):
     if not user.exists():
         shutil.copyfile(shared / "ux0/user/00/user.xml", user)
     config = state / "config/Vita3K/config.yml"
+    replacements = {"pref-path": str(fs), "discord-rich-presence": "false", "check-for-updates-mode": "0",
+                    "http-enable": "false", "backend-renderer": "OpenGL", "resolution-multiplier": "1",
+                    "disable-surface-sync": "false"}
     if not config.exists():
         text = (existing / "config/Vita3K/config.yml").read_text()
         lines = []
-        replacements = {"pref-path": str(fs), "discord-rich-presence": "false", "check-for-updates-mode": "0",
-                        "http-enable": "false", "backend-renderer": "OpenGL"}
+        seen = set()
         for line in text.splitlines():
             key = line.split(":", 1)[0]
+            seen.add(key)
             lines.append(f"{key}: {replacements[key]}" if key in replacements else line)
+        lines.extend(f"{key}: {value}" for key,value in replacements.items() if key not in seen)
         config.parent.mkdir(parents=True, exist_ok=True)
         config.write_text("\n".join(lines) + "\n")
     if f"pref-path: {fs}\n" not in config.read_text():
         raise ValueError("Configuration does not select our isolated filesystem")
+    for key in ("backend-renderer","resolution-multiplier","disable-surface-sync"):
+        if [line for line in config.read_text().splitlines() if line.startswith(key+":")] != [f"{key}: {replacements[key]}"]:
+            raise ValueError("Private readback requires OpenGL 1x with surface synchronization enabled")
     for directory in ("cache", "tmp"):
         (state / directory).mkdir(exist_ok=True)
     return fs, config

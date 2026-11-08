@@ -50,3 +50,20 @@ class EmulatorIsolationTests(unittest.TestCase):
         command, env = launch_command(self.state,self.existing,["--help"])
         self.assertEqual(command[:7],["bwrap","--ro-bind","/","/","--bind",str(self.state),str(self.state)])
         self.assertEqual(env["XDG_DATA_HOME"],str(self.state / "data"))
+
+    def test_readback_enables_surface_sync_only_in_private_config(self):
+        shared_config = self.existing / "config/Vita3K/config.yml"
+        shared_text = "pref-path: /shared\nbackend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: true\n"
+        shared_config.write_text(shared_text)
+        fs, config = prepare(self.state,self.existing)
+        text = config.read_text()
+        self.assertIn("disable-surface-sync: false\n",text)
+        self.assertIn("resolution-multiplier: 1\n",text)
+        self.assertIn("backend-renderer: OpenGL\n",text)
+        self.assertEqual(shared_config.read_text(),shared_text)
+
+    def test_existing_private_config_with_disabled_surface_sync_is_rejected(self):
+        fs, config = prepare(self.state,self.existing)
+        config.write_text(config.read_text().replace("disable-surface-sync: false","disable-surface-sync: true"))
+        with self.assertRaisesRegex(ValueError,"surface synchronization"):
+            prepare(self.state,self.existing)
