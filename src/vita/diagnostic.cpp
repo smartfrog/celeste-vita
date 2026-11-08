@@ -1,4 +1,5 @@
 #include "diagnostic.hpp"
+#include <algorithm>
 #include <stdexcept>
 
 namespace celeste::diagnostic {

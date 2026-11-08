@@ -107,7 +107,13 @@ python3 -B scripts/smoke_native_room.py \
 ```
 
 Use a **fresh** state per installation; scripts refuse to overwrite a title or
-use an ambiguous existing diagnostic window. The small focused helper inventories
+use an ambiguous existing diagnostic window. The small focused helper installs
+the VPK through the emulator first, verifies every installed entry, stops only
+that owned installer, then explicitly launches `-r CELR00001` (the pinned build's
+positional-VPK auto-boot did not start a game). It uses `--` before the positional
+absolute VPK path and the XDG config directory for `-c`. Bubblewrap's
+`--die-with-parent` prevents orphaned child emulator processes during cleanup.
+The focused helper inventories
 existing X11 windows, finds our unique title plus actual OpenGL game-window
 title, validates its PID's isolated-config argument, and requires both
 `_NET_ACTIVE_WINDOW` and `XGetInputFocus` before XTest input. Physical X11 keycodes
@@ -116,15 +122,19 @@ It releases only keys it injected, never drives/closes unrelated windows, and
 only terminates its own spawned process. Missing isolation/focus/rendering is a
 runtime failure, not permission to bypass protections.
 
-X11/inotify/select events and bounded deadlines coordinate capture/input, not
+X11/inotify/select events and bounded deadlines coordinate nonvisual input, not
 sleep/process polling or polling a buffered guest log. Small explicitly labeled
 guest `.ready` signals acknowledge sampled input/death/reset for coordination
 only. Final evidence is the **completed** guest log after Start, not readiness
 signals. The stdio `fopen`-before-redirect ordering avoids the documented SDK
 pitfall. Logs include revision, counts, input edges, bounded-frequency state,
 actual death, manual reset counter, clean exit and measured elapsed time.
-ImageMagick `import` captures the actual guest window. Preserve guest/host logs,
-captures and state; distinguish guest clean exit from an emulator shutdown fault.
+Linux screenshot commands/APIs are not used: visual verification requires the
+user-requested built-in screen-view tool. If that tool is unavailable, visual
+verification is explicitly blocked, not inferred from window titles/logs.
+Preserve guest/host logs and state; distinguish guest clean exit from an emulator
+shutdown fault. Historical exploratory captures created before that constraint
+are retained privately, not a substitute for a new built-in visual check.
 
 Host tests cover pure parsers/corruption, input edges/opposing axes, fresh reset,
 exit precedence and fixed clock/viewport. `native_diagnostic_replay` with the

@@ -1,16 +1,46 @@
 #!/usr/bin/env python3
-"""Bounded X11 smoke for OUR isolated Vita3K title; never drive another window."""
+"""Bounded nonvisual X11 smoke for OUR isolated Vita3K title; never capture screens."""
 
 import argparse
 import ctypes as C
 import json
 import os
 from pathlib import Path
+import re
 import select
 import subprocess
 import time
+import zipfile
 
 from vita_room_emulator import TITLE, prepare, launch_command
+
+
+def verify_guest(text, revision):
+    markers = [f"DIAGNOSTIC boot revision={revision} fixed_step=1/60", "assets ready", "frame ready",
+               "cross_held=1 cross_pressed=1", "cross_held=0 cross_pressed=0", "death frame=", "manual reset frame=", "clean exit frame="]
+    offset = 0
+    for marker in markers:
+        offset = text.index(marker,offset)+len(marker)
+    if "FATAL" in text or " x=1 y=0 " not in text:
+        raise ValueError("Completed guest log lacks right input or reports an error")
+    jump = re.search(r"frame frame=\d+ x=19 y=(\d+) vx=0\.000 vy=(-[\d.]+) ground=\d dead=0 resets=0",text)
+    death = re.search(r"death frame=\d+ x=(\d+) y=\d+ .* dead=1 resets=0",text)
+    if not jump or int(jump[1]) >= 144 or not death or int(death[1]) <= 19:
+        raise ValueError("Completed log does not prove jump/right movement/actual death")
+    for marker in ("manual reset", "clean exit"):
+        if not re.search(marker+r" frame=\d+ x=19 y=144 .* dead=0 resets=1",text):
+            raise ValueError("Completed guest reset/exit state is not fresh")
+    return markers
+
+
+class XError(C.Structure):
+    _fields_ = [("type",C.c_int),("display",C.c_void_p),("resource",C.c_ulong),("serial",C.c_ulong),
+                ("code",C.c_ubyte),("request",C.c_ubyte),("minor",C.c_ubyte)]
+
+
+class ClientMessage(C.Structure):
+    _fields_ = [("type",C.c_int),("serial",C.c_ulong),("send_event",C.c_int),("display",C.c_void_p),
+                ("window",C.c_ulong),("message_type",C.c_ulong),("format",C.c_int),("data",C.c_long*5)]
 
 
 class X11:
@@ -29,6 +59,8 @@ class X11:
             "XPending": (C.c_int,[C.c_void_p]), "XNextEvent": (C.c_int,[C.c_void_p,C.c_void_p]),
             "XFlush": (C.c_int,[C.c_void_p]), "XSync": (C.c_int,[C.c_void_p,C.c_int]),
             "XFree": (C.c_int,[C.c_void_p]), "XCloseDisplay": (C.c_int,[C.c_void_p]),
+            "XQueryKeymap": (C.c_int,[C.c_void_p,C.c_void_p]),
+            "XSendEvent": (C.c_int,[C.c_void_p,C.c_ulong,C.c_int,C.c_long,C.c_void_p]),
         }
         for name, (result, arguments) in signatures.items():
             f = getattr(self.x,name)
@@ -38,6 +70,11 @@ class X11:
         self.display = self.x.XOpenDisplay(None)
         if not self.display:
             raise RuntimeError("Cannot open the existing X11 display")
+        self.errors = []
+        handler = C.CFUNCTYPE(C.c_int,C.c_void_p,C.POINTER(XError))
+        self.error_handler = handler(lambda display,error: self.errors.append((error.contents.code,error.contents.request)) or 0)
+        self.x.XSetErrorHandler.argtypes = [handler]
+        self.x.XSetErrorHandler(self.error_handler)
         self.root = self.x.XDefaultRootWindow(self.display)
         self.fd = self.x.XConnectionNumber(self.display)
         self.x.XSelectInput(self.display,self.root,(1<<19)|(1<<22))
@@ -85,6 +122,18 @@ class X11:
         self.x.XGetInputFocus(self.display,C.byref(focus),C.byref(revert))
         return focus.value == window and self.property(self.root,"_NET_ACTIVE_WINDOW") == [window]
 
+    def activate(self, window):
+        event = (C.c_long*24)()
+        message = C.cast(event,C.POINTER(ClientMessage)).contents
+        message.type, message.send_event, message.display, message.window = 33, True, self.display, window
+        message.message_type = self.x.XInternAtom(self.display,b"_NET_ACTIVE_WINDOW",False)
+        message.format, message.data[0] = 32, 2
+        if not self.x.XSendEvent(self.display,self.root,False,(1<<20)|(1<<19),event):
+            raise RuntimeError("Cannot request activation of OUR game window")
+        self.x.XRaiseWindow(self.display,window)
+        self.x.XSetInputFocus(self.display,window,2,0)
+        self.x.XFlush(self.display)
+
     def drain(self):
         while self.x.XPending(self.display):
             event = (C.c_long*24)()
@@ -100,6 +149,13 @@ class X11:
         else:
             self.keys.discard(code)
         self.x.XFlush(self.display)
+        self.x.XSync(self.display,False)
+        if any(error != 3 for error,request in self.errors):
+            raise RuntimeError(f"X11 request failed: {self.errors}")
+        keymap = (C.c_ubyte*32)()
+        self.x.XQueryKeymap(self.display,keymap)
+        if bool(keymap[code//8] & (1<<(code%8))) != pressed:
+            raise RuntimeError("XTest did not establish the requested server key state")
 
     def close(self):
         for code in self.keys:
@@ -168,36 +224,58 @@ def main():
         wait(lambda: time.monotonic() >= deadline,seconds+0.1)
 
     try:
+        with zipfile.ZipFile(args.vpk) as package:
+            installed = {name:package.read(name) for name in package.namelist()}
+        provenance = json.loads(installed["assets/native-room/provenance.json"])
+        revision = provenance["revision"] + ("-dirty" if provenance["tracked_changes"] else "")
+        with (output / "install-host.log").open("wb") as host:
+            process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
+            process_fd = os.pidfd_open(process.pid)
+            events.append({"installer_pid":process.pid,"command":command})
+            wait(lambda: all((fs / "ux0/app" / TITLE / name).is_file() and
+                             (fs / "ux0/app" / TITLE / name).read_bytes() == data for name,data in installed.items()),30)
+            process.terminate()
+            process.wait(timeout=15)
+            os.close(process_fd)
+            process_fd = None
+            events.append({"installed_exact_vpk_entries":True,"stopped_owned_installer":True})
+        command, env = launch_command(state,existing,["-c",str(config.parent),"--keep-config","-r",TITLE])
         with (output / "host.log").open("wb") as host:
             process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
             process_fd = os.pidfd_open(process.pid)
+            events.append({"runtime_pid":process.pid,"command":command})
             window = None
 
             def find_window():
                 nonlocal window
-                matches = [w for w in x.windows() if TITLE in w["name"] and "OpenGL" in w["name"]]
+                matches = []
+                for candidate in x.windows():
+                    if TITLE not in candidate["name"] or "OpenGL" not in candidate["name"] or not candidate["pid"]:
+                        continue
+                    try:
+                        command_line = Path(f'/proc/{candidate["pid"][0]}/cmdline').read_bytes()
+                    except FileNotFoundError:
+                        continue
+                    if str(config.parent).encode() in command_line:
+                        matches.append(candidate)
                 if len(matches) > 1:
                     raise RuntimeError("Ambiguous diagnostic game windows")
                 if not matches:
                     return False
                 window = matches[0]
-                if not window["pid"] or str(config.parent).encode() not in Path(f'/proc/{window["pid"][0]}/cmdline').read_bytes():
-                    raise RuntimeError("Diagnostic window PID does not own isolated config")
                 return True
 
             wait(find_window)
             events.append({"game_window":window})
             wid = window["id"]
             wait(lambda: last_ready.startswith("ready "))
-            x.x.XRaiseWindow(x.display,wid)
-            x.x.XSetInputFocus(x.display,wid,2,0)
-            x.x.XFlush(x.display)
+            x.activate(wid)
             wait(lambda: x.focused(wid),10)
-            subprocess.run(["import","-window",str(wid),str(output / "room.png")],check=True,timeout=30)
 
             def change(code,pressed,expected="sampled"):
                 before = last_ready
                 x.key(wid,code,pressed)
+                events.append({"injected_keycode":code,"pressed":pressed,"focus_and_server_key_state_verified":True})
                 wait(lambda: last_ready != before and last_ready.startswith(expected+" "),30)
 
             change(53,True)
@@ -206,11 +284,9 @@ def main():
             delay(1.0)
             change(114,True)
             wait(lambda: last_ready.startswith("dead "),60)
-            subprocess.run(["import","-window",str(wid),str(output / "death.png")],check=True,timeout=30)
             change(114,False)
             change(55,True,"reset")
             change(55,False)
-            subprocess.run(["import","-window",str(wid),str(output / "reset.png")],check=True,timeout=30)
             x.key(wid,36,True)
             try:
                 status = process.wait(timeout=30)
@@ -223,12 +299,7 @@ def main():
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
         text = data.decode()
-        markers = ["DIAGNOSTIC boot", "assets ready", "frame ready", "cross_held=1 cross_pressed=1", "death frame=", "manual reset frame=", "clean exit frame="]
-        offset = 0
-        for marker in markers:
-            offset = text.index(marker,offset)+len(marker)
-        if "FATAL" in text or "dead=1 resets=0" not in text or "dead=0 resets=1" not in text:
-            raise RuntimeError("Completed guest log fails lifecycle checks")
+        markers = verify_guest(text,revision)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
     finally:
         x.close()
@@ -239,6 +310,9 @@ def main():
             process.terminate()
             process.wait(timeout=15)
             events.append({"stopped_owned_host_on_failure":True})
+        guest = fs / "ux0/data/celeste_native_room.log"
+        if guest.is_file():
+            (output / "guest.log").write_bytes(guest.read_bytes())
         (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
 
 

@@ -71,7 +71,7 @@ def launch_command(state, existing, arguments):
                         "XDG_CONFIG_HOME": str(state / "config"), "XDG_DATA_HOME": str(state / "data"),
                         "XDG_CACHE_HOME": str(state / "cache"), "QT_QPA_PLATFORM": "xcb", "TMPDIR": str(state / "tmp")}
     command = ["bwrap", "--ro-bind", "/", "/", "--bind", str(state), str(state), "--dev", "/dev",
-               "--dev-bind", "/dev/dri", "/dev/dri", "--proc", "/proc", "--chdir", str(state), "--",
+               "--dev-bind", "/dev/dri", "/dev/dri", "--proc", "/proc", "--die-with-parent", "--new-session", "--chdir", str(state), "--",
                "bash", "-c", 'source "$APPDIR/apprun-hooks/linuxdeploy-plugin-qt-hook.sh"\nexec "$APPDIR/usr/bin/Vita3K" "$@"',
                "vita-room-emulator", *arguments]
     return command, env
