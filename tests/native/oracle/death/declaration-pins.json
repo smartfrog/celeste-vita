@@ -1,0 +1,2677 @@
+{
+  "Celeste.ActiveFont.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5aa9b035293396225cbe8a3673d8ce4ae5419ac8075066bac51b3262774a38ac",
+    "type": "Celeste.ActiveFont"
+  },
+  "Celeste.AltMusicTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cc33a09bf1099f1e1f19d7aa38e3007178f77d3b8211b5b63438bd55fd75805f",
+    "type": "Celeste.AltMusicTrigger"
+  },
+  "Celeste.AmbienceParamTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9437348caf0e9cbe868456b9ba7ccf55966b7d1742b10fef0fe94fb2f6b6833a",
+    "type": "Celeste.AmbienceParamTrigger"
+  },
+  "Celeste.AngryOshiro.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6a6ccdc43bcec793d69133f003066f5125cc8e76c573de8defdc3716958ca4e9",
+    "type": "Celeste.AngryOshiro"
+  },
+  "Celeste.AscendManager.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "00ca23dc770b9848c25c61b2566fb4c4821633576ccd13550ea62148e464ebf6",
+    "type": "Celeste.AscendManager"
+  },
+  "Celeste.Audio.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ec7812ef68caa72325e49ec3e7f1ac06bda8fe18c920c39b8aa0fe86a30cdd9c",
+    "type": "Celeste.Audio"
+  },
+  "Celeste.AutoSplitterInfo.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c7425d8ec517b6645fd187dcf9e9a67403ce9bad60a0863aa447a50846af6244",
+    "type": "Celeste.AutoSplitterInfo"
+  },
+  "Celeste.BadelineAutoAnimator.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bb6f925644352198f97bc1bbee6b523ba71dcb870bae0160c675df67a5d99d08",
+    "type": "Celeste.BadelineAutoAnimator"
+  },
+  "Celeste.BadelineBoost.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9d2310974ee605580012b018f2e08dba5ae58a60e7214b2837025c1cb6f27d99",
+    "type": "Celeste.BadelineBoost"
+  },
+  "Celeste.BadelineDummy.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "144cc80faf52caa378653e73aa7068ee5d819c5b6f22104ebbd0078e254ac185",
+    "type": "Celeste.BadelineDummy"
+  },
+  "Celeste.BigWaterfall.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e8c3eceeb693e5e29b03383b7b5192770ca438dcf9b7a31b22d609b5b2d628d0",
+    "type": "Celeste.BigWaterfall"
+  },
+  "Celeste.Billboard.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0c94028bd5fed67619172c0719cce45a8f9bff427c6b419b223bfe6faf11fef4",
+    "type": "Celeste.Billboard"
+  },
+  "Celeste.BirdNPC.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "12155bfeaccd7f4cc7d083f3467a8a7d1a4654472c1da86939bae49d6f5e33ec",
+    "type": "Celeste.BirdNPC"
+  },
+  "Celeste.BirdPath.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "937cf1f20dd5bbe158ddb4721407ea9fb16c2fd0c954aaf3ec85d702caf5577a",
+    "type": "Celeste.BirdPath"
+  },
+  "Celeste.BirdPathTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f896f89f81cf71eb0a06382c6e9fd6e1f7ee542be6562697a2327cb99925e461",
+    "type": "Celeste.BirdPathTrigger"
+  },
+  "Celeste.BirdTutorialGui.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7d57654e63a49f571562a94db5ae615902422e98bc09c006fa014cf89c7efde1",
+    "type": "Celeste.BirdTutorialGui"
+  },
+  "Celeste.BlackholeBG.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d30f37e8f7cb039a4e9bfd3407450aae8c7f37d8686ad51dac72ad6dbbfaebd7",
+    "type": "Celeste.BlackholeBG"
+  },
+  "Celeste.BlackholeStrengthTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "79827800a80d0d1b055296b9d73670fbdecda3641f1dc9da7f80e20759e1ae67",
+    "type": "Celeste.BlackholeStrengthTrigger"
+  },
+  "Celeste.BladeRotateSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "16e63bdc8a4fd5593e8e4b2260a9af4c0b1c500f0d1e076eb2fb275321d7f117",
+    "type": "Celeste.BladeRotateSpinner"
+  },
+  "Celeste.BladeTrackSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d75621e4af59c603880d7f7bce5314f2ede65beea33b8359cb24025fec2766d1",
+    "type": "Celeste.BladeTrackSpinner"
+  },
+  "Celeste.BlockField.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "648512b926ff9a777ed995653fa2aac18167634bd934984e694b1af2852f033d",
+    "type": "Celeste.BlockField"
+  },
+  "Celeste.BloomFadeTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "828e2d0019c403dd7d5f518298e3947544058d7dc8004e68a0f4d06b3cf3e88b",
+    "type": "Celeste.BloomFadeTrigger"
+  },
+  "Celeste.Bonfire.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "98553422b25c5de7067d4663bbe56b9093d89efea440643b0fdae4614cfa9b1c",
+    "type": "Celeste.Bonfire"
+  },
+  "Celeste.Booster.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "262e48fbb1a1f5636fce3a52d08aae23e24ed505551a79290e04f7c03342640d",
+    "type": "Celeste.Booster"
+  },
+  "Celeste.BounceBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3d74eb9951a7a06b4a4495626f9765721b339b1b08a63f0ac7ff23c6da4869a8",
+    "type": "Celeste.BounceBlock"
+  },
+  "Celeste.Bridge.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "df17948a76cc19dc629cbf7f43ced3cc2719650e8ed1fc279b374e5df8a01d0e",
+    "type": "Celeste.Bridge"
+  },
+  "Celeste.BridgeFixed.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "38690410544692d3aab7922e7021fb83f285254c46c8e4513ec5536df94feef8",
+    "type": "Celeste.BridgeFixed"
+  },
+  "Celeste.BridgeTile.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "77bafc3b3b3bea1f14a1079f97df01cf1d1fe3b1bd53bfcb0f68dd8003d7cd63",
+    "type": "Celeste.BridgeTile"
+  },
+  "Celeste.Bumper.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "61f18e5e9b1cea5f109435f6ebcade0803b63bd23c1c55bc348d6dc2fc164354",
+    "type": "Celeste.Bumper"
+  },
+  "Celeste.ButtonConfigUI.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "84161f93cc218052123d20a4cfb61fba7620d9fcda1463a6e9d88c5a3638e4fd",
+    "type": "Celeste.ButtonConfigUI"
+  },
+  "Celeste.CameraAdvanceTargetTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "352b939087b55c3ffe52df8558a9295fcfc53803b647f3ce3299e74845c9e6db",
+    "type": "Celeste.CameraAdvanceTargetTrigger"
+  },
+  "Celeste.CameraLocker.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bc24c2a65918bb5fc95230c2a1df0b7241ccbaaf1c9e7cdc5a3c7f2106db6052",
+    "type": "Celeste.CameraLocker"
+  },
+  "Celeste.CameraOffsetTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "078db27eae3e0babe690627c84f3ccc40108df9de52788aace396fa5ccbbd483",
+    "type": "Celeste.CameraOffsetTrigger"
+  },
+  "Celeste.CameraTargetTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "57386d3d885d53027e4e2504b607842490c9f1edc7d7afde28cf5206ae052212",
+    "type": "Celeste.CameraTargetTrigger"
+  },
+  "Celeste.Cassette.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "82507b016f1ee89b1dade7690812ca0875ffbfe43ef0986c75f960e316bd6315",
+    "type": "Celeste.Cassette"
+  },
+  "Celeste.CassetteBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a99826f9185bc53612bd79c74a06e05c4c092ff947af92c663fffcb33728152a",
+    "type": "Celeste.CassetteBlock"
+  },
+  "Celeste.CassetteBlockManager.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "569a7c32f765808af7a7bdca51514a6cadb2d85702c0cc0bbda3d4e4cbdd0392",
+    "type": "Celeste.CassetteBlockManager"
+  },
+  "Celeste.Celeste.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9d7da1708373642d89ead7bbdf3f3bc97e52242c11ba08e3fe640c4665351b32",
+    "type": "Celeste.Celeste"
+  },
+  "Celeste.ChangeRespawnTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d7804cded2a9e4c86dedc8ca9a3e5a87c8318e7f5bd9959f3d9f65b194a746c4",
+    "type": "Celeste.ChangeRespawnTrigger"
+  },
+  "Celeste.ChaserBarrier.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d312b2da0ab3a47f146e7cfd66577c4657eab577915d48757b797fae0f558f6a",
+    "type": "Celeste.ChaserBarrier"
+  },
+  "Celeste.Checkpoint.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7759c7c4f41e9c773c0ba537ee25471bab4110b37341cbb10eb865f3ad07d834",
+    "type": "Celeste.Checkpoint"
+  },
+  "Celeste.CheckpointBlockerTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2a4b763dfd73c3792447ecc9aa1cca60170ca31b6e071df22a85eb061e246bb0",
+    "type": "Celeste.CheckpointBlockerTrigger"
+  },
+  "Celeste.CliffFlags.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f48a0a5e4e2fbb40e8109a4612f4b42e7fb55ceec40e2c584a680eb9ff6e2e16",
+    "type": "Celeste.CliffFlags"
+  },
+  "Celeste.CliffsideWindFlag.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "76af9cc6c86893b6a80678a80b416dc59e841ca75d4a68dd0d4371b691af9618",
+    "type": "Celeste.CliffsideWindFlag"
+  },
+  "Celeste.Clothesline.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "99156f4b2d0cfe89fcaadf850b36ad9d54903d1d19a7b126883d7b2b4f941a09",
+    "type": "Celeste.Clothesline"
+  },
+  "Celeste.Cloud.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0b48537867d72daa46cec6903e54c80dfdfd98bc37a923c4532109804bb8a708",
+    "type": "Celeste.Cloud"
+  },
+  "Celeste.ClutterDoor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "85f8b2d3b16820aa00b0f71da4217c7b9fcfaebbfb45092b48eacb4a4a506b3a",
+    "type": "Celeste.ClutterDoor"
+  },
+  "Celeste.ClutterSwitch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e7fdcc5af3a1d740d6f92ef5237ec61e26409364cc60bda06a8159546669d41a",
+    "type": "Celeste.ClutterSwitch"
+  },
+  "Celeste.Cobweb.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "112c36265bede2e4213c462e2f8b0d94c810457add3c931e10f2cc2fd4fd0fe3",
+    "type": "Celeste.Cobweb"
+  },
+  "Celeste.CoreMessage.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e02422384973f5938d0277a876c3f09c834339d33b208bc780f36b79d28be475",
+    "type": "Celeste.CoreMessage"
+  },
+  "Celeste.CoreModeListener.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cfc9fda3947ba9354cd11655bd13871c21bb56fd1098de9bdb8e6740d76ed402",
+    "type": "Celeste.CoreModeListener"
+  },
+  "Celeste.CoreModeToggle.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cbb0f9dd0f22fab318e2e0fb9041c6b375489ef2e87199590f8591ae8d0bad46",
+    "type": "Celeste.CoreModeToggle"
+  },
+  "Celeste.CoverupWall.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "40bca6978e193b67771a032818ed22455f6a81e10fca7ee1d056d9c1fe2708d5",
+    "type": "Celeste.CoverupWall"
+  },
+  "Celeste.CreditsTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "75806e03d327b24a62ff208df762e30c333b53b621a54bbd57f8960e55cce23d",
+    "type": "Celeste.CreditsTrigger"
+  },
+  "Celeste.CrouchDashModes.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a9d6069c7f5eff9c6c8d1fede306a12318fef6f185b20300caf68a345f1d753c",
+    "type": "Celeste.CrouchDashModes"
+  },
+  "Celeste.CrumblePlatform.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "28e5276858f58729c6c74a730b0c91a0e1e82a27d2803915a55dd0bbda2bd285",
+    "type": "Celeste.CrumblePlatform"
+  },
+  "Celeste.CrumbleWallOnRumble.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "364ce09c0e622ced24092d6904e6a769acfe04937c65a592d2384a89f5bdd74f",
+    "type": "Celeste.CrumbleWallOnRumble"
+  },
+  "Celeste.CrushBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fb2bee89a8c057db89f348c2ecfaf0d94d6d5ad676997468cc6ad0ddcdc18b6f",
+    "type": "Celeste.CrushBlock"
+  },
+  "Celeste.CrystalColor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8d4f5d7f955e4c7d218e2a6114b49138083a61f83325776ec6cdc7ca456a540e",
+    "type": "Celeste.CrystalColor"
+  },
+  "Celeste.CrystalStaticSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "312703443dc447c43844d160fc8f6d97baa8322a8a119db2b3224914ca4d6919",
+    "type": "Celeste.CrystalStaticSpinner"
+  },
+  "Celeste.CutsceneNode.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2db248b221b84c18a30e6b489092d0c0d741a584fe5887c44a8b72c2faa5a083",
+    "type": "Celeste.CutsceneNode"
+  },
+  "Celeste.DashBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c74e67651d85ff4ba2677ceb419a1d46394d0990261dad52c5c9add66b7146b6",
+    "type": "Celeste.DashBlock"
+  },
+  "Celeste.DashListener.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cf5dbb7edf83a384f5c936fefaa365d7e74dbe0edb2422d162082da97ea93ffd",
+    "type": "Celeste.DashListener"
+  },
+  "Celeste.DashSwitch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bfecc2d4c4c5068cbdc34ddd24d3dd510daa7aae181c57c43a8e3dfc3f032161",
+    "type": "Celeste.DashSwitch"
+  },
+  "Celeste.Decal.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "81d04a56cb9b5cb981f3c7823388bed6082db2d5755d364c15c35bbcaf8b7746",
+    "type": "Celeste.Decal"
+  },
+  "Celeste.DetachStrawberryTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "31998e9c66e4d560c2e7bcbe66760d38df41f46b911dabb141a1e628b32be7d3",
+    "type": "Celeste.DetachStrawberryTrigger"
+  },
+  "Celeste.DisconnectedControllerUI.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6eea2be83241a1f0252dbdf8f2960350051703a41a6f609cd3fd9ae069ffe218",
+    "type": "Celeste.DisconnectedControllerUI"
+  },
+  "Celeste.Distort.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "35453a32deb540eadc783839aa67d25e1d86599dfe1f03f212d5281f19823e5c",
+    "type": "Celeste.Distort"
+  },
+  "Celeste.Door.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b5473f7516eaa2057745c2823bce40690ff37da4a6bb5b49faf6272d1324dfcb",
+    "type": "Celeste.Door"
+  },
+  "Celeste.DreamHeartGem.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f7950cc300dc3ca30f876950aef496482990f4d9e7511272766c72f3dcc95fb8",
+    "type": "Celeste.DreamHeartGem"
+  },
+  "Celeste.DreamMirror.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0aecfd6dd2244ca2e7d83de4d4e686897843960805a8e7e041f54b3acbf02bba",
+    "type": "Celeste.DreamMirror"
+  },
+  "Celeste.Dust.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c3b30565788114323a8bf2003d5773782caa9eea177c37ab0a8c2a5712bc50ee",
+    "type": "Celeste.Dust"
+  },
+  "Celeste.DustGraphic.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fe5751944413527cc1282d69e210417bf29a2f524b3a67eb3ad787e01c85657c",
+    "type": "Celeste.DustGraphic"
+  },
+  "Celeste.DustRotateSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7c8507ce07c71f353435f3a31c7e34e8430d18e8296778a850c8059f9d1bb943",
+    "type": "Celeste.DustRotateSpinner"
+  },
+  "Celeste.DustStaticSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "204e26209e80d57b423d2093af96cb0d1c63db3962f3b371abd990175e2c5c8e",
+    "type": "Celeste.DustStaticSpinner"
+  },
+  "Celeste.DustTrackSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fceb43f507560ddbf712ad381852e844af35847d1b5f0778c6bbb4199de125ef",
+    "type": "Celeste.DustTrackSpinner"
+  },
+  "Celeste.Editor.LevelTemplate.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2832926610783455969dafa5aafcefe64168f70f1d69ff5429e5fb9740634314",
+    "type": "Celeste.Editor.LevelTemplate"
+  },
+  "Celeste.Editor.LevelTemplateType.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5b2ba33bcb3ee818bb6e17169bed31b33eca247b38b616763995e36a2a6a1b05",
+    "type": "Celeste.Editor.LevelTemplateType"
+  },
+  "Celeste.Editor.MapEditor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d625f5e3d1b452c58c79e598f0ae3cd2747330d9ba35a0bf856a12e8aaae3d33",
+    "type": "Celeste.Editor.MapEditor"
+  },
+  "Celeste.EffectCutout.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "71c356e087aba764fe35dea96391eda6f307f70c79af1bdd1706437ef67b201f",
+    "type": "Celeste.EffectCutout"
+  },
+  "Celeste.EventTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b3b8f4e9072e1a86062f680ba4e38e92b1d7201df668e1d8eabfc6c1c2f3047a",
+    "type": "Celeste.EventTrigger"
+  },
+  "Celeste.ExitBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "72702d98ef9f201e5476e99ef15d22a909a02130f14a8a8138328231d06e5f58",
+    "type": "Celeste.ExitBlock"
+  },
+  "Celeste.FakeHeart.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9339a93fefb1409bc507123a5a9ca47bcc17d4bb04fa42846d604acdf6845b9f",
+    "type": "Celeste.FakeHeart"
+  },
+  "Celeste.FakeWall.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5b027b02631a60a4f14c397041ff492109aefe63ce2ffbc771db27fc048db254",
+    "type": "Celeste.FakeWall"
+  },
+  "Celeste.FallingBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "523b208600721868ee63d7f052c7f05b2bb1d7463376c915069bf7f412a45a73",
+    "type": "Celeste.FallingBlock"
+  },
+  "Celeste.FancyText.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "537b691bce9c5694a2f517a5d03298267f6ace64f1e31600bbcfbeb71cde7809",
+    "type": "Celeste.FancyText"
+  },
+  "Celeste.FinalBoss.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "32e3fee082d3b41cf2fdbad0d95e2e3d46288fb62775392f16395e22d488eb8a",
+    "type": "Celeste.FinalBoss"
+  },
+  "Celeste.FinalBossMovingBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5777302e443c51d939e65447b1a6fd24a8d171631b55b0dfad34951db98b55e5",
+    "type": "Celeste.FinalBossMovingBlock"
+  },
+  "Celeste.FinalBossStarfield.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3f0cf5a8f3f9c4c7cc4a606c4b01c546df0a8d7308bfceaba361cea440f713c6",
+    "type": "Celeste.FinalBossStarfield"
+  },
+  "Celeste.FireBall.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ff500b31381c508727f1bc0d6534c0fc96cbc36338556d1b4fd8ed397b9df548",
+    "type": "Celeste.FireBall"
+  },
+  "Celeste.FireBarrier.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8a18b3e066b1cddd735c282bf10e5f3cb939f43676d6576944f89595a1c86da2",
+    "type": "Celeste.FireBarrier"
+  },
+  "Celeste.FlingBirdIntro.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0fff288e3534c00cc588f8fac07c33904ab89f9262e58adf9ecc52d0d342bf90",
+    "type": "Celeste.FlingBirdIntro"
+  },
+  "Celeste.FloatingDebris.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c9f6718f77305eefa9b838862f7b0b52131d741b5c3516cb6418ed28482936b6",
+    "type": "Celeste.FloatingDebris"
+  },
+  "Celeste.FloatySpaceBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5da9de59192057df441b2fb711dc8798c6f475d4d3fc59ac313943de470ad351",
+    "type": "Celeste.FloatySpaceBlock"
+  },
+  "Celeste.FlutterBird.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8ce95be6e5f1716b6608342f242c156bc7be487723c8ab8f540295854b775fc5",
+    "type": "Celeste.FlutterBird"
+  },
+  "Celeste.FlyFeather.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a73f779fd2d545cbb95fcf6f454f5ea889e4086aae57b1cd8c28f3b05a002b7c",
+    "type": "Celeste.FlyFeather"
+  },
+  "Celeste.ForegroundDebris.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d7c27f86adc524c9e800e94108932843aa1318cbd473e217b164ac51f4049275",
+    "type": "Celeste.ForegroundDebris"
+  },
+  "Celeste.ForsakenCitySatellite.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "862ee45355b79fbe1eadd9e3d7b609c68f20e2f61759ff372b896e87ae35dbbf",
+    "type": "Celeste.ForsakenCitySatellite"
+  },
+  "Celeste.GFX.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b263291f1235c4c3b4ff25f1e185a5014019bad1b4aacdf84e5dd75137475918",
+    "type": "Celeste.GFX"
+  },
+  "Celeste.GlassBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "942e20d75933fae7c108cb2d8819d0f2e5a3e9380052874fbc4cd99924c84933",
+    "type": "Celeste.GlassBlock"
+  },
+  "Celeste.Glider.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "319324567eb0d7086585b648d329e348925a6b82d07c41d1e319d865b65b91d1",
+    "type": "Celeste.Glider"
+  },
+  "Celeste.Glitch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8e15cbce12574c399d80d56c995d475b2ca77f6079641c3d48862d60b15fbd89",
+    "type": "Celeste.Glitch"
+  },
+  "Celeste.GoldBerryCollectTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3be2a8e543ed29fe573c5e14cf6f2b6aff149a392c93f3b01a5638ab73fc21b3",
+    "type": "Celeste.GoldBerryCollectTrigger"
+  },
+  "Celeste.GoldenBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "874d5c88d6d3cb24c789034b7e22024c93b682c048f6cbb93953c37f0886cd9d",
+    "type": "Celeste.GoldenBlock"
+  },
+  "Celeste.Gondola.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "68b0886cfcc80ff3eee0221f647292bb9f33362b62add1a965bd2e894a63c770",
+    "type": "Celeste.Gondola"
+  },
+  "Celeste.GrabModes.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1952b8995ff10d23e97fa3bd8cdfcadadb69ef54286c51fa32654452178799cf",
+    "type": "Celeste.GrabModes"
+  },
+  "Celeste.GrannyLaughSfx.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "65b678fd19b8a8314fdca585030013b7e5d80e80e40bdd9e6e35eee86b588e30",
+    "type": "Celeste.GrannyLaughSfx"
+  },
+  "Celeste.Hahaha.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "289bfe91872554ddc2d3e4234bad01601bbe31ae4072985bffc01e931a121acd",
+    "type": "Celeste.Hahaha"
+  },
+  "Celeste.HangingLamp.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7e8b1401879fe362ad34de18eddfbd77c300df0146efc62cf06ae96a363edfd9",
+    "type": "Celeste.HangingLamp"
+  },
+  "Celeste.HeartGem.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ed2ce4569c1828cdacad95c843a0da2132488cb8510a46f8ad260da21bb176b1",
+    "type": "Celeste.HeartGem"
+  },
+  "Celeste.HeartGemDoor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fba6c8aa9cd32972481ac862efd786df0356fe3689e0194edc59caea9b1dcae0",
+    "type": "Celeste.HeartGemDoor"
+  },
+  "Celeste.Holdable.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "36f4d0cf914705a6b2db67de774ceee25ff323fb63b89e0818e831576a5e656c",
+    "type": "Celeste.Holdable"
+  },
+  "Celeste.HoldableCollider.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0732de2eecc669ef8b11b8924c3ab41a1859bf9aff9f1b682fe4434eb0f28975",
+    "type": "Celeste.HoldableCollider"
+  },
+  "Celeste.IceBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "582081d5a8213a9fd12a8577906c25c4f1f68232b37b4671d3da66eb30abe4d6",
+    "type": "Celeste.IceBlock"
+  },
+  "Celeste.Input.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ee8911a5c457eac05d652c59462248db058bc342fb9c973dabf3fc698ea4ed00",
+    "type": "Celeste.Input"
+  },
+  "Celeste.InteractTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "023b757348594a3da7d0cddb3218c5f5f308ee2332131e70996865a1140c7863",
+    "type": "Celeste.InteractTrigger"
+  },
+  "Celeste.IntroCar.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b4e9a569fd547b0e39b0c71adc25dd309bd02042b631a3b785814152d132846d",
+    "type": "Celeste.IntroCar"
+  },
+  "Celeste.IntroCrusher.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ca659f05dbf713e37323b124bbd423725286410bfdd61c715a8eba6a6b3868e9",
+    "type": "Celeste.IntroCrusher"
+  },
+  "Celeste.InvisibleBarrier.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "533ab7b89c79cdb010c9e4f7f8261a11bb7a01f58274e875ce7d5d0076e217fc",
+    "type": "Celeste.InvisibleBarrier"
+  },
+  "Celeste.JumpthruPlatform.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "256d58907b477c9c7f42bbcd5813fe7486f0881b91d504a622cf2f5582c4019e",
+    "type": "Celeste.JumpthruPlatform"
+  },
+  "Celeste.KevinsPC.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6a7c7e2620bf643e1eb8da5a961e80ce83a44b48b80bf554bf30188c6297a74f",
+    "type": "Celeste.KevinsPC"
+  },
+  "Celeste.Key.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "71d928339cee413a32e486e40e7674625bc8bcc98b22abf0ce3e00428388023d",
+    "type": "Celeste.Key"
+  },
+  "Celeste.KeyboardConfigUI.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e47a8a75f27e691b1eb336d8a79c0ed1264a052cdbe53258ae12a439dc350f0d",
+    "type": "Celeste.KeyboardConfigUI"
+  },
+  "Celeste.Killbox.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "22fed84f7d396338d854296583f8f19b3150350243e7a57d8a57101d22f45981",
+    "type": "Celeste.Killbox"
+  },
+  "Celeste.Lamp.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0e96dbc9f73167916a94d8ca0b3b7a5066753f8a8aead3090c5886575c49a6eb",
+    "type": "Celeste.Lamp"
+  },
+  "Celeste.Language.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f36e5529334e079e610bdf2e412961c089d4f5a38989ad67e2f28de17e5d7cc5",
+    "type": "Celeste.Language"
+  },
+  "Celeste.LavaRect.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "23a1d01c966b579f71409d79c455675f45e2947a55ecb1f87299e2d675b2477f",
+    "type": "Celeste.LavaRect"
+  },
+  "Celeste.LevelExit.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a723e56ac9f12628cc51c0e31344d84f43b171206b62d04ad621213f1c08ac90",
+    "type": "Celeste.LevelExit"
+  },
+  "Celeste.LevelLoader.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b35b6f5c0479b0eccaf5d5a1c6affaca388c6733a585248b910208a354c6af7f",
+    "type": "Celeste.LevelLoader"
+  },
+  "Celeste.LightBeam.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "29a51629c8402318a25ce7b455bd51326bed6722e7d5129fee5ff9d6b664f07a",
+    "type": "Celeste.LightBeam"
+  },
+  "Celeste.LightFadeTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "32b9e3fb7e6e3d02b46419c6d3144be22f1850d5555f907501d69a2a94291e68",
+    "type": "Celeste.LightFadeTrigger"
+  },
+  "Celeste.Lightning.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a5ec492bb9c6f47f93dc7aecd7a08d97c55059419fdc824b3e0b0e7b756577ce",
+    "type": "Celeste.Lightning"
+  },
+  "Celeste.LightningBreakerBox.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d9b0c853563f8096004820bf5ba28c656b79bf646fd805c946713dbce7f91938",
+    "type": "Celeste.LightningBreakerBox"
+  },
+  "Celeste.LightningRenderer.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "937345f55ebe2fc6572fdb51af36627195afba7357d1bb20ce95e193461fd50c",
+    "type": "Celeste.LightningRenderer"
+  },
+  "Celeste.LockBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a8e65f0cb82f81e43b824ea08a0584e0b3cee483d0f97302a0f2bd13390c32bf",
+    "type": "Celeste.LockBlock"
+  },
+  "Celeste.Lookout.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7ef4c4f4c328a8b6aeb700501ae7fbe829f80aeb7d2f7c22416f2498e5f4ba9a",
+    "type": "Celeste.Lookout"
+  },
+  "Celeste.LookoutBlocker.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "31342aff3149d8f4645c3e01823750b607c6df4cac7a72e805c00c8b745def7a",
+    "type": "Celeste.LookoutBlocker"
+  },
+  "Celeste.Maddy3D.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "624651b9af09bd8fdc0cfb41a7a9987e2d1173c6eaee3304da22d1e6bf5404b7",
+    "type": "Celeste.Maddy3D"
+  },
+  "Celeste.Memorial.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7536c4bb059c7c8bd0b69ac14e458f65b2909eeca1d4356cfff49412ad875150",
+    "type": "Celeste.Memorial"
+  },
+  "Celeste.MemorialText.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2c6e2ef8ebb84998dfaf31bf5ab46055a6209092f6bf25318c8787c6eb3a152e",
+    "type": "Celeste.MemorialText"
+  },
+  "Celeste.MiniTextbox.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1a466ada65116121236131dd0f646d5eecb35d2a194e36b9241bd12237b9609a",
+    "type": "Celeste.MiniTextbox"
+  },
+  "Celeste.MiniTextboxTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bd29dcb15eb79b1c846fc6bd6a1b3279c4f2b2ff8aa48782630171055f695614",
+    "type": "Celeste.MiniTextboxTrigger"
+  },
+  "Celeste.MirrorSurface.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "06a1829b8abddab647cd102c554f1683f8b1bd4185be2f585b1c078cf652ba40",
+    "type": "Celeste.MirrorSurface"
+  },
+  "Celeste.MoonCreature.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "59a570cd6e4d4c7d10889fe9e572632d3ef4f2d14f721d253ae8371ba7772e25",
+    "type": "Celeste.MoonCreature"
+  },
+  "Celeste.MoonGlitchBackgroundTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "39cf54e9dd0c96a19f240c10328e9c924eab43b89164f48628bfc6b06dc16863",
+    "type": "Celeste.MoonGlitchBackgroundTrigger"
+  },
+  "Celeste.MountainModel.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "af19439f2f8ef8cb2ebcde404a6c2caec926d8c451d7e399149c965c827bfb71",
+    "type": "Celeste.MountainModel"
+  },
+  "Celeste.MountainRenderer.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "71632451fa62c837fc00f4ca0beddb10627b2338e9ad246dae3c46ae5ba84c6d",
+    "type": "Celeste.MountainRenderer"
+  },
+  "Celeste.MountainState.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6c359a80414e935da6d418e97e5f40ad01442352d1a93f88a7c9690f80e30013",
+    "type": "Celeste.MountainState"
+  },
+  "Celeste.MoveBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8d64d75c8ec2f751596478839a11b60b9c13903f88d13667882b7cba76a8dd95",
+    "type": "Celeste.MoveBlock"
+  },
+  "Celeste.MovingPlatform.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "975bcde14c80ea242721d5f4a86bce14a8ac94e322312fe6c0541e537f31a5c6",
+    "type": "Celeste.MovingPlatform"
+  },
+  "Celeste.MrOshiroDoor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "479389fb26f439289e4da704e60193f1bf761b9b415d6194dd4f94ec6f4c9386",
+    "type": "Celeste.MrOshiroDoor"
+  },
+  "Celeste.MusicFadeTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7d31081a5ccad32c8da243e0e5a64d58cef0593193eae71dac20e8ed08f34b70",
+    "type": "Celeste.MusicFadeTrigger"
+  },
+  "Celeste.MusicTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0debea11b3aae9d10dbcd2800ff2c4dcf05b7e4103a86a3e683e5e348beed696",
+    "type": "Celeste.MusicTrigger"
+  },
+  "Celeste.NPC.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b883cdff32de8ad89334243014a5413f568c236f2be65a3b105a8b2ea539b16b",
+    "type": "Celeste.NPC"
+  },
+  "Celeste.NPC00_Granny.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7a3ff339cecb51e38e16be635b47295056a22e2bef92d7fa08acbe6491412108",
+    "type": "Celeste.NPC00_Granny"
+  },
+  "Celeste.NPC01_Theo.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "63ff8be2ffbda2d1640bac7238a582dd06cc04a9576302f56737dc0ef1ef53eb",
+    "type": "Celeste.NPC01_Theo"
+  },
+  "Celeste.NPC02_Theo.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ad2101214ed1a3b6ca442700cbfed943e01a1a60f74251ec85a98201299d20fa",
+    "type": "Celeste.NPC02_Theo"
+  },
+  "Celeste.NPC03_Oshiro_Breakdown.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3f8eb4253557f68c0ebe26448a11d550e224980e431d7387421bb5cc6f552e70",
+    "type": "Celeste.NPC03_Oshiro_Breakdown"
+  },
+  "Celeste.NPC03_Oshiro_Cluttter.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cccc87e4b85f90ccc072fc72998bf22903e192984be1357e1ebc90d80b76d573",
+    "type": "Celeste.NPC03_Oshiro_Cluttter"
+  },
+  "Celeste.NPC03_Oshiro_Hallway1.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "87a85d288a002e6ee75f81af4e9be6423ce5f9ac0342b9af9e9bac324a0a659e",
+    "type": "Celeste.NPC03_Oshiro_Hallway1"
+  },
+  "Celeste.NPC03_Oshiro_Hallway2.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "579d84bccfcf03c59d0417a27eab781602bc5e3f4df5ead5ee21a6426d2712ab",
+    "type": "Celeste.NPC03_Oshiro_Hallway2"
+  },
+  "Celeste.NPC03_Oshiro_Lobby.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0cf7755691fbb7ff9de7648488af00a1d4bb2f4aa270c5fd5711c7f5b5c06e8a",
+    "type": "Celeste.NPC03_Oshiro_Lobby"
+  },
+  "Celeste.NPC03_Oshiro_Rooftop.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3546d230a0fc0bb4108e840304c6c421223ea4f1a346502f2476437a15947998",
+    "type": "Celeste.NPC03_Oshiro_Rooftop"
+  },
+  "Celeste.NPC03_Oshiro_Suite.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1c1cc31d73bacf2695f22012321ff09858c8482c5fdb58adf1639fc0f0f0fd2d",
+    "type": "Celeste.NPC03_Oshiro_Suite"
+  },
+  "Celeste.NPC03_Theo_Escaping.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4e4a9dfcc55a48a5930dbd491f6b62210ddc6e388efaea9deac9d6c485ef7887",
+    "type": "Celeste.NPC03_Theo_Escaping"
+  },
+  "Celeste.NPC03_Theo_Vents.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6d2bd8264fa3bb76abda1c4418e080b3b4567198a112d384ea3ba5fba85a8915",
+    "type": "Celeste.NPC03_Theo_Vents"
+  },
+  "Celeste.NPC04_Granny.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c3f0f9bb78c0ba456abd01463df0294664d6ee3e97da49ca75de742656beec0a",
+    "type": "Celeste.NPC04_Granny"
+  },
+  "Celeste.NPC04_Theo.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "55fa2d1ec169d4e1608ab4eaf696b97ed1718a134960d7742d73b4e1c9cb008b",
+    "type": "Celeste.NPC04_Theo"
+  },
+  "Celeste.NPC05_Badeline.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "92a4236155de723a5247e26fe2632c12e84f5a40c54db13b1ffe3b1b273db0ae",
+    "type": "Celeste.NPC05_Badeline"
+  },
+  "Celeste.NPC05_Theo_Entrance.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5f52c7d5a8c46a4e6bbe8e52302c5c2fda03be00d646e732240a8ef24a46d65d",
+    "type": "Celeste.NPC05_Theo_Entrance"
+  },
+  "Celeste.NPC05_Theo_Mirror.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7e2368b384f41c202330204495f243f8a79d3677a75d5746d667f955885c03a6",
+    "type": "Celeste.NPC05_Theo_Mirror"
+  },
+  "Celeste.NPC06_Badeline_Crying.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9a0c359d3595f54a21cad79aebd19fe168007469eaed9b9b8f43a4313f76ef8d",
+    "type": "Celeste.NPC06_Badeline_Crying"
+  },
+  "Celeste.NPC06_Granny.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "340f3faaf35528e4e24af98739bd71de186d1f15b610d37ff9e357e4af70767e",
+    "type": "Celeste.NPC06_Granny"
+  },
+  "Celeste.NPC06_Granny_Ending.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3e4c2d89bb5f841902490c2c3fad539e4ddfc6bb3f9581e5b5ba26e548deafed",
+    "type": "Celeste.NPC06_Granny_Ending"
+  },
+  "Celeste.NPC06_Theo_Ending.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b0a258aa01ccc6c348d6a07373b97f755eff666f6186b06d02ab3775e3387bcd",
+    "type": "Celeste.NPC06_Theo_Ending"
+  },
+  "Celeste.NPC06_Theo_Plateau.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2c181abd0ffa3fc8e7a7a4807a78791ad1f29502c630daa986451e97b700eadc",
+    "type": "Celeste.NPC06_Theo_Plateau"
+  },
+  "Celeste.NPC07X_Granny_Ending.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4b0782c888af0cff719317375614daadccc87bfeeb9067e94fd86a2cfece3702",
+    "type": "Celeste.NPC07X_Granny_Ending"
+  },
+  "Celeste.NPC08_Granny.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2c5b53a7f175b0e36a20e4826424d4bf6cb41a0014b9e5a3c54a04524a67db2e",
+    "type": "Celeste.NPC08_Granny"
+  },
+  "Celeste.NPC08_Theo.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a3bf0fde343c663dcf7446701b6d22310f57bbe4eaa660f56eae3ef471ee6359",
+    "type": "Celeste.NPC08_Theo"
+  },
+  "Celeste.NPC09_Granny_Inside.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c483a40c8da4773c02862c1732bcfa8befd7174f51c793abd6c4dc1649dadce0",
+    "type": "Celeste.NPC09_Granny_Inside"
+  },
+  "Celeste.NPC09_Granny_Outside.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "93c1ad35143d7d8d8b6cc73b6f25af7dab568f3415960346eb5d049a3d5fab30",
+    "type": "Celeste.NPC09_Granny_Outside"
+  },
+  "Celeste.NPC10_Gravestone.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ca89203e8874ab00dd2d228b06f68675305fd41636f6c57b63b36eee4e601599",
+    "type": "Celeste.NPC10_Gravestone"
+  },
+  "Celeste.NegaBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6a608d15951fa740186aed65a3ffd6bf097a3ee92339accc03aa65a46f0d0313",
+    "type": "Celeste.NegaBlock"
+  },
+  "Celeste.NoRefillTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "556e76447726d1eb3159f71743830e8ad79f0359e6298d0fc228ecffd04c555c",
+    "type": "Celeste.NoRefillTrigger"
+  },
+  "Celeste.OVR.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d5bb35e139bbb0d1f34e6bd48b87a3fea5027e32d5e97a10963ac23af960489f",
+    "type": "Celeste.OVR"
+  },
+  "Celeste.OshiroTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c9d345fc402c4bd33ee6fa83df8d13df5c2022a0d6b435f5576d219aa4305bf9",
+    "type": "Celeste.OshiroTrigger"
+  },
+  "Celeste.Oui.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "90430b097ba9095bf4222cb82af138da04bdbbb7ff9e3192eaf1f425e83d2ef6",
+    "type": "Celeste.Oui"
+  },
+  "Celeste.Overworld.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "df3ccb192025058efb703371364493abc4d342768262eed1e1a488a0442a9f84",
+    "type": "Celeste.Overworld"
+  },
+  "Celeste.OverworldLoader.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1900412097c2f0ee17ca041d500de24fb9ce3139fd8212785a60ac19728a77b3",
+    "type": "Celeste.OverworldLoader"
+  },
+  "Celeste.ParticleTypes.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bfe781f5ccb153458c6cbf74832d38da51171f5af1c4756a7c1411172b5ca895",
+    "type": "Celeste.ParticleTypes"
+  },
+  "Celeste.Payphone.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3df1a82a3382b60fc91293f93110efa33b415c259364591fc367df57977f3cea",
+    "type": "Celeste.Payphone"
+  },
+  "Celeste.PicoConsole.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "69eef7dbe16e122d11978513aebcd32972dc0550b234e6ab2872c87e2a2f5d48",
+    "type": "Celeste.PicoConsole"
+  },
+  "Celeste.Plateau.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "dae3d3ded06ae694152049c15cc1f6a0c1ee4a123cf4f1b9b7afa31afbed3a64",
+    "type": "Celeste.Plateau"
+  },
+  "Celeste.PlaybackBillboard.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "136c6a5000f4a0c4c31dcd93ffbf5ead95f40ec9b358e2c2c649894ebdaec929",
+    "type": "Celeste.PlaybackBillboard"
+  },
+  "Celeste.PlaybackData.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "000dbb2f3e11d2511171d7fc09cf7f3578596f5d85c8f234010a704b1b14b9da",
+    "type": "Celeste.PlaybackData"
+  },
+  "Celeste.PlayerCollider.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d4709c9a080fcacf8b5beee20c5a2557d1e39ea497042d0eeb7c06ca9befd37f",
+    "type": "Celeste.PlayerCollider"
+  },
+  "Celeste.PlayerPlayback.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0a97da7f7f62cd410f461bf001837378972ed2ef53ea7a324e589b321d590086",
+    "type": "Celeste.PlayerPlayback"
+  },
+  "Celeste.PlayerSeeker.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "87e364282c39067ad06d912870529215aef004f6ce1a1285cf6b2fc7adabe1a0",
+    "type": "Celeste.PlayerSeeker"
+  },
+  "Celeste.Poem.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0ed50df908ed64936c25929228018e0f38943aeaab5b075ee83b59c9c96ea9f8",
+    "type": "Celeste.Poem"
+  },
+  "Celeste.Postcard.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a3fbac435c7cb54a192472e0a26ac75d2207efe488ee1674136ab6cf5d69a449",
+    "type": "Celeste.Postcard"
+  },
+  "Celeste.PowerSourceNumber.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ebc3f6dd24ba84b99d6033cb0a6d3a0f4c779b70e4debf2ca6af1db63512c1d8",
+    "type": "Celeste.PowerSourceNumber"
+  },
+  "Celeste.PropLight.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fca1c84f8d46a016a3ef8501b0e8774c7ac56f96a3b0bc4da134a9cc5e99fcd9",
+    "type": "Celeste.PropLight"
+  },
+  "Celeste.Puffer.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "776877de5a173259055b460303721aba471b88d9af39798d84b16bde9191fff2",
+    "type": "Celeste.Puffer"
+  },
+  "Celeste.Refill.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "264bef0273d715130d5fe4c9784ec961f6ccb44e6faaa8a967236d21334ee473",
+    "type": "Celeste.Refill"
+  },
+  "Celeste.ReflectionHeartStatue.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0cfa3f4b56c00527bb3822dd86480d702f58559f68230c9dbfaa44ac7da0fe17",
+    "type": "Celeste.ReflectionHeartStatue"
+  },
+  "Celeste.ReflectionTentacles.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2266ed289b0f64a9dc38935a0bb75bb9721143a172da6fa78cc257a3739f20fa",
+    "type": "Celeste.ReflectionTentacles"
+  },
+  "Celeste.ResortLantern.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0ed94c1368a69e4a8b42acf4f11951aa3b7a71690f91d63bbb8deaf9d7ee78c2",
+    "type": "Celeste.ResortLantern"
+  },
+  "Celeste.ResortMirror.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "817c222c0eae93ac972d8f8499348f7149bfa63964fbab901ead08fc986d1bfb",
+    "type": "Celeste.ResortMirror"
+  },
+  "Celeste.ResortRoofEnding.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c61b05ef6a64d6fe64dcf4c708bd27860894463216d85b1202c54d8d2e68ed00",
+    "type": "Celeste.ResortRoofEnding"
+  },
+  "Celeste.RespawnTargetTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2de5249560ea7c8a8701a8ff2798a8f37d8e7c4fad0b392e853917688bda1c53",
+    "type": "Celeste.RespawnTargetTrigger"
+  },
+  "Celeste.RidgeGate.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "309d56429f6926a266d850f468638119e701b1bd5de957a45a8b87d516baf16a",
+    "type": "Celeste.RidgeGate"
+  },
+  "Celeste.Ring.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "68840bb36aae59b9699307ca68c97802e10479c5db7203950c8be6075a02e746",
+    "type": "Celeste.Ring"
+  },
+  "Celeste.RisingLava.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "03d6a2e5adf08f167a962d071fdededcc917ffb94f86bea8c7cdceeec131d9af",
+    "type": "Celeste.RisingLava"
+  },
+  "Celeste.RotateSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "be471ffccbfda075408af71532ed91fc2074c1594bfdb10a48ab71373e6381bc",
+    "type": "Celeste.RotateSpinner"
+  },
+  "Celeste.RotatingPlatform.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "346964c2abb162def4be1bd628550cfad2fefedb6fdb6e6d2a6b77355f67e2a1",
+    "type": "Celeste.RotatingPlatform"
+  },
+  "Celeste.RumbleAmount.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3e716a2b0223313eb0bfaa434c3bbe9347a79a2af5cf9343bf0bc0b959182c0e",
+    "type": "Celeste.RumbleAmount"
+  },
+  "Celeste.RumbleLength.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f52897c406b188915db47c7ecaf62c6812fc8051d798772790e8dc42a3207f6a",
+    "type": "Celeste.RumbleLength"
+  },
+  "Celeste.RumbleStrength.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c10ec9df2a962bb6c7be3c82ea43823a3905fb4672530b42e1e1ac81be8b56fb",
+    "type": "Celeste.RumbleStrength"
+  },
+  "Celeste.RumbleTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f99643804aecbf415e2f0355dea9254fd81836da996da131cd894f024b953875",
+    "type": "Celeste.RumbleTrigger"
+  },
+  "Celeste.SFX.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1fd62ecede5497dad38f17d767228db00efad53c997853af434b07e958080fdf",
+    "type": "Celeste.SFX"
+  },
+  "Celeste.SafeGroundBlocker.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "611ccba19e77f618d84aa2de04ff1a2d37832781a106f46fc42d1bc7a08d8c9d",
+    "type": "Celeste.SafeGroundBlocker"
+  },
+  "Celeste.SandwichLava.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "deb1a10f96696671fedf411986b5ef8d3981661a7fbd29a14ea8f93d70b0bc25",
+    "type": "Celeste.SandwichLava"
+  },
+  "Celeste.SaveData.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4d5effbda2d6dc7b142eee6b84c019f9335cb0212e0fcf282045a205a1739472",
+    "type": "Celeste.SaveData"
+  },
+  "Celeste.ScreenshakeAmount.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bbc86f9ddea91a1e717f753e293a8501ec680b12a89f8614547df5b64ea05281",
+    "type": "Celeste.ScreenshakeAmount"
+  },
+  "Celeste.Seeker.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a06465582a159a2d3b7a1227cacf8bf856cca47c516e083640525d549c615fdc",
+    "type": "Celeste.Seeker"
+  },
+  "Celeste.SeekerBarrier.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "61aa7a8ec8599db36f3b0c67e50600f303977881813983593737dc341725f265",
+    "type": "Celeste.SeekerBarrier"
+  },
+  "Celeste.SeekerStatue.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b462bc96edd74cef942bcaf93e5b7496eeb6db729a32bb3c7143a444a0ad5ca9",
+    "type": "Celeste.SeekerStatue"
+  },
+  "Celeste.Selfie.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3e41e11aeb7497e10561c2ec1692035c755a4b24bd2e7e6abaddc97382fa70f2",
+    "type": "Celeste.Selfie"
+  },
+  "Celeste.Settings.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fbddd928b8f9b62fbfde274952bc7937785ca8e4cd5d3b7c34430a1d5bb00dbd",
+    "type": "Celeste.Settings"
+  },
+  "Celeste.SinkingPlatform.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6181180fe7931496900d81e6c0a1335bdd47131ad85fb515084e1339414ace1d",
+    "type": "Celeste.SinkingPlatform"
+  },
+  "Celeste.Skybox.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cbc832ed527a0353efb301cc792fb16cad97deb85ae9953e473e28ace9852917",
+    "type": "Celeste.Skybox"
+  },
+  "Celeste.Slider.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f1ceb7a975078a17bf7605b5985a785aee4cc78ec09697fba3d7c56aa639d972",
+    "type": "Celeste.Slider"
+  },
+  "Celeste.Snow.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8cf74a3525b8fa2685a63026f9065c061b6d4e488d8635374efa96348bf28ed8",
+    "type": "Celeste.Snow"
+  },
+  "Celeste.Snow3D.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e2e35c2a0048cb3886bc14d0279fb02eae1e5cc9f072e51c51611b5479ee287c",
+    "type": "Celeste.Snow3D"
+  },
+  "Celeste.SolidOnInvinciblePlayer.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0e49649202a165b4033bdd0dd21cd3c0ab4c7fd5f95c6d9b25bd10fbedcc37d4",
+    "type": "Celeste.SolidOnInvinciblePlayer"
+  },
+  "Celeste.SoundEmitter.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b89b1153745017c3068db9cedbb5131d0d39393dde67493ab9b9a121cd9ced12",
+    "type": "Celeste.SoundEmitter"
+  },
+  "Celeste.SoundSourceEntity.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "065921cf45c4ef87cb09e3556a49938f98b1e4d4aec9f2d0bad12e745d009fd2",
+    "type": "Celeste.SoundSourceEntity"
+  },
+  "Celeste.SpaceController.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "caacfb5b7bc2195a0b6d99082ac1b1ed5325a1b1d9c2ba4c56ed5b5707c78dff",
+    "type": "Celeste.SpaceController"
+  },
+  "Celeste.SpeedRing.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "39a60386889493330e0963d67cd4d1dec4b0c5925896cadc733bc41c7ea888e3",
+    "type": "Celeste.SpeedRing"
+  },
+  "Celeste.SpeedrunType.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "da1db9a34eac0ff51401960c7a360bd1799f5b4974f387c1fce6f2901449f123",
+    "type": "Celeste.SpeedrunType"
+  },
+  "Celeste.Spikes.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fb485592822286d316d93fe029acf92b83e4a0b119492dd3d2fa77f6b5e11901",
+    "type": "Celeste.Spikes"
+  },
+  "Celeste.SpotlightWipe.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bb06af5d4a9385dfa0ebea3502b330fb000074b0d4eecfbe577857a429ffd617",
+    "type": "Celeste.SpotlightWipe"
+  },
+  "Celeste.Spring.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "36a931e162387df599b88df84d851541be25001d24a5114084c6d06c461939d7",
+    "type": "Celeste.Spring"
+  },
+  "Celeste.StarJumpBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f5c4e8a870d40371efe006958372e410cc7507c311096e8d18a249e98ced15f5",
+    "type": "Celeste.StarJumpBlock"
+  },
+  "Celeste.StarJumpController.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8eb5f075fc251999573fa9829272777963e0246ce41bd40bab03be1ff6eefef2",
+    "type": "Celeste.StarJumpController"
+  },
+  "Celeste.StarRotateSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "10d2d820e2fc65b88e413d3243a98d5d3cbf289ed639f5c11f9588c38072b903",
+    "type": "Celeste.StarRotateSpinner"
+  },
+  "Celeste.StarTrackSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e32df7fa42e93ddf470c4bbeeee2439707379d176b0923d6229a67fd7af6a1a5",
+    "type": "Celeste.StarTrackSpinner"
+  },
+  "Celeste.StopBoostTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "158fbbab43da839df2991215d1d9d3d05d6a0cfaa2830914ffe72b337d77f8bc",
+    "type": "Celeste.StopBoostTrigger"
+  },
+  "Celeste.Strawberry.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8fa498d3ff01ed6dbdb779a2caced5a263a1f86dd52f234a6a9ec8f2e6bda6a8",
+    "type": "Celeste.Strawberry"
+  },
+  "Celeste.StrawberrySeed.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "20525956df3dc699b39546d09464b5249552ac14b3bfcbb351a808f57d9a46b8",
+    "type": "Celeste.StrawberrySeed"
+  },
+  "Celeste.SummitCheckpoint.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f7d36c6cfb2b6cf69f5f0aa2d6d7500a3ff601ac124d418462cc723ce24f68d3",
+    "type": "Celeste.SummitCheckpoint"
+  },
+  "Celeste.SummitCloud.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d0e6689766406f4a4d3986321d37d6cf7b8f1fb9cdcb81c7b720ba77510c5eec",
+    "type": "Celeste.SummitCloud"
+  },
+  "Celeste.SummitGem.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "87737390803ccdbe2e1ef71bb562f7d3742f955f5ddc7a0c945cf87a3233c4f4",
+    "type": "Celeste.SummitGem"
+  },
+  "Celeste.SummitGemManager.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fd26f9324b3388ad54dfe0f344d6a66fbdfb6c8bf790b45a285bf1b459cdfdc0",
+    "type": "Celeste.SummitGemManager"
+  },
+  "Celeste.SwapBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5cfbc16d9d9a812aeaa31ed0fdbb38a0f8bd6e0823fc047cf1f31cb258803585",
+    "type": "Celeste.SwapBlock"
+  },
+  "Celeste.Switch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e60b75a15b432779e7915f8718b097b26b69e09d510096bcd171d7f1530a24ed",
+    "type": "Celeste.Switch"
+  },
+  "Celeste.SwitchGate.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4df5a353363c72e45174ad325df866cc910c9d929d537d62f0c27bb8cd310651",
+    "type": "Celeste.SwitchGate"
+  },
+  "Celeste.TalkComponent.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "831468764a4a89d75820abcfb4768a7258d5920daef16d9bb1f3519e0424cae0",
+    "type": "Celeste.TalkComponent"
+  },
+  "Celeste.TempleBigEyeball.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "86fd09f95bc4fb91f25dc7cf5918ff8b67dba3175e4fd07e1bbadac637ef2623",
+    "type": "Celeste.TempleBigEyeball"
+  },
+  "Celeste.TempleCrackedBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e29d2eca51ed760d25f162726e71d2a589216bcf1ca43e9d9f43b077f5f86b90",
+    "type": "Celeste.TempleCrackedBlock"
+  },
+  "Celeste.TempleEye.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "768320efa06b7326836878146022eccdf1f22174dd8443b02e88ee067a95bbc4",
+    "type": "Celeste.TempleEye"
+  },
+  "Celeste.TempleGate.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8361466f6c5892417b42de99f10907a2a7c01cd0f29157f0b683ba45894b08d2",
+    "type": "Celeste.TempleGate"
+  },
+  "Celeste.TempleMirror.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "75094e894c525240d7c8070f48806d4cf899a3f80beb26ab947fa263bed9e853",
+    "type": "Celeste.TempleMirror"
+  },
+  "Celeste.TempleMirrorPortal.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "43f6b46c5451158fc45261cec83d8fd007b34e723327fbc7a1e9b443406a01de",
+    "type": "Celeste.TempleMirrorPortal"
+  },
+  "Celeste.TemplePortalTorch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0f4bfb40fcd7e250cd11542f1628260dcd65dd8b6155be92587d35e18c6a0d59",
+    "type": "Celeste.TemplePortalTorch"
+  },
+  "Celeste.TextMenu.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9d970e43b5caceca5f660b089819844184b3ede00615802cb7808fffc7a1b547",
+    "type": "Celeste.TextMenu"
+  },
+  "Celeste.Textbox.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "74ef3ec467e781e71e5e0c2ff93e45c73a94305662f2a17d3f9998eb880e9aaa",
+    "type": "Celeste.Textbox"
+  },
+  "Celeste.TheoCrystal.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3351a381389e78399797d0e04e47676661758e6841d014692c574612d39276b8",
+    "type": "Celeste.TheoCrystal"
+  },
+  "Celeste.TheoCrystalPedestal.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "366e8c9f102f18edf1af8bf28fcf8098fd51025f15f47cfc347799e1f3ff5582",
+    "type": "Celeste.TheoCrystalPedestal"
+  },
+  "Celeste.TileInterceptor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6848a2bfc9e3667df9e77e5c8b8ac55e0c3daddccba0e4a0be09e9ed0b4f9bc5",
+    "type": "Celeste.TileInterceptor"
+  },
+  "Celeste.Torch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f0fd982b114eb39cc20c2d3ffebd776ba256876730b7bbe20e646ef9213b120f",
+    "type": "Celeste.Torch"
+  },
+  "Celeste.TouchSwitch.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1d74dfd289468c970e2be356e454eababfce4ace8a2e042ef93173a5ad56c96f",
+    "type": "Celeste.TouchSwitch"
+  },
+  "Celeste.TrackSpinner.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2b08915d3e6be55db33cfdc1cc57232cc259f3fb00c57f3e254df40d40ddcf22",
+    "type": "Celeste.TrackSpinner"
+  },
+  "Celeste.TransitionListener.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "44b013a3df7de52bedc284a31cbc3ab461d526f129494eb41eae222205ffca1b",
+    "type": "Celeste.TransitionListener"
+  },
+  "Celeste.Trapdoor.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "47bf9b3c20d96321cbc30d06a4b7ff5571520b0d410eb67f0c3a1c3215ee0405",
+    "type": "Celeste.Trapdoor"
+  },
+  "Celeste.TriggerSpikes.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a36d0b4e7e7bd3f8171f3ea02808ae6dac9f8a400d93da651955cf52779fc812",
+    "type": "Celeste.TriggerSpikes"
+  },
+  "Celeste.UnlockEverythingThingy.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6b8485679923193fec07a2e2c98eca8bc1a741a7561a813a0453cfbbf3b490af",
+    "type": "Celeste.UnlockEverythingThingy"
+  },
+  "Celeste.UserIO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3b363bd81645e30b49bd4c79e6e1fee4f9641d05f54f8fe43dd60db5cace2d0c",
+    "type": "Celeste.UserIO"
+  },
+  "Celeste.Water.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "662e65b643d0c43f943823da38e04b99c082148dc84f876e864c3b1360f45e4d",
+    "type": "Celeste.Water"
+  },
+  "Celeste.WaterFall.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "967abc872c6f2d52a9f5db23d75db6b662c1ef6f119288de72565f35f0979bb7",
+    "type": "Celeste.WaterFall"
+  },
+  "Celeste.WaveDashPage.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0492a6dce87c94491906122bcb32704a99d31f10cfbbc0d8b1309bda4523aa23",
+    "type": "Celeste.WaveDashPage"
+  },
+  "Celeste.WaveDashPresentation.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ccea3eba12b8d95802472048abcf1aa51e4d2650039d79117a6f3efc74a657e8",
+    "type": "Celeste.WaveDashPresentation"
+  },
+  "Celeste.WaveDashTutorialMachine.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fbccba65c06ec178f1b1661b5a43bace45c1afab9bcbee5321b84bd0c1db3c8e",
+    "type": "Celeste.WaveDashTutorialMachine"
+  },
+  "Celeste.WhiteBlock.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "78aa9e23e0be62a648252a897711b92a6a3d38a8d6611c19643f324577ee06b0",
+    "type": "Celeste.WhiteBlock"
+  },
+  "Celeste.WindAttackTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d97157ed88c966ccd5f06ab9d94fe7572caf306cae7904b3fef812254615887c",
+    "type": "Celeste.WindAttackTrigger"
+  },
+  "Celeste.WindSnowFG.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "084f8010be716063d7fb298857a9a1782656f53fd7dcc8b939f208f057fbf85f",
+    "type": "Celeste.WindSnowFG"
+  },
+  "Celeste.WindTrigger.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f8c6ff91e7ee2c392b09f3983633c62bc68fecab14ff4fa406b20a3c8cac4f82",
+    "type": "Celeste.WindTrigger"
+  },
+  "Celeste.WindWipe.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2662c36ce9f40f4d084e7575fcc1c930af3ac962b7cd54a2f1a9f67bc164f881",
+    "type": "Celeste.WindWipe"
+  },
+  "Celeste.Wire.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "96e69eb6ae511ef23fa84e799fcf821b7b17939e6437ed950185eae188e578d1",
+    "type": "Celeste.Wire"
+  },
+  "Celeste.ZipMover.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "26aceb390fc464a57af51a197c4b47ec671ea7a17495809214d28226644d4909",
+    "type": "Celeste.ZipMover"
+  },
+  "Celeste._3dSoundTest.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fe719edbae354ba79439b31abd64783eb937387a8455ceab875da109edfbfdd0",
+    "type": "Celeste._3dSoundTest"
+  },
+  "FMOD.CB_3D_ROLLOFFCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "417c743ca41f1ec56a5b8d7681286398f1128622acad44e4419c41d9548d699c",
+    "type": "FMOD.CB_3D_ROLLOFFCALLBACK"
+  },
+  "FMOD.CHANNELCONTROL_CALLBACK_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5bd63fb2b580d95435123507c23d5fa6516e04ed78dd560471d4e47f6c050e86",
+    "type": "FMOD.CHANNELCONTROL_CALLBACK_TYPE"
+  },
+  "FMOD.CHANNELCONTROL_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bc968c393a9a03b96b0cf5ec4708f5fa427173610d1009ddde2bc8092d93fa46",
+    "type": "FMOD.CHANNELCONTROL_TYPE"
+  },
+  "FMOD.CHANNELMASK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "10fa34ff6a471dc09ca898d6c37e35b6965d0a66a6f3f50977c7ee0b094f7b49",
+    "type": "FMOD.CHANNELMASK"
+  },
+  "FMOD.CHANNELORDER.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "158b88eb04cdd0250e0435bcb07f23bf80ca55608ac0b0f7dd826730b63f9758",
+    "type": "FMOD.CHANNELORDER"
+  },
+  "FMOD.CHANNEL_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1d03d59a61e9b15d54d113df9cd71bde021db207e28d0fc584c4b5fcd9b583be",
+    "type": "FMOD.CHANNEL_CALLBACK"
+  },
+  "FMOD.CREATESOUNDEXINFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3caa29c1d7ab60e054eb9943f2d5221f46590b7a4cdb4a37afc176150cbf0b0b",
+    "type": "FMOD.CREATESOUNDEXINFO"
+  },
+  "FMOD.Channel.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "eb4f2c604f4f12b4ed35d226ffb249fba709055a1b3be21542d6d9bcec125261",
+    "type": "FMOD.Channel"
+  },
+  "FMOD.ChannelControl.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cd131d379355b8d194d625086b236b56e7907e01add56634fdccd084766ee8ce",
+    "type": "FMOD.ChannelControl"
+  },
+  "FMOD.ChannelGroup.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4a17274a8aef3b2e727abd4e61bb0fb1d45efe31214ef81e1c89a8dc39888e00",
+    "type": "FMOD.ChannelGroup"
+  },
+  "FMOD.DRIVER_STATE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "dfa16a2e1cff53a418c693395fe9b05356adb5643cd2c63ab90db44231fa0a56",
+    "type": "FMOD.DRIVER_STATE"
+  },
+  "FMOD.DSP.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6560c117d38c094956fca8d191ecbf0d76b19ec5654e2c3ff7272e54b1b61100",
+    "type": "FMOD.DSP"
+  },
+  "FMOD.DSPCONNECTION_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b22e267a5b002266130c7fd9e9078b7d2dac70704b856967d5d052838083f4c9",
+    "type": "FMOD.DSPCONNECTION_TYPE"
+  },
+  "FMOD.DSPConnection.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "798332c9297db73e854f1f53f94566f525f49e44f1511868d8917420c8a772d8",
+    "type": "FMOD.DSPConnection"
+  },
+  "FMOD.DSP_BUFFER_ARRAY.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "fef3e20f745d40f21a901f4879e462dfabc6edcdfe154c37ce48a450d81647a4",
+    "type": "FMOD.DSP_BUFFER_ARRAY"
+  },
+  "FMOD.DSP_CREATECALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e43dbd8962f40502a0c8a779407666519e48709a79aa6ee9f3a541d009961e74",
+    "type": "FMOD.DSP_CREATECALLBACK"
+  },
+  "FMOD.DSP_DESCRIPTION.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3190084b9d9135bf6cfae35dd5217ca217f3f27041153859f1fb8085e86b95bf",
+    "type": "FMOD.DSP_DESCRIPTION"
+  },
+  "FMOD.DSP_GETPARAM_BOOL_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f6758a9b11f328dd8909998f75b5a4c8180813b0036b9bedca9c720c50ee25cf",
+    "type": "FMOD.DSP_GETPARAM_BOOL_CALLBACK"
+  },
+  "FMOD.DSP_GETPARAM_DATA_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4b4507a57548e95640348b7251cbf75c8aa3ad2c06501ec2e26394e1f4144d74",
+    "type": "FMOD.DSP_GETPARAM_DATA_CALLBACK"
+  },
+  "FMOD.DSP_GETPARAM_FLOAT_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "00da90741a85cab0e563a827fa0ec6db5af28c68c32e4ac53f55bebe51a0a96f",
+    "type": "FMOD.DSP_GETPARAM_FLOAT_CALLBACK"
+  },
+  "FMOD.DSP_GETPARAM_INT_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c79956355c1e1d99f42fef5d434368f53f69bcefe1a95c8a1fcf47dbd6001ed2",
+    "type": "FMOD.DSP_GETPARAM_INT_CALLBACK"
+  },
+  "FMOD.DSP_METERING_INFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "624da3607d79e8967b77453f0d4067de056fe6a98b5a6017a5f718bdec9050d4",
+    "type": "FMOD.DSP_METERING_INFO"
+  },
+  "FMOD.DSP_PARAMETER_DESC.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ebf9b7a769955dad90088ad02377434a75285f4b4ea24d92e9ae7ef58645f96d",
+    "type": "FMOD.DSP_PARAMETER_DESC"
+  },
+  "FMOD.DSP_PARAMETER_DESC_BOOL.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e240a0a64c04c99c96c30a826f4a0c953e5500f40ca994ba92d6d4b6d7e0c1ba",
+    "type": "FMOD.DSP_PARAMETER_DESC_BOOL"
+  },
+  "FMOD.DSP_PARAMETER_DESC_DATA.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f61137db49aafd23cf498634647e2da10401c805245d6a158a952d39726738cd",
+    "type": "FMOD.DSP_PARAMETER_DESC_DATA"
+  },
+  "FMOD.DSP_PARAMETER_DESC_FLOAT.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b781950f5f4867ee12dfd9f5b14473c550f338ef3cdbee36fcda8003ef04ebae",
+    "type": "FMOD.DSP_PARAMETER_DESC_FLOAT"
+  },
+  "FMOD.DSP_PARAMETER_DESC_INT.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5ed885d1e64e5f2f5b2223bd31d968e9c12ea7fbb8273c53f13938e24785c56a",
+    "type": "FMOD.DSP_PARAMETER_DESC_INT"
+  },
+  "FMOD.DSP_PARAMETER_DESC_UNION.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8b1509b9764cbe4f78876ad9b09746ea9567280685c885d0757b0fe8e3c512de",
+    "type": "FMOD.DSP_PARAMETER_DESC_UNION"
+  },
+  "FMOD.DSP_PARAMETER_FLOAT_MAPPING.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5c4e3a7004fc96b2083e3d3b91ea2bdf89f9ea3133b6060dd090b9916ecd1cae",
+    "type": "FMOD.DSP_PARAMETER_FLOAT_MAPPING"
+  },
+  "FMOD.DSP_PARAMETER_FLOAT_MAPPING_PIECEWISE_LINEAR.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d5d81b9a5e32c51f2922767608aa87988fc60f371e0bd8a9af652a2f109ce470",
+    "type": "FMOD.DSP_PARAMETER_FLOAT_MAPPING_PIECEWISE_LINEAR"
+  },
+  "FMOD.DSP_PARAMETER_FLOAT_MAPPING_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c0ecb3896c305604de5283bdeef2dbe061e7407c073f6f27ec53284b9d94546c",
+    "type": "FMOD.DSP_PARAMETER_FLOAT_MAPPING_TYPE"
+  },
+  "FMOD.DSP_PARAMETER_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8da0f024d1b55ce2e1959a3e4110adae52839196dea14e56397bfbbe5299b50c",
+    "type": "FMOD.DSP_PARAMETER_TYPE"
+  },
+  "FMOD.DSP_PROCESS_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3f409d65c79073128988b9ea7d930fc989a4e8a4003f6d0aed32b29a64aa506c",
+    "type": "FMOD.DSP_PROCESS_CALLBACK"
+  },
+  "FMOD.DSP_PROCESS_OPERATION.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d060d8c6abd5bc3468dde118d49334f3a82eda38a65be0946def9cd10eb6deb0",
+    "type": "FMOD.DSP_PROCESS_OPERATION"
+  },
+  "FMOD.DSP_READCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7a19d9eacc6471e71a4b89c2fcaf1666135b16e4b0d309dba70bee16f1e0a41b",
+    "type": "FMOD.DSP_READCALLBACK"
+  },
+  "FMOD.DSP_RELEASECALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d436bc6f590bb3597a9e2e4c0fc8eded142dcff27dadf2d23fa38489a9b56407",
+    "type": "FMOD.DSP_RELEASECALLBACK"
+  },
+  "FMOD.DSP_RESETCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e9fa289ef5084ba4f8dd7c10ee7bf9d7c44eafc6a4977acd536a6abd1f6b8703",
+    "type": "FMOD.DSP_RESETCALLBACK"
+  },
+  "FMOD.DSP_SETPARAM_BOOL_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f4eac5e1e3d300572078ab773cc8357f01547083ee58e16e44e030e74de4c295",
+    "type": "FMOD.DSP_SETPARAM_BOOL_CALLBACK"
+  },
+  "FMOD.DSP_SETPARAM_DATA_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "80533d3ca0705840caa20de55e5268cd984bd2c7f403547a3877cb8192ba092d",
+    "type": "FMOD.DSP_SETPARAM_DATA_CALLBACK"
+  },
+  "FMOD.DSP_SETPARAM_FLOAT_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2105e214ff783ccce90ec3363c3e496017bacc0e6b782d85e1372329b5bc982d",
+    "type": "FMOD.DSP_SETPARAM_FLOAT_CALLBACK"
+  },
+  "FMOD.DSP_SETPARAM_INT_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6778924ac84be2ff5f7c6ae65f253bfe6d4e639f6756c931b81ba2d499ebf248",
+    "type": "FMOD.DSP_SETPARAM_INT_CALLBACK"
+  },
+  "FMOD.DSP_SETPOSITIONCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9c0bbceb966061fc95d25932278af445b890d81d3b1828916034035657f51d4e",
+    "type": "FMOD.DSP_SETPOSITIONCALLBACK"
+  },
+  "FMOD.DSP_SHOULDIPROCESS_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ae4727f603386e5a8869194daeca2650c6ab90b958fdb3f89c5c2c74af0a2c13",
+    "type": "FMOD.DSP_SHOULDIPROCESS_CALLBACK"
+  },
+  "FMOD.DSP_STATE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3f16af9ff913f6f90d4b18b02b3117b43c6592d922b05d175fa31b3f6e52e89a",
+    "type": "FMOD.DSP_STATE"
+  },
+  "FMOD.DSP_SYSTEM_DEREGISTER_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6179c752f7dfc08bc03bb2d7e17d976b02ea884fce21eee4416043bf8f510de2",
+    "type": "FMOD.DSP_SYSTEM_DEREGISTER_CALLBACK"
+  },
+  "FMOD.DSP_SYSTEM_MIX_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a2a43592d27fc59a8a6e80c04382f5b4463ac8b195d0227064df12f261fcc42b",
+    "type": "FMOD.DSP_SYSTEM_MIX_CALLBACK"
+  },
+  "FMOD.DSP_SYSTEM_REGISTER_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2d977eeead140344d65f39c13c858096e9021f1ac65d252045fb214d5b0d9b49",
+    "type": "FMOD.DSP_SYSTEM_REGISTER_CALLBACK"
+  },
+  "FMOD.DSP_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "72256bf3c379f938af91f882917aaaef5cdefecc886918f243613dc36f369063",
+    "type": "FMOD.DSP_TYPE"
+  },
+  "FMOD.FILE_ASYNCCANCELCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "13bc18a2bc6fa0d7a8b9bcaa763e778dddfd2844008fcb4f5724c335674c2c2f",
+    "type": "FMOD.FILE_ASYNCCANCELCALLBACK"
+  },
+  "FMOD.FILE_ASYNCREADCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c108b108e515907629df7ddd83cc15b2d1bce36c443cd46246955f907abca81c",
+    "type": "FMOD.FILE_ASYNCREADCALLBACK"
+  },
+  "FMOD.FILE_CLOSECALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3f8766c60b531a78c5c508c26a5ba436f0e7cdc74f4b41512c106a413ce97680",
+    "type": "FMOD.FILE_CLOSECALLBACK"
+  },
+  "FMOD.FILE_OPENCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ace6c8c6b40b188438e4b20ba12f0c0c449dc3749ae2f59d8b8c51cf7f0e6158",
+    "type": "FMOD.FILE_OPENCALLBACK"
+  },
+  "FMOD.FILE_READCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "09d3dda26737364faf8b175ebb80e2780d3f4a2c72c6fce05de19f8e8ff2e5cb",
+    "type": "FMOD.FILE_READCALLBACK"
+  },
+  "FMOD.FILE_SEEKCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "68e8505a4d275a47fc2ebeb5d8cb8049f6fac43628a24e2e26f29509d7729dc2",
+    "type": "FMOD.FILE_SEEKCALLBACK"
+  },
+  "FMOD.Geometry.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "da53dbdd23b2b018c048a25c14fa8622a661580d81e5966350bf508eaf808ca7",
+    "type": "FMOD.Geometry"
+  },
+  "FMOD.HandleBase.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "41129802512ecd3ba985a401424daa1912770ab87bddce32460eb4f684e72df6",
+    "type": "FMOD.HandleBase"
+  },
+  "FMOD.INITFLAGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6724860a170099ace693b30cc05ab94e30db8b55047bf7df2b3a591b88530b44",
+    "type": "FMOD.INITFLAGS"
+  },
+  "FMOD.MODE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f4b74ed7b0a9c9ec0ef6ad512042eecf038362dbd33c11f785a3c1c1b5cf3f7b",
+    "type": "FMOD.MODE"
+  },
+  "FMOD.OPENSTATE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5b6dfade0e1a2da5630f77ee8734323cec5b00533e7f11c733ac34a8756d0918",
+    "type": "FMOD.OPENSTATE"
+  },
+  "FMOD.OUTPUTTYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "54b7a7d78bcc4c9ab52e9cb49deca83f664ae32add7b770ee827c1ba9e94e12e",
+    "type": "FMOD.OUTPUTTYPE"
+  },
+  "FMOD.PLUGINTYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f77167d4ba03429b020ca25ade0c9afc1a11579518e9d8f2e91238c1799d946b",
+    "type": "FMOD.PLUGINTYPE"
+  },
+  "FMOD.RESULT.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b7a8ae2d84424af2c8d8cdb71e16b3827967b7a82b96815c196effb67c69a19d",
+    "type": "FMOD.RESULT"
+  },
+  "FMOD.REVERB_PROPERTIES.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0c1b88a12ab6d48da6e619aba867e830339815b979978f748c85d7ba4131c205",
+    "type": "FMOD.REVERB_PROPERTIES"
+  },
+  "FMOD.Reverb3D.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "69c168ccbead48430ff3145eae9f8afd115c423ff037270f023d7988257c6794",
+    "type": "FMOD.Reverb3D"
+  },
+  "FMOD.SOUNDGROUP_BEHAVIOR.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "955edb6a9ec8c5bfe5ed95d544a93432f61664bfa96d5a6f0b0fb126eb50f4df",
+    "type": "FMOD.SOUNDGROUP_BEHAVIOR"
+  },
+  "FMOD.SOUND_FORMAT.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d1cb595e88a2900cf98260c9374e57c0cb80c3b6c62532834b82db491ab830e8",
+    "type": "FMOD.SOUND_FORMAT"
+  },
+  "FMOD.SOUND_NONBLOCKCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5560baf2cdb5a6ae0b23ffa09c0d834fbd0ea0f63729c04e0a2e1536bc043cd5",
+    "type": "FMOD.SOUND_NONBLOCKCALLBACK"
+  },
+  "FMOD.SOUND_PCMREADCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ca93095b1b4a907377784b65c95a7165bd644ea8ada7b763294b996675281cb7",
+    "type": "FMOD.SOUND_PCMREADCALLBACK"
+  },
+  "FMOD.SOUND_PCMSETPOSCALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1c04acebdcaa29933e83139e49c0ab17bb94dfc0373d80a3de3f62faa92b8a02",
+    "type": "FMOD.SOUND_PCMSETPOSCALLBACK"
+  },
+  "FMOD.SOUND_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0103e97c1eb657d566e47a992aef34bff0879d0b46f157c8f165a5879b62a28e",
+    "type": "FMOD.SOUND_TYPE"
+  },
+  "FMOD.SPEAKER.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8c0e6c538051ddeff2d7b3d8cf038a48e3def1377900e56b69b459f025ec7e01",
+    "type": "FMOD.SPEAKER"
+  },
+  "FMOD.SPEAKERMODE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "72184f71ad2afa330dbffb8a7f3886b7f5f40d33ab5335a6e41277eb4169cd50",
+    "type": "FMOD.SPEAKERMODE"
+  },
+  "FMOD.Sound.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b7d612d230a37e5f4b524c86864bcc64825870e0e5ca0e1d0fcf76b6a1cb81ef",
+    "type": "FMOD.Sound"
+  },
+  "FMOD.SoundGroup.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1bf52d3fc4dd130e8c5f433ece5822b01d19c0a8367eeb98ba12b11ca47b3e7d",
+    "type": "FMOD.SoundGroup"
+  },
+  "FMOD.StringWrapper.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3d82eb39f4b6b861d6aca8ae7e3efe3adfecef0a3c4ac500026e39d8b08528b5",
+    "type": "FMOD.StringWrapper"
+  },
+  "FMOD.Studio.ADVANCEDSETTINGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3046b618d7314a2003a138e7935de399d2d7a566a711578b4c85fb98e662f179",
+    "type": "FMOD.Studio.ADVANCEDSETTINGS"
+  },
+  "FMOD.Studio.BANK_INFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "056e2cb3da3ae5bb91b646e832580e4af07cf3a51278153687b8362a1ea6e8e6",
+    "type": "FMOD.Studio.BANK_INFO"
+  },
+  "FMOD.Studio.BUFFER_INFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e7e590466f91ca1b9814a0148b924fda588f75e829bf44e18dfb82a3c8e1ca40",
+    "type": "FMOD.Studio.BUFFER_INFO"
+  },
+  "FMOD.Studio.BUFFER_USAGE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1f49f2a7903faeb50fa54b7a95b4625ca0cebd83782fa2d9d844b8af468a8c83",
+    "type": "FMOD.Studio.BUFFER_USAGE"
+  },
+  "FMOD.Studio.Bank.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "9e729da4ed2ae31d943e7d39354027fe4e86463b25ee4e40d78eb92229d40c58",
+    "type": "FMOD.Studio.Bank"
+  },
+  "FMOD.Studio.Bus.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "df5023f80425528dd058e54b048db699cf505b9172509a8024d1085d643eab15",
+    "type": "FMOD.Studio.Bus"
+  },
+  "FMOD.Studio.COMMANDCAPTURE_FLAGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b51924ad79dd861f9af8ab1495949fd9f64ca36c0635138ebfbf0beb1ab307b6",
+    "type": "FMOD.Studio.COMMANDCAPTURE_FLAGS"
+  },
+  "FMOD.Studio.COMMANDREPLAY_CREATE_INSTANCE_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "06a2806b86462b353aee90586508fc2ea6c2aaa5cc7be3d56cc0c286845ad603",
+    "type": "FMOD.Studio.COMMANDREPLAY_CREATE_INSTANCE_CALLBACK"
+  },
+  "FMOD.Studio.COMMANDREPLAY_FLAGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a24b7045fe74cae33abbbc06596c1e1f798d027761e33f2950340f2707fd426c",
+    "type": "FMOD.Studio.COMMANDREPLAY_FLAGS"
+  },
+  "FMOD.Studio.COMMANDREPLAY_FRAME_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1fd16f1c7b95f4e3220eed2b50af9ba484eeb0d528a69e76bf682dd68ea94ef4",
+    "type": "FMOD.Studio.COMMANDREPLAY_FRAME_CALLBACK"
+  },
+  "FMOD.Studio.COMMANDREPLAY_LOAD_BANK_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3ab1fb6718841735015ba132cf69c6cc5932063801a75b217fbb9fb8d8e3c32d",
+    "type": "FMOD.Studio.COMMANDREPLAY_LOAD_BANK_CALLBACK"
+  },
+  "FMOD.Studio.COMMAND_INFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "cce22045e0a879f0b80e549aaac1fe364dc0566d36fa471b008fda7ffbbe42d3",
+    "type": "FMOD.Studio.COMMAND_INFO"
+  },
+  "FMOD.Studio.COMMAND_INFO_INTERNAL.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c580638750ffec3356cd2f06f554b5ecbe609d6e28554a7a905d1f4ffedb3d48",
+    "type": "FMOD.Studio.COMMAND_INFO_INTERNAL"
+  },
+  "FMOD.Studio.CPU_USAGE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "094733874407e8136bf6ea85918e5bef479c9f2b4f95c4b541f13df294a8c082",
+    "type": "FMOD.Studio.CPU_USAGE"
+  },
+  "FMOD.Studio.CommandReplay.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3c7918e35326c0374a714017fe7628895745411162611d85519f2d667ad52e3e",
+    "type": "FMOD.Studio.CommandReplay"
+  },
+  "FMOD.Studio.EVENT_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "341a9974cd5bb3f96cb2065b195dcc666256ca13f77dbae685342eb9f6cf0866",
+    "type": "FMOD.Studio.EVENT_CALLBACK"
+  },
+  "FMOD.Studio.EVENT_CALLBACK_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b229b668a1d71a022d933e086ed951f78adfd771c9c850939451214980ae8e30",
+    "type": "FMOD.Studio.EVENT_CALLBACK_TYPE"
+  },
+  "FMOD.Studio.EVENT_PROPERTY.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0bf72ba7d9fa90cb4d74854b29e89533d28d5487c73d44118533e72c26222934",
+    "type": "FMOD.Studio.EVENT_PROPERTY"
+  },
+  "FMOD.Studio.EventDescription.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "eb2375e114b7aa1184f5ee3ab5c430e191ef6b93d794aa7d3f02ccb23f893196",
+    "type": "FMOD.Studio.EventDescription"
+  },
+  "FMOD.Studio.EventInstance.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8bcdb56c1d6898da96948d3e732d5811594b3a7125fdf69bcf3c7675dca4bfb4",
+    "type": "FMOD.Studio.EventInstance"
+  },
+  "FMOD.Studio.HandleBase.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b321a3cb4233770129e14d6d008421bc516bac275c7c2a467a9165fe19c727ab",
+    "type": "FMOD.Studio.HandleBase"
+  },
+  "FMOD.Studio.INITFLAGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "df175cb0ca67177b0af43f0160a6f228ba25de016cd52c5bce47ec4008dea2cc",
+    "type": "FMOD.Studio.INITFLAGS"
+  },
+  "FMOD.Studio.INSTANCETYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "177bea98acdec587a807a51f99f79f89e9aa484899f9bbd8be1e11d71af26ff5",
+    "type": "FMOD.Studio.INSTANCETYPE"
+  },
+  "FMOD.Studio.LOADING_STATE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "a6ff6a2e52c4d8ad43bdbb028d6bf45c32fb33356fea416e40583e041e52d3b4",
+    "type": "FMOD.Studio.LOADING_STATE"
+  },
+  "FMOD.Studio.LOAD_BANK_FLAGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "863e435e4e70f4905711f1d231fe777d8261e4528c960163a6634a4442f69505",
+    "type": "FMOD.Studio.LOAD_BANK_FLAGS"
+  },
+  "FMOD.Studio.LOAD_MEMORY_MODE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "37444d5b3bdfcb462dc8f4046a5f025fc2baa51c4d651b88867b02201364272b",
+    "type": "FMOD.Studio.LOAD_MEMORY_MODE"
+  },
+  "FMOD.Studio.PARAMETER_DESCRIPTION.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e790a9f7e3faca5912de8c1675bbb10327df9a4deebba356ef7d5b561318767b",
+    "type": "FMOD.Studio.PARAMETER_DESCRIPTION"
+  },
+  "FMOD.Studio.PARAMETER_DESCRIPTION_INTERNAL.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "05ea4965046799c4dbb38a605eb11ff8d9fa59b9ec62af6ca763caadbfd92991",
+    "type": "FMOD.Studio.PARAMETER_DESCRIPTION_INTERNAL"
+  },
+  "FMOD.Studio.PARAMETER_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "bd350a78173afe164de508cdacc16e8b034648052e872280ca9e7ba7168b1761",
+    "type": "FMOD.Studio.PARAMETER_TYPE"
+  },
+  "FMOD.Studio.PLAYBACK_STATE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "853f7673fad93c1d0c0a56484ba96ef5f7f1badb8880c8f904340fb76357f3a4",
+    "type": "FMOD.Studio.PLAYBACK_STATE"
+  },
+  "FMOD.Studio.ParameterInstance.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6a0e1425ce29991f0ff71844e431699fa474ef6ac3a518dd50e501d7139c7c72",
+    "type": "FMOD.Studio.ParameterInstance"
+  },
+  "FMOD.Studio.SOUND_INFO.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "db639fa106ba615a1af1979c271848153ca1c17dc49a4f2c18b267e3fa257be6",
+    "type": "FMOD.Studio.SOUND_INFO"
+  },
+  "FMOD.Studio.SOUND_INFO_INTERNAL.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5f5d1d85b432475086902f3f1d8d84f6a20676f0e5c4b12d4c24179928087685",
+    "type": "FMOD.Studio.SOUND_INFO_INTERNAL"
+  },
+  "FMOD.Studio.STOP_MODE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "3bafdabb1cb2e06710eb3ca8b7d9aae10202965435472285715c6dea7d79a4c2",
+    "type": "FMOD.Studio.STOP_MODE"
+  },
+  "FMOD.Studio.SYSTEM_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "13d86960f4443b796f08a6078a57195ecd5b90989fca6ddd2e441db982d55096",
+    "type": "FMOD.Studio.SYSTEM_CALLBACK"
+  },
+  "FMOD.Studio.SYSTEM_CALLBACK_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1b26a5385c3423e3e6aabd24aec977ff1cc9ff1551ecf89730644c4c7675e1e6",
+    "type": "FMOD.Studio.SYSTEM_CALLBACK_TYPE"
+  },
+  "FMOD.Studio.System.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0f80163ceb05edba5dae89f74a72181d00ba1525c31bac3e67c10b0adec45089",
+    "type": "FMOD.Studio.System"
+  },
+  "FMOD.Studio.USER_PROPERTY.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "327bab9250986906dcac96b463392a60993c0a8d14a6c01e8e2b0780cf02708a",
+    "type": "FMOD.Studio.USER_PROPERTY"
+  },
+  "FMOD.Studio.USER_PROPERTY_INTERNAL.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "1466167f36e047aca164cd41be4d0d3c34d9d7bca5a22a7117d9533c68027424",
+    "type": "FMOD.Studio.USER_PROPERTY_INTERNAL"
+  },
+  "FMOD.Studio.USER_PROPERTY_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "737d2c192b78241c5a8a22f6a6a06154afa95aca6fba51898828394f64a44aaa",
+    "type": "FMOD.Studio.USER_PROPERTY_TYPE"
+  },
+  "FMOD.Studio.Union_IntBoolFloatString.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c75a978e9bc074c32d30554108364e97cae5d497bef799902d0f4b09da8d22da",
+    "type": "FMOD.Studio.Union_IntBoolFloatString"
+  },
+  "FMOD.Studio.VCA.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "0fa4d1fa3b97e928c144b24dc927189fa7668d36793620335d5da7e284a5d898",
+    "type": "FMOD.Studio.VCA"
+  },
+  "FMOD.Studio._3D_ATTRIBUTES.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "f33be1c39afe1c7c619edfa69bb21d3ca4ed2e221a43ed6cd102a4e728f08252",
+    "type": "FMOD.Studio._3D_ATTRIBUTES"
+  },
+  "FMOD.System.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4431e31a5ef5867aab9f4c658ab8c6942850992abda1580e07a031a36bcfa36a",
+    "type": "FMOD.System"
+  },
+  "FMOD.TAG.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6586fdc5c4bcde1432522f3b595be5aa940a3c8ad2093eaf449ecf88ad09e2d5",
+    "type": "FMOD.TAG"
+  },
+  "FMOD.TAGDATATYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "64800f8cbbb59cc909646a1fc8c188d75bf34d44e43760a2eafca7ef5d36b2c1",
+    "type": "FMOD.TAGDATATYPE"
+  },
+  "FMOD.TAGTYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "d8ac46ad3f5940076cfe280baceb8089e715a5ce67bcf0db13ac0ee2caef0b0e",
+    "type": "FMOD.TAGTYPE"
+  },
+  "FMOD.TIMEUNIT.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ac02df73d204968c3d9790999346c64e1528d79d45666d8b131decb798a72571",
+    "type": "FMOD.TIMEUNIT"
+  },
+  "FMOD.VECTOR.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "306f171e6c938fb3230b8544b3c608b3c5b5ab1fc7b99b60c25cf7d912623d87",
+    "type": "FMOD.VECTOR"
+  },
+  "Microsoft.Xna.Framework.BoundingBox.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "6c756b1befa87691597e494232f19c2d71c7ef9a41302df1eda4eb68d172b460",
+    "type": "Microsoft.Xna.Framework.BoundingBox"
+  },
+  "Microsoft.Xna.Framework.BoundingFrustum.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "8f2ba862ab2ec3466c48989f5c1beb292a0f2964bc0db5a1b143fe49158413a2",
+    "type": "Microsoft.Xna.Framework.BoundingFrustum"
+  },
+  "Microsoft.Xna.Framework.BoundingSphere.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "585f62701e3fc0bcb41b898f0cbb2fee615c121639e349cdc3e34912ec64f1c8",
+    "type": "Microsoft.Xna.Framework.BoundingSphere"
+  },
+  "Microsoft.Xna.Framework.ContainmentType.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e766e71fd8949da82fee0fb9f5def5c683bcb3676385377ffbeefc4c286de3c4",
+    "type": "Microsoft.Xna.Framework.ContainmentType"
+  },
+  "Microsoft.Xna.Framework.Content.ContentManager.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "44c0d470eaac34544ce6ee8f95c145faaa0f35923abdfec8629ea62c060178f2",
+    "type": "Microsoft.Xna.Framework.Content.ContentManager"
+  },
+  "Microsoft.Xna.Framework.Content.ContentReader.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ec7a278a2b4dbf5bd9f3ada40d5aeb0b6d790384114e221acc24b80f19e11226",
+    "type": "Microsoft.Xna.Framework.Content.ContentReader"
+  },
+  "Microsoft.Xna.Framework.Content.ContentTypeReader.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c1e7b14942cce436325566666014976dd1aac072a30ef069a583a8c6ca07b91f",
+    "type": "Microsoft.Xna.Framework.Content.ContentTypeReader"
+  },
+  "Microsoft.Xna.Framework.Content.ContentTypeReaderManager.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "165b3a2d0cdb48a7d2a0e875abccb493b63fdc9051603e8a8fbd615b2fc6d7b6",
+    "type": "Microsoft.Xna.Framework.Content.ContentTypeReaderManager"
+  },
+  "Microsoft.Xna.Framework.Design.BoundingBoxConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "1c9b5fe6e709abd7a3f192305b69c20c978f86f1c145847605ea378e7af59ef9",
+    "type": "Microsoft.Xna.Framework.Design.BoundingBoxConverter"
+  },
+  "Microsoft.Xna.Framework.Design.BoundingSphereConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "b2fe3d865e5d74febaf36d115977ed243df7b7e201933c01ce41c2da0c84698e",
+    "type": "Microsoft.Xna.Framework.Design.BoundingSphereConverter"
+  },
+  "Microsoft.Xna.Framework.Design.MathTypeConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "adc6b748cc9e00164d9e850fda9ddcd87e57867a78f7f678c547be56436d4d6b",
+    "type": "Microsoft.Xna.Framework.Design.MathTypeConverter"
+  },
+  "Microsoft.Xna.Framework.Design.PlaneConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "8e9d197ef986f3bdaadf522251dbaa525e8df12a2ff66f4b2beb10e967254719",
+    "type": "Microsoft.Xna.Framework.Design.PlaneConverter"
+  },
+  "Microsoft.Xna.Framework.Design.QuaternionConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "2243a71fb50aeafbc7152e2a6337522f0f88fa3db9792659e6870a1b952b4bfd",
+    "type": "Microsoft.Xna.Framework.Design.QuaternionConverter"
+  },
+  "Microsoft.Xna.Framework.Design.RayConverter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "86b5bd3cc2ae165b1fc98ff610f13049e641f5b58324ad6c874cce6afc0ab627",
+    "type": "Microsoft.Xna.Framework.Design.RayConverter"
+  },
+  "Microsoft.Xna.Framework.Design.Vector4Converter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "91c9034995098ad729c03e8e96c58d197094ca5d3ead179ada0ef62b44031898",
+    "type": "Microsoft.Xna.Framework.Design.Vector4Converter"
+  },
+  "Microsoft.Xna.Framework.DisplayOrientation.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "5ca94411604f694dad513b8b92d71f6007c5bc77b1461a212f14a33c10b15930",
+    "type": "Microsoft.Xna.Framework.DisplayOrientation"
+  },
+  "Microsoft.Xna.Framework.Game.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "d340ecfc50552f352ece8e08e923b7f758f6c678e4c807d3c86ad9ea57bdee0a",
+    "type": "Microsoft.Xna.Framework.Game"
+  },
+  "Microsoft.Xna.Framework.GameComponentCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "6b298f3170e140aa2d34dded8accf156d9b48b10ec7f5808fb295f00c3c5fe8e",
+    "type": "Microsoft.Xna.Framework.GameComponentCollection"
+  },
+  "Microsoft.Xna.Framework.GameComponentCollectionEventArgs.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "70b15c5fcec5f855eb4a5bbee631ea26dbd47f5c6a039f9b4aa8ef572e04f45a",
+    "type": "Microsoft.Xna.Framework.GameComponentCollectionEventArgs"
+  },
+  "Microsoft.Xna.Framework.GameServiceContainer.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "8ddfe895cb4aac80bc52e596fe95f56efffb2be7abfa44ce45f6ec66e3dacc51",
+    "type": "Microsoft.Xna.Framework.GameServiceContainer"
+  },
+  "Microsoft.Xna.Framework.GameTime.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "2f6d19fa5dcfe09bc3fe1df0b846979038e318dfe4f6b61366b92c370c6e045c",
+    "type": "Microsoft.Xna.Framework.GameTime"
+  },
+  "Microsoft.Xna.Framework.GameWindow.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "dbb89e2fc712f7c6c75b1b8630800d1dc4877ec92309dfb2e68da6b46ee81c47",
+    "type": "Microsoft.Xna.Framework.GameWindow"
+  },
+  "Microsoft.Xna.Framework.Graphics.BasicEffect.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "7065233d0ca24b027f0aa829b06d925d4b84c0cb21040073f6391d1071034131",
+    "type": "Microsoft.Xna.Framework.Graphics.BasicEffect"
+  },
+  "Microsoft.Xna.Framework.Graphics.BufferUsage.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e6b7f9aafc32c165720815bd5cbacf95a9aa8925397801dd43e0c851cfb6d2f4",
+    "type": "Microsoft.Xna.Framework.Graphics.BufferUsage"
+  },
+  "Microsoft.Xna.Framework.Graphics.CompareFunction.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a20bfff996b8a46be9c0694941f04a10dcbd13736284cb6798b012b3c689ddfa",
+    "type": "Microsoft.Xna.Framework.Graphics.CompareFunction"
+  },
+  "Microsoft.Xna.Framework.Graphics.CubeMapFace.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "dd6a5a89302900a6cd075e5324b2269f3f8ba1473c15d3caaa174e44321a83ac",
+    "type": "Microsoft.Xna.Framework.Graphics.CubeMapFace"
+  },
+  "Microsoft.Xna.Framework.Graphics.CullMode.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "6aeb58a175b773bafcac0b734372d422ccf859729bded68eb7cf151503d58cc2",
+    "type": "Microsoft.Xna.Framework.Graphics.CullMode"
+  },
+  "Microsoft.Xna.Framework.Graphics.DepthStencilState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "8b8cc9497f161e0105062d9119b9347d3ab9984fc117dc750f518d7e194f318f",
+    "type": "Microsoft.Xna.Framework.Graphics.DepthStencilState"
+  },
+  "Microsoft.Xna.Framework.Graphics.DirectionalLight.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "fd6c25bd597156aade8f8b2a049866294ba7bb71c71d51c74e09192def52198b",
+    "type": "Microsoft.Xna.Framework.Graphics.DirectionalLight"
+  },
+  "Microsoft.Xna.Framework.Graphics.DisplayMode.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "2a4823cb8c6684cbda14c75637f35351b5cce6dda9044fc97919dabd71dd3a87",
+    "type": "Microsoft.Xna.Framework.Graphics.DisplayMode"
+  },
+  "Microsoft.Xna.Framework.Graphics.DisplayModeCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "40f9ad5f1510a7b91ea685349a954621ab05554a10cd7df1a0679083564a835d",
+    "type": "Microsoft.Xna.Framework.Graphics.DisplayModeCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "96459113aa43488700574938b6e78b5087d82942103c4e39df19570bc002eb4b",
+    "type": "Microsoft.Xna.Framework.Graphics.DynamicVertexBuffer"
+  },
+  "Microsoft.Xna.Framework.Graphics.Effect.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "62a8d63894797af851c8e1050c07044ef84e8f1eb62d69530e3262f9b66f01f6",
+    "type": "Microsoft.Xna.Framework.Graphics.Effect"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectAnnotation.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a2af1cf612def8ac5374acacc4fe8f047493324e83552e744985659fb5e0fcd2",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectAnnotation"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "d23d88d5b23866eddddc8b846d348a3961969dac3a5594249aca5940b9453aed",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectAnnotationCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectDirtyFlags.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "540755e89d238fb066055206001c3247fbcff09f7b67444ccff37ec5701ca921",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectDirtyFlags"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectParameter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "155b92ccb401a495af996f59933046baa7ed9e5e2ac4f9fb614b3b4afaa63898",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectParameter"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectParameterClass.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "47e79037fc06fc4b5795735eda461c382a27cb45626babba75e2118536531404",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectParameterClass"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectParameterCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "9f19b43c70842e28ecc0a06669670035b7bd5ebf28e8fad75b9aabd146b452c5",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectParameterCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectParameterType.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ab4d37a9f5e9d98f6939515ea713c4eb0fbd5a6974249c2831a0c1e2ef9b0960",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectParameterType"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectPass.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ab515a49fb1086d028234e998718e7c58f5351b973986177622cd929cf188b71",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectPass"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectPassCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ca2361f7d2245aac5906f15d1449691102cd67fd508c1302b417937af954a74b",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectPassCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectTechnique.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "1a56651bcc57ecf54b79ef16f8b3025c3acc7b88bea9e796996908fa8f3c9c34",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectTechnique"
+  },
+  "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c9a125fb77a3d9dcf912d551ef3c66acd4eabfcfc6fbaba81d2db7ee13d18b94",
+    "type": "Microsoft.Xna.Framework.Graphics.EffectTechniqueCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.FillMode.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "13cf1c87ee1e45c438cfae6f119f91d99bdd3352f1ba1a7120bd4aaa062b8c92",
+    "type": "Microsoft.Xna.Framework.Graphics.FillMode"
+  },
+  "Microsoft.Xna.Framework.Graphics.GraphicsAdapter.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "64b5571612d6c6f4924aca6fb1ff4e09d2fe412c070cbd37c627bdd85984eb31",
+    "type": "Microsoft.Xna.Framework.Graphics.GraphicsAdapter"
+  },
+  "Microsoft.Xna.Framework.Graphics.GraphicsProfile.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "cdcd4dbc2df4393782827d32daddadfdcec1fc5a2f92078d88a17a29587c6c0b",
+    "type": "Microsoft.Xna.Framework.Graphics.GraphicsProfile"
+  },
+  "Microsoft.Xna.Framework.Graphics.IEffectFog.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "5c2562ab4e08ae5e67f3ed458e295db04fc4bfb75d3dabed029caa04b15db64d",
+    "type": "Microsoft.Xna.Framework.Graphics.IEffectFog"
+  },
+  "Microsoft.Xna.Framework.Graphics.IEffectLights.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c51fd14abeb03dc24b1f4a28cbe0262758bf4b4b7fc56acec8b3a238d02e04da",
+    "type": "Microsoft.Xna.Framework.Graphics.IEffectLights"
+  },
+  "Microsoft.Xna.Framework.Graphics.IEffectMatrices.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ebbbd1812a8c0cc0ab9b198a57e17d6fb124add694638b3bac6fab23cbbd0da8",
+    "type": "Microsoft.Xna.Framework.Graphics.IEffectMatrices"
+  },
+  "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ab6bd1c8232c85a8081ada043717df80098f5513d72feeb6f9bc245dcf71111f",
+    "type": "Microsoft.Xna.Framework.Graphics.IGraphicsDeviceService"
+  },
+  "Microsoft.Xna.Framework.Graphics.IndexBuffer.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ca9bf79a1640e5a34d84322e8caed877e7e071d66a61804b8826c070d89d67c1",
+    "type": "Microsoft.Xna.Framework.Graphics.IndexBuffer"
+  },
+  "Microsoft.Xna.Framework.Graphics.IndexElementSize.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e8a071aa07b5af9787eb302a9d4a717608ddb0f723a8ce11d74db6f6fce55cff",
+    "type": "Microsoft.Xna.Framework.Graphics.IndexElementSize"
+  },
+  "Microsoft.Xna.Framework.Graphics.PresentInterval.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "1b74f00310cb3d95845ee875ac665039c5b8bb196e06b7e50ce6e6fb85845938",
+    "type": "Microsoft.Xna.Framework.Graphics.PresentInterval"
+  },
+  "Microsoft.Xna.Framework.Graphics.PresentationParameters.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "476ba78386a195de286b5215822bec2836ea92ff36d84f30af48da77e5c7d2ee",
+    "type": "Microsoft.Xna.Framework.Graphics.PresentationParameters"
+  },
+  "Microsoft.Xna.Framework.Graphics.RasterizerState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "2b911305fa86fb1b1d83e17b38f77b80a53a8869c289bab3c47e0dc20f5fe5ac",
+    "type": "Microsoft.Xna.Framework.Graphics.RasterizerState"
+  },
+  "Microsoft.Xna.Framework.Graphics.Resources.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "7177415cde1146492d736a5aa9752651e6b79a2d1b0f4c6bd7d66317ba6ef626",
+    "type": "Microsoft.Xna.Framework.Graphics.Resources"
+  },
+  "Microsoft.Xna.Framework.Graphics.SamplerStateCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "55e5166092d67681ee4c209ad07c6ebd9e39159f539adf7ae4ccd44653cc68e8",
+    "type": "Microsoft.Xna.Framework.Graphics.SamplerStateCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.SetDataOptions.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e8a9a89fb5b5333b030485cd77e4cea97430203778b1b8f0563b315690b785b2",
+    "type": "Microsoft.Xna.Framework.Graphics.SetDataOptions"
+  },
+  "Microsoft.Xna.Framework.Graphics.SpriteBatch.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "00446c9efcf427a01a2a55f0ac23feb22ecbb030842401faf65c77328931bcf2",
+    "type": "Microsoft.Xna.Framework.Graphics.SpriteBatch"
+  },
+  "Microsoft.Xna.Framework.Graphics.SpriteFont.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e6fc42a79ae2589702caed0277fbfa52f0cdbe52ff1e4f6327200f72f0295f7e",
+    "type": "Microsoft.Xna.Framework.Graphics.SpriteFont"
+  },
+  "Microsoft.Xna.Framework.Graphics.SpriteSortMode.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a8510f9869196328b71ed511295936b8e693162b29cf973f9c2639441d00c057",
+    "type": "Microsoft.Xna.Framework.Graphics.SpriteSortMode"
+  },
+  "Microsoft.Xna.Framework.Graphics.StencilOperation.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "1130ff28626503a0fd1dd7cb99a2924c7a27eff07e9553d40d64ffafe2a378fe",
+    "type": "Microsoft.Xna.Framework.Graphics.StencilOperation"
+  },
+  "Microsoft.Xna.Framework.Graphics.Texture.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "3a25bee2fc65271c31ebe2d5278eb93ee39d7bbe38915f50048b5227e4a1e1be",
+    "type": "Microsoft.Xna.Framework.Graphics.Texture"
+  },
+  "Microsoft.Xna.Framework.Graphics.Texture3D.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a9477656347d3abac98b9a64760f88b174104919e43573a4c0a6faa7b86ede3f",
+    "type": "Microsoft.Xna.Framework.Graphics.Texture3D"
+  },
+  "Microsoft.Xna.Framework.Graphics.TextureAddressMode.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "6848fa22c7ded6ee207e65e26d1f4bca31445b64f4fe0de12e8a68a7328e6d08",
+    "type": "Microsoft.Xna.Framework.Graphics.TextureAddressMode"
+  },
+  "Microsoft.Xna.Framework.Graphics.TextureCollection.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "fc38fd4137de6b2d6dde457e386738d3726b54ac3e3a17881b4c20d375b7526c",
+    "type": "Microsoft.Xna.Framework.Graphics.TextureCollection"
+  },
+  "Microsoft.Xna.Framework.Graphics.TextureCube.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "83800d828c488127743308e825443a4c2693052b1f2cbaff5e7c145d4a45b611",
+    "type": "Microsoft.Xna.Framework.Graphics.TextureCube"
+  },
+  "Microsoft.Xna.Framework.Graphics.VertexBuffer.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "3004dc4d45b1102a144bc1de99b9b30a44b7de8509ca6c613ac51aac19ada9ba",
+    "type": "Microsoft.Xna.Framework.Graphics.VertexBuffer"
+  },
+  "Microsoft.Xna.Framework.Graphics.VertexPositionColor.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a4ae47db86f82b7e3764e620cf721b13f8203c07b4decba3d6418a46e8450cb3",
+    "type": "Microsoft.Xna.Framework.Graphics.VertexPositionColor"
+  },
+  "Microsoft.Xna.Framework.Graphics.VertexPositionColorTexture.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c31a77986d4b0b1a6fd084404b31ce2405832f28fd8598c956e0afa0419f762e",
+    "type": "Microsoft.Xna.Framework.Graphics.VertexPositionColorTexture"
+  },
+  "Microsoft.Xna.Framework.GraphicsDeviceInformation.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "9579c5b71d7dff98f9cc58429678e3b68b4aa513bf025ada8a5d4cbfac642edc",
+    "type": "Microsoft.Xna.Framework.GraphicsDeviceInformation"
+  },
+  "Microsoft.Xna.Framework.GraphicsDeviceManager.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "51f16cb8af6e75677b26ee9fb4eccf932e221477de9e803cf7991cc93ed771a3",
+    "type": "Microsoft.Xna.Framework.GraphicsDeviceManager"
+  },
+  "Microsoft.Xna.Framework.IDrawable.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "2bb1f1bcceb3d6a13727b5d31abb042834aeffc1d92eefaf79f075a421bdca60",
+    "type": "Microsoft.Xna.Framework.IDrawable"
+  },
+  "Microsoft.Xna.Framework.IGameComponent.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ad152c131db9468f1b33dab00ec08bcb865e0004079aaecfeb6cfc205e5ed17b",
+    "type": "Microsoft.Xna.Framework.IGameComponent"
+  },
+  "Microsoft.Xna.Framework.IGraphicsDeviceManager.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "9f4fa2969e52e2bfc9bea01ed4f20d116657414093e796e38472a0ab75d64b04",
+    "type": "Microsoft.Xna.Framework.IGraphicsDeviceManager"
+  },
+  "Microsoft.Xna.Framework.IUpdateable.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c95f88a4bd146865c46b005cea2f97dd3ec468c4f0da230455b35af44fb79745",
+    "type": "Microsoft.Xna.Framework.IUpdateable"
+  },
+  "Microsoft.Xna.Framework.Input.ButtonState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "7f84c93741061bf77e8d692ce9477cee17a540e42036c236e3453ee078dc4243",
+    "type": "Microsoft.Xna.Framework.Input.ButtonState"
+  },
+  "Microsoft.Xna.Framework.Input.Buttons.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "7abdf1b4c947c52e0efbfe4924d45af6624fe830f23aa8e5b5b1b036aa7b16cf",
+    "type": "Microsoft.Xna.Framework.Input.Buttons"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadButtons.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "d2ecab2ec413be22b198011380ffe8c61b06059a9f4e02342446afd3a85f1421",
+    "type": "Microsoft.Xna.Framework.Input.GamePadButtons"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadDPad.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "c7a7a2d1636dbd03db3f578c13c77f927c54bd19c29643d6390691405a799134",
+    "type": "Microsoft.Xna.Framework.Input.GamePadDPad"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadDeadZone.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "0efcbed709f6c417186b8ce6c1f4c0c7eb33f484115098e8267c2a624b71cc6e",
+    "type": "Microsoft.Xna.Framework.Input.GamePadDeadZone"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "a72481653589aa3585032a2bb0dbdf1275a1db78f9b7a3d4ac4875fd05c484e8",
+    "type": "Microsoft.Xna.Framework.Input.GamePadState"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadThumbSticks.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "de81eae82f108e48e0e5369baaf819b7ffcbe2238a59b017e8c69027fc530ce5",
+    "type": "Microsoft.Xna.Framework.Input.GamePadThumbSticks"
+  },
+  "Microsoft.Xna.Framework.Input.GamePadTriggers.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "9e574bc159c2e46ace411953f5763c158d0de0d0d9f96848b707edb414b5214e",
+    "type": "Microsoft.Xna.Framework.Input.GamePadTriggers"
+  },
+  "Microsoft.Xna.Framework.Input.KeyState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "df5540f90735310a12f8cdf155a0ab0dbe2630368295b224555e589082581474",
+    "type": "Microsoft.Xna.Framework.Input.KeyState"
+  },
+  "Microsoft.Xna.Framework.Input.KeyboardState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "79259a342f6bc37ea66c0181d6fbda1364c838bbe13eeb5386e324b65123c6d5",
+    "type": "Microsoft.Xna.Framework.Input.KeyboardState"
+  },
+  "Microsoft.Xna.Framework.Input.Keys.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "da405b3b2d5b552417fb61d2f4eb5df585b30703f98a97e0b860fbf2cbb9fd84",
+    "type": "Microsoft.Xna.Framework.Input.Keys"
+  },
+  "Microsoft.Xna.Framework.Input.MouseState.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "dc1354fbf9594fedffa83d99d6e995801351b6f48e3f1b9de05a06296f22303f",
+    "type": "Microsoft.Xna.Framework.Input.MouseState"
+  },
+  "Microsoft.Xna.Framework.LaunchParameters.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "b0b41e563a9643e5e6aeab09d22e5a6b29aff28a72463fb1d6299d211509773c",
+    "type": "Microsoft.Xna.Framework.LaunchParameters"
+  },
+  "Microsoft.Xna.Framework.Plane.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "b86e9a0fff11ba0db8aba05290c18ef61248fa2a4c0125eb0209b93e3ba850b9",
+    "type": "Microsoft.Xna.Framework.Plane"
+  },
+  "Microsoft.Xna.Framework.PlaneIntersectionType.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "e0745c2e79b271ae61b23e4cb66f1b014de65298cc8c81c25259975430520dc0",
+    "type": "Microsoft.Xna.Framework.PlaneIntersectionType"
+  },
+  "Microsoft.Xna.Framework.PlayerIndex.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "490420a6b0d7900d21246c1c7562f1f63447c133cd6c6b80af971e0af6f519e1",
+    "type": "Microsoft.Xna.Framework.PlayerIndex"
+  },
+  "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "fb81c4d8cd3c61309e22089fdee7c30917e90ff5b34309c4ba3e8b53300c9527",
+    "type": "Microsoft.Xna.Framework.PreparingDeviceSettingsEventArgs"
+  },
+  "Microsoft.Xna.Framework.Quaternion.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "74d42a4fd6c9e233c549a2f43df61b816ec45519d100005016dce5aa07c3137e",
+    "type": "Microsoft.Xna.Framework.Quaternion"
+  },
+  "Microsoft.Xna.Framework.Ray.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "9e592bfddfbde5041db1f8660303ca371286347816ee6b2b8468d913f30d3d02",
+    "type": "Microsoft.Xna.Framework.Ray"
+  },
+  "Microsoft.Xna.Framework.Vector4.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "1321835d03f63069f9b3635750d8d6e68f36c6cd9056ea379f4201ac2a0fde75",
+    "type": "Microsoft.Xna.Framework.Vector4"
+  },
+  "Monocle.Alarm.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2f8523966f089a06cc1d7e701c549bd8f4d9e73bfe28c22108c3f9cd2144e545",
+    "type": "Monocle.Alarm"
+  },
+  "Monocle.Binding.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "90038eed0ca22a8bfb33c1ea9dbbe05f7142a091050b1c96c7c41c3a4c705117",
+    "type": "Monocle.Binding"
+  },
+  "Monocle.CheatListener.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6df4976a027b86209a40ac20c09c8baf4056a9951e78d43d11ff24d8379e5e07",
+    "type": "Monocle.CheatListener"
+  },
+  "Monocle.Circle.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4d83e491ae04f3f776fa78af65f99a048a408931007f9a105b77fc497850473c",
+    "type": "Monocle.Circle"
+  },
+  "Monocle.ColliderList.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c698f3150974dad6e362e2ccc9de2b46d63268a67ea5e22630118c9ed9154017",
+    "type": "Monocle.ColliderList"
+  },
+  "Monocle.Command.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "2e4432d39e4d3e5c4fc75c794ed00ae0188fa4be7f356f260f049fec870c503b",
+    "type": "Monocle.Command"
+  },
+  "Monocle.Commands.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "4a1fb156423ef911981bd3d39925ff32417636e925b610db5b6f2f0ebeb117bb",
+    "type": "Monocle.Commands"
+  },
+  "Monocle.Draw.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "049da205041aa079ff7c5c2e17dddca7edbafb4a5a06ff577843ec716e4b8473",
+    "type": "Monocle.Draw"
+  },
+  "Monocle.MInput.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "66607163228c899c9a15591753aae31192b4e761fdc84af4069b52d56f997183",
+    "type": "Monocle.MInput"
+  },
+  "Monocle.ParticleEmitter.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "c54e559626fb475b2c544171a81315dd188d67a7b2fa420ba5c5c2f04b06069a",
+    "type": "Monocle.ParticleEmitter"
+  },
+  "Monocle.PixelFont.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e4b7607adfb986907f4ad701dc9a7744f3eaaa99604eca20a3538ddf4dfc78a3",
+    "type": "Monocle.PixelFont"
+  },
+  "Monocle.PixelFontCharacter.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "59c99722b2c7803489c21d2e4c5f6356eb0a2c5f67ce307493ffc1592703f7b0",
+    "type": "Monocle.PixelFontCharacter"
+  },
+  "Monocle.PixelFontSize.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "7f523ba436bd0c0593aa0838cad17340b2fd07ec2bcbc0ab90a2a58556e0a75c",
+    "type": "Monocle.PixelFontSize"
+  },
+  "Monocle.Pnt.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "79ebb18c4be963acf94b3a41621a0673d0f2a00725c63937b6697526c41ef9c0",
+    "type": "Monocle.Pnt"
+  },
+  "Monocle.PointSectors.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "afe519b6bd8a926d6bd2f1148cacf31dfc0d1f716850d6e9a8c2aefd37d102e7",
+    "type": "Monocle.PointSectors"
+  },
+  "Monocle.ShakerList.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6c05f1d5b9b08a85f0786f4c76e5ee4338b627ed54d81a3a248566c64702f1ca",
+    "type": "Monocle.ShakerList"
+  },
+  "Monocle.SineWave.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e38e147869be918e16cae2478b40fd421b7a4207b35ff966f649d586b90d1725",
+    "type": "Monocle.SineWave"
+  },
+  "Monocle.Tracked.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "e8446ad635aae2e88bec85c39496bcce2f0c5bef90113b64a003d426ad10ee95",
+    "type": "Monocle.Tracked"
+  },
+  "Monocle.VirtualButton.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ae7c19ab7a08ddf2c2f5e8e31e2305ba9334f149573f9b01d78cac16291e8cbb",
+    "type": "Monocle.VirtualButton"
+  },
+  "Monocle.VirtualInput.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b8d10c7bbc424cbabd9491586b94c45a37501555edbf52380287297896363d18",
+    "type": "Monocle.VirtualInput"
+  },
+  "Monocle.VirtualIntegerAxis.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "5dca082e6b99c73dc6b243f8c29b00614aa139cd55883ddaf11add58d45cf48b",
+    "type": "Monocle.VirtualIntegerAxis"
+  },
+  "Monocle.VirtualJoystick.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "8e8616efb95d574156933b1f476af2dcc02abcbc0778e9d88b5ea9ca057a8b3c",
+    "type": "Monocle.VirtualJoystick"
+  },
+  "SDL2.SDL.cs": {
+    "assembly": "FNA.dll",
+    "sha256": "ce4ff332f7b2df6f58a0adef3ab9d63199cf92babc9431e09a9e17715fbce228",
+    "type": "SDL2.SDL"
+  }
+}
