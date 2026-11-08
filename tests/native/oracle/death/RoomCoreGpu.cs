@@ -119,6 +119,22 @@ namespace Microsoft.Xna.Framework.Graphics
     }
 }
 
+namespace Celeste
+{
+    public static class Distort
+    {
+        public static Vector2 AnxietyOrigin;
+        public static float Anxiety;
+        public static float GameRate = 1f;
+        public static float WaterSine;
+        public static float WaterCameraY;
+        public static float WaterAlpha = 1f;
+        public static float WaterSineDirection = 1f;
+        public static void Render(Texture2D source, Texture2D map, bool hasDistortion) =>
+            throw new DeathOracle.UnsupportedClosure("Recording GPU distortion boundary: rendering excluded");
+    }
+}
+
 namespace Monocle
 {
     public static class VirtualContent

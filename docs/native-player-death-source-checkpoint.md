@@ -1,9 +1,11 @@
 # Death/respawn source-closure checkpoint
 
-**Blocked. Not permission to implement native death/respawn.** This checkpoint
-executes the original private corpse and wipe bodies, but does not execute a
-coherent death → room reconstruction → Respawn14 → Normal0 lifecycle. None of
-the eight required lifecycle traces is complete. Native gameplay, rendering,
+**Historical partial diagnostic. Not permission to implement native
+death/respawn.** This checkpoint executes the original private corpse and wipe
+bodies, but does not itself execute a coherent death → room reconstruction →
+Respawn14 → Normal0 lifecycle. The later bounded controlled round trip is
+documented in `native-player-room-core-frontier-checkpoint.md`; it does not
+close any of the eight required lifecycle families. Native gameplay, rendering,
 assets and API are unchanged.
 
 ## Reproduction

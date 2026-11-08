@@ -7,14 +7,19 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import zipfile
 
 from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
 from native_room_revision import source_state
+from native_room_textures import atlas_metadata
 from prepare_player_death_oracle import prepare
 from prepare_player_presentation_oracle import source_block
 from read_player_death_sources import SOURCE_PINS
 from read_player_room_core_sources import SOURCE_PINS as ROOM_PINS, RAW_ROOM_SHA, presentation_profile
 from room_core_frontier import build_tool, emit as emit_frontier
+
+GUI_META = "Content/Graphics/Atlases/Gui.meta"
+GUI_META_SHA = "884ea39e604e34e3a45b005d164a5249de9a985e58fde7ef730193c47363525b"
 
 
 def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
@@ -171,7 +176,7 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     baseline = output / 'baseline'
     prepare(source, baseline)
     manifest = json.loads((baseline / 'source-manifest.json').read_text())
-    manifest.update(claim='Canonical room-core compile cut; a separate fresh process executes one bounded Respawn14->Normal0 live tick, zero of eight families closed',
+    manifest.update(claim='Canonical room-core compile cut; separate fresh processes execute the bounded Respawn14->Normal0 live tick and one caller-stimulated Die/wipe/Reload round trip, zero of eight families closed',
                     room_core_recipe_sha256={str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                         for path in (Path(__file__), ROOT / 'scripts/read_player_room_core_sources.py')},
                     room_core_provenance_sha256=hashlib.sha256((room_source / 'provenance.json').read_bytes()).hexdigest(),
@@ -223,6 +228,15 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     if helpers_only:
         return helper_probe(extract, manifest, baseline, room_source, output, before)
 
+    with zipfile.ZipFile(ROOT / 'game/celeste-linux.zip') as archive:
+        gui_meta = archive.read(GUI_META)
+    if hashlib.sha256(gui_meta).hexdigest() != GUI_META_SHA:
+        raise ValueError('Pinned GUI atlas metadata changed')
+    gui_atlas = atlas_metadata(gui_meta)
+    (output / 'gui-atlas.json').write_text(json.dumps(gui_atlas, sort_keys=True) + '\n')
+    manifest['gui_atlas_sha256'] = hashlib.sha256((output / 'gui-atlas.json').read_bytes()).hexdigest()
+    manifest['gui_meta_sha256'] = GUI_META_SHA
+
     content = (baseline / 'Extracted.cs').read_text()
     for name in ('Entity', 'Scene', 'Tracker', 'MTexture', 'Calc'):
         content = remove_fixture_class(content, name)
@@ -236,12 +250,12 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.Celeste.cs': [(152, 162)],
         'Celeste.Settings.cs': [(131, 142)],
         'Celeste.SFX.cs': [(1590, 1595)],
-        'Celeste.Audio.cs': [(66, 66), (68, 68), (132, 161), (291, 308), (389, 395), (397, 404), (406, 420), (422, 441), (579, 585), (596, 617), (619, 638), (648, 662)],
+        'Celeste.Audio.cs': [(66, 66), (68, 68), (132, 161), (265, 274), (291, 308), (389, 395), (397, 404), (406, 420), (422, 441), (579, 585), (596, 617), (619, 638), (640, 647), (648, 662)],
         'FMOD.Studio.HandleBase.cs': [(49, 65)],
         'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (251, 260)],
         'Celeste.PlayerCollider.cs': [(16, 22), (24, 50)],
-        'Celeste.Input.cs': [(79, 94), (96, 135), (137, 187), (189, 271), (326, 329), (331, 373)],
-        'Celeste.SaveData.cs': [(10, 136), (414, 418)],
+        'Celeste.Input.cs': [(79, 94), (96, 135), (137, 187), (189, 271), (292, 303), (326, 329), (331, 373)],
+        'Celeste.SaveData.cs': [(10, 136), (362, 369), (414, 418)],
         'Celeste.UserIO.cs': [(36, 40), (40, 69)],
         'Monocle.VirtualInput.cs': [(19, 27)],
         'Monocle.VirtualButton.cs': [(29, 65), (79, 105)],
@@ -250,7 +264,7 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Monocle.Binding.cs': [(30, 76), (224, 260)],
         'Celeste.LedgeBlocker.cs': [(14, 18)],
         'SDL2.SDL.cs': [],
-        'Monocle.Engine.cs': [(81, 85)],
+        'Monocle.Engine.cs': [(52, 52), (58, 58), (81, 85), (89, 99)],
         'Monocle.MInput.cs': [(16, 18), (38, 62), (303, 307), (476, 479), (1353, 1369)],
         'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(76, 79), (130, 145)],
         'Monocle.Tracker.cs': [(10, 143), (162, 165), (185, 193), (212, 215), (235, 285)],
@@ -266,7 +280,7 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.MapData.cs': [(47, 77), (87, 100), (289, 316)],
         'Monocle.Pooler.cs': [(9, 53)],
         'Monocle.Entity.cs': [(10, 482), (493, 540), (551, 581), (627, 634), (648, 658), (682, 690), (728, 738), (762, 776), (893, 896), (923, 946), (995, 998)],
-        'Monocle.Scene.cs': [(10, 28), (32, 43), (63, 91), (126, 129), (356, 367), (810, 830), (839, 847), (892, 913)],
+        'Monocle.Scene.cs': [(10, 28), (32, 43), (63, 91), (126, 129), (141, 145), (356, 367), (810, 830), (839, 847), (892, 913)],
         'Monocle.Collider.cs': [[1, 10000]],
         'Monocle.Hitbox.cs': [[1, 112], [119, 10000]],
         'Monocle.Grid.cs': [[1, 375], [409, 10000]],
@@ -332,7 +346,7 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     content += 'namespace DeathOracle { using global::Celeste; using static global::Celeste.AreaData; static class RoomCoreAreaInput { public static void Configure() {\n'
     content += extract('Celeste.AreaData.cs', [(96, 191)]) + '\nAreas[1].ID = 1;\nAreas[1].Spike = "default";\n} } }\n'
     manifest['caller_area_input'] = 'First two original area object initializers plus declared Spike atlas id only; original AreaData.Load/global map loading is not executed or claimed'
-    manifest['caller_runtime_profile'] = 'Declared 1920x1080 camera viewport, empty audio events with inert SFX cache, source Lighting/Bloom/Hud renderers, field-only room header and caller-provided wipe/player reconstruction; no original startup, save-audio or full LevelLoader parity'
+    manifest['caller_runtime_profile'] = 'Declared 1920x1080 camera viewport, empty audio events with inert SFX cache, source Lighting/Bloom/Hud renderers, field-only room header, declared LevelLoader field subset for Particles/StrawberriesDisplay, pinned GUI atlas metadata, no-device rumble profile, and an Engine.Scene/Pooler driver fixture; no original startup, save-audio, full LevelLoader, or input-device parity'
     content += whole('Monocle.Collide.cs', 'Monocle')
     selected_files = {entry['file'] for entry in manifest['extractions']}
     for name in declarations:
@@ -356,11 +370,26 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         selections.append(selection)
     tool = build_tool(output / 'frontier-tool')
     frontier, inventory = emit_frontier(tool, selections, output)
+    frontier = remove_fixture_class(frontier, 'Distort')
+    inventory['Declarations'] = [entry for entry in inventory['Declarations'] if not entry['File'].endswith('/Celeste.Distort.cs')]
+    inventory['OutputSha256'] = hashlib.sha256(frontier.encode()).hexdigest()
+    (output / 'Frontier.cs').write_text(frontier)
+    (output / 'frontier-inventory.json').write_text(json.dumps({key: inventory[key] for key in
+        ('Executable', 'Declarations', 'ManagedPlatformFixtures', 'OutputSha256')}, indent=2) + '\n')
     manifest['executable_members'] = inventory['Executable']
     manifest['declaration_contracts'] = inventory['Declarations']
     manifest['native_abi_declarations'] = [entry for entry in inventory['Declarations'] if entry['Kind'] == 'native-abi']
     manifest['managed_platform_fixtures'] = inventory['ManagedPlatformFixtures']
     manifest['frontier_output_sha256'] = inventory['OutputSha256']
+    manifest['recording_gpu_boundary'] = {
+        'type': 'Celeste.Distort', 'source_file': 'tests/native/oracle/death/RoomCoreGpu.cs',
+        'source_sha256': hashlib.sha256((ROOT / 'tests/native/oracle/death/RoomCoreGpu.cs').read_bytes()).hexdigest(),
+        'reason': 'Source Reload writes Distort presentation floats; original GPU effect parameter writes are replaced by a typed recording boundary. State fields are preserved; lifecycle, RNG, clocks and ownership remain source.'}
+    lifecycle_files = {'Celeste.PlayerDeadBody.cs', 'Celeste.DeathEffect.cs', 'Celeste.ScreenWipe.cs', 'Celeste.AngledWipe.cs'}
+    manifest['death_lifecycle_sources'] = [entry for entry in manifest['extractions'] if entry['file'] in lifecycle_files]
+    manifest['death_lifecycle_claim'] = 'Whole unchanged death presentation/coroutine bodies from the accepted baseline extraction, compiled beside the room-core cut; caller invokes Player.Die as probe stimulus only.'
+    manifest['stats_boundary'] = 'Original SaveData.AddDeath executes its session/AreaModeStats/TotalDeaths writes; platform telemetry leaves Stats/StatsForStadia use recording no-op fixtures. No telemetry or persistence parity is claimed.'
+    manifest['driver_scene_boundary'] = 'Engine.Scene is initialized once to the same Level instance before execution as a declared driver environment. The caller never swaps Scene, Player, position, or state to claim reload; the reload is observed only from the source-created second Player, LoadLevel wipe-in, and wipe OnComplete=Level.Reload. Original Engine.Update is not executed.'
     manifest['frontier_recipe_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (ROOT / 'scripts/room_core_frontier.py', ROOT / 'tests/native/oracle/death/DeclarationFrontier.cs')}
     content += 'namespace Celeste.Editor {}\nnamespace Celeste.Pico8 {}\nnamespace SDL2 {}\nnamespace Microsoft.Xna.Framework.Audio {}\nnamespace Microsoft.Xna.Framework.Media {}\nnamespace Microsoft.Xna.Framework.Input.Touch {}\nnamespace MonoGame.Utilities {}\n' + frontier
@@ -423,9 +452,9 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     (output / 'Oracle.csproj').write_text(project_text())
     (output / 'NuGet.Config').write_bytes((baseline / 'NuGet.Config').read_bytes())
     compile_project(output, identity, before)
-    result = {'status': 'compiled-bounded-live-tick-not-family-closure', 'source_identity': identity, 'source_revision': before[0],
-        'source_changes': before[1], 'native_abi_declarations': len(manifest['native_abi_declarations']),
-        'claim': 'Compilation only in this recipe; separate fresh-process execution establishes one bounded Respawn14->Normal0 live tick; zero of eight families closed'}
+    result = {'status': 'compiled-bounded-respawn-and-death-roundtrip-not-family-closure', 'source_identity': identity,
+        'source_revision': before[0], 'source_changes': before[1], 'native_abi_declarations': len(manifest['native_abi_declarations']),
+        'claim': 'Compilation only in this recipe; separate fresh-process executions establish one bounded Respawn14->Normal0 live tick and one caller-stimulated Die/corpse/wipe/Reload/second-Respawn round trip; zero of eight families closed'}
     (output / 'probe-result.json').write_text(json.dumps(result, indent=2) + '\n')
     return result
 

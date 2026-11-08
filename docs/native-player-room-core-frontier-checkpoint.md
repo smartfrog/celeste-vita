@@ -20,6 +20,10 @@ checkpoint `5ffd25a49f1e12c6549aa34648308f41f42361e8` without synchronizing deve
   resolver. This is not FMOD behavior or a universal native-cache blocking proof.
 - A fail-fast execution prefix now runs original `Tags.Initialize`, full
   `Tracker.Initialize` reflection, and the original `Level` constructor.
+- One controlled caller stimulus runs the original `Player.Die`/
+  `PlayerDeadBody`/`Coroutine`/`DeathEffect`/`Wipe`/`Level.Reload`/
+  second `LoadLevel(Respawn)`/`Normal0` sequence. This is not a hazard,
+  directional, corpse-parity, input, or repeated-cycle family proof.
 
 ## Preserved historical boundary at 4e1d0a0
 
@@ -80,10 +84,13 @@ native mapping occurs.
 
 Reached source members now include the original `SFX.EventnameByHandle`,
 `Audio.SetAltMusic`/`SetMusic`/`SetAmbience`/`SetParameter`/`Stop`/
-`EndSnapshot`/`GetEventDescription`/`CreateInstance`/`Play` bodies, the original
-`Spikes` constructor and `Added`, `PlayerCollider.Check`, `Input.Initialize` and
-input binding primitives, `SaveData.AddTime`, and `UserIO.Saving`. These are
-ordinary source executions, not a whole-class import.
+`EndSnapshot`/`GetEventDescription`/`CreateInstance`/`Play` bodies (including
+the position overload and `SetMusicParam` in the death path), the original
+`Spikes` constructor and `Added`, `PlayerCollider.Check`, `Input.Initialize`
+and `Input.Rumble`, `SaveData.AddTime`/`AddDeath`, `Scene.OnRawInterval`, and
+`UserIO.Saving`. These are ordinary source executions, not a whole-class import.
+The Engine pooler/scene accessors and a declared no-device rumble profile are
+driver inputs for the death probe, not startup parity.
 
 The audio profile is explicit: the pinned SFX path constants are preloaded into
 `Audio.cachedEventDescriptions` with null descriptions before execution.
@@ -99,13 +106,61 @@ original area object initializers plus the declared Spike atlas id are selected;
 whole AreaData loading is not claimed. World tile/caller assembly, original
 startup/save data, full input history, and complete LevelLoader fidelity remain
 unproven. Input initialization is executed once, but no button history or
-buffered input is claimed.
+buffered input is claimed; the death driver records `inputSampled = false`.
+The death path additionally declares only the LevelLoader-owned field subset
+(`Particles`, `ParticlesBG`, `ParticlesFG`, `strawberriesDisplay`) plus
+`Engine.Pooler`/`Engine.Scene` and GUI atlas metadata as driver environment; the
+original LevelLoader constructor/loading thread and SolidTiles geometry still do
+not execute.
 
-There is still no death/corpse/wipe/reload roundtrip and no coherent eight-family
-coverage. Completion remains **0/8 lifecycle families**. The remaining gap is
-the real corpse lifecycle and Wipe completion through `Reload` into a second
-`LoadLevel(Respawn)`, then the Up/Left hazard, ordering, corpse/Hair/RNG/draw,
-callback/list, freeze/buffered-input, reload-resume, and repeated-cycle families.
+A separate fresh-process probe now executes one controlled death round trip.
+After the first `Normal0`, the caller invokes the original `Player.Die` with an
+explicit `(0, -1)` stimulus. That stimulus is a probe input, not a hazard,
+directional-collision, ordering, or family proof. The source sequence is:
+
+```text
+Player.Die
+  PlayerDeadBody constructor / deferred Awake
+  DeathRoutine coroutine
+    Celeste.Freeze(0.05)
+    freeze gate ticks 37-39 (zero-crossing tick 39 skips Scene update)
+    bounce Tween commit tick 40, DeathEffect tick 64
+  PlayerDeadBody.End
+    Level.DoScreenWipe -> AngledWipe with OnComplete = Level.Reload
+  Wipe completion tick 129, Reload tick 130
+    UnloadLevel removes the corpse/old Player
+    second original LoadLevel(Respawn) creates a new state14 Player at (19,144)
+  second IntroRespawn tween -> Normal0 tick 166
+  one resumed original NormalUpdate tick 167 (speed Y = 15.000001)
+```
+
+The trace records corpse/player/wipe body identities, the wipe's
+`OnComplete.Target == level` and method `Reload`, the removed corpse, the new
+state14 Player, the second LoadLevel wipe-in, and the single resumed state0
+tick. Session death counters are source-derived: at Die `Session.Deaths = 1`
+and `SaveData.TotalDeaths = 1`; `Level.Reload` then takes the first-level branch
+and clears `Session.Deaths`/`Session.Time` while `DeathsInCurrentLevel` remains
+1. No state0 teleport, fake reload callback, native attempt, or native mapping
+is used.
+
+The bounded driver mirrors only the original Engine freeze gate, records that
+input sampling is not modeled, and never swaps Scene/Player. Required
+LevelLoader-owned fields (`Particles`, `ParticlesBG`, `ParticlesFG`,
+`strawberriesDisplay`, `Engine.Pooler`, `Engine.Scene`) are declared caller
+driver setup using original constructors/properties; original LevelLoader and
+its loading thread are still not executed. GUI atlas metadata comes from the
+pinned `Gui.meta`; rumble is a declared no-device profile. Original
+`SaveData.AddDeath` executes with recording `Stats`/`StatsForStadia` fixtures.
+Original `Level.Reload` also writes `Distort` presentation floats; those GPU
+effect-parameter writes use a typed `Celeste.Distort` recording boundary while
+preserving its state fields. None of these fixtures replace the corpse, wipe,
+Reload, LoadLevel, Player, or RNG/clock path.
+
+There is still no hazard-triggered death, directional collision proof, Up/Left
+family, ordering/double-death, corpse presentation parity, buffered input,
+or repeated-cycle proof. Completion remains **0/8 lifecycle families**. The
+controlled round trip closes only the first source-level corpse/wipe/reload
+sequence; the eight family contracts remain open.
 
 ## Evidence and reproduction
 
@@ -119,10 +174,12 @@ The first LoadLevel-entry trace is retained in
 `native-guard-test-7858d793f5854f21905ee2d25adeaf0f/load-level-prefix.jsonl`.
 The first successful live-tick run is retained in
 `native-guard-test-1e4a6b94beed43cbac3b46a4c0cfff84/respawn-live-tick.jsonl`
-with its compiled source manifest and source identity beside it. The summarized
-private checkpoint is `room-core-checkpoint-79879e0/verification.json`; the
-tracked delivery revision follows the documentation-only update.
-The additional declaration source `room-core-declarations-extra-01` was generated
+with its compiled source manifest and source identity beside it. The accepted
+`52723db` checkpoint remains in `room-core-checkpoint-52723db/verification.json`.
+The controlled death/wipe/second-Respawn trace is retained in
+`death-probe-13/death-respawn-roundtrip.jsonl` with the generated manifest,
+source identity, GUI atlas, and both stdout/stderr files beside it. The
+additional declaration source `room-core-declarations-extra-01` was generated
 with `scripts/read_frontier_declarations.py --require-type LedgeBlocker` and
 recorded in the tracked declaration pins.
 
@@ -136,14 +193,20 @@ python3 -B -m unittest discover -s tests/native -p test_room_core_native_guard.p
 
 Each fresh `native-guard-test-*` directory retains the compilation receipt,
 source/declaration/fixture inventories, stdout/stderr, `execution-prefix.jsonl`,
-and `respawn-live-tick.jsonl`.
+and `respawn-live-tick.jsonl`. The death round-trip process writes
+`death-respawn-roundtrip.jsonl` in the same private directory.
 The current cut has 183 unchanged extraction blocks across 123 entries, with
 generated-source SHA256
-`83a018b515c73d3f95df88f1d0b7ad20469b9fcf698a207ba41de0233b2876bd`.
-It records 3027 executable members, 13421 declaration contracts including 1094
+`c72ad321221541557ebb6163cdfa1aabb81b6d76f79ad7bdcf62b0946d48aded`.
+It records 3035 executable members, 13406 declaration contracts including 1094
 native-ABI declarations, and zero managed platform fixture changes beyond the
-separate `SDL_GetPlatform` wrapper.
-This identity does not by itself establish full runtime coverage.
+separate `SDL_GetPlatform` wrapper. The declaration count difference includes
+the declared recording `Distort` boundary; the executable count includes the
+ordinary promoted `Input.Rumble`, `Audio.Play(position)`,
+`Audio.SetMusicParam`, `SaveData.AddDeath`, `Scene.OnRawInterval`, and Engine
+scene/pooler accessors.
+This identity does not by itself establish full runtime coverage or any of the
+eight hazard/lifecycle families.
 
 Regression checks are the full native Python suite and the task-branch Release
 CMake/CTest build. They are not development synchronization, hardware, UI,

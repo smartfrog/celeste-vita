@@ -22,6 +22,8 @@ static class RoomCoreProbe
             DeathOracle.PlatformIdentityFixtureProbe.Run(args);
         else if (args.Length > 0 && args[0] == "room-core-execute")
             DeathOracle.RoomCoreExecution.Run(args);
+        else if (args.Length > 0 && args[0] == "room-core-death-respawn")
+            DeathOracle.RoomCoreExecution.RunDeathRespawn(args);
         else throw new InvalidOperationException("Compile-only dependency probe; room-core lifecycle execution is not established");
     }
 }

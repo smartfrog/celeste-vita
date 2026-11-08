@@ -147,6 +147,14 @@ namespace Celeste
     public static class Glitch { public static float Value; }
     public static class Distort { public static float Anxiety, GameRate; }
     public static class TrailManager { public static void Clear() => DeathOracle.Records.Add("trail-clear"); }
+    public enum Stat { DEATHS, DASHES, BERRIES, GOLDBERRIES, PICO_DEATHS, PICO_COMPLETES, PICO_BERRIES }
+    public static class Stats { public static void Increment(Stat stat, int increment = 1) => DeathOracle.Records.Add("stat:" + stat); }
+    public enum StadiaStat { BERRIES, HEARTS, DEATHS }
+    public static class StatsForStadia
+    {
+        public static void Increment(StadiaStat stat, int increment = 1) => DeathOracle.Records.Add("stadia:" + stat);
+        public static void SetIfLarger(StadiaStat stat, int value) => DeathOracle.Records.Add("stadia-set:" + stat);
+    }
     public sealed class DisplacementBoundary
     {
         public void AddBurst(Vector2 at, float duration, float from, float to) => DeathOracle.Records.Add("displacement-burst");
