@@ -19,6 +19,10 @@ def normalized_revision(data, revision):
     return data.replace(revision.encode("ascii"), b"<REVISION>")
 
 
+def normalize_build(data, build, staging, sha):
+    return normalized_revision(data.replace(str(build.resolve()).encode(), b"<BUILD>").replace(str(staging.resolve()).encode(), b"<STAGING>"), sha)
+
+
 def require_equal(before, after, label):
     if before != after:
         raise ValueError("Runtime reuse identity differs: " + label)
@@ -92,9 +96,6 @@ def main():
         old_cmake = subprocess.check_output(["git", "show", old_revision + ":CMakeLists.txt"], cwd=REPO_ROOT)
         new_cmake = (REPO_ROOT / "CMakeLists.txt").read_bytes()
         report["cmake_runtime_prefix"] = require_equal(old_cmake.split(b"if(BUILD_TESTING)", 1)[0], new_cmake.split(b"if(BUILD_TESTING)", 1)[0], "non-test CMake")
-
-        def normalize_build(data, build, staging, sha):
-            return normalized_revision(data, sha).replace(str(build.resolve()).encode(), b"<BUILD>").replace(str(staging.resolve()).encode(), b"<STAGING>")
 
         settings = {}
         for target in RUNTIME_TARGETS:
