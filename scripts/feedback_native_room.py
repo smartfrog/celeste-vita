@@ -11,6 +11,11 @@ from native_room_feedback import new_feedback, save_feedback
 from native_room_revision import REPO_ROOT, source_state
 
 
+def record_failure(feedback, stage, error):
+    feedback["errors"].append({"stage":stage,"type":type(error).__name__,"message":str(error)})
+    feedback["stages"]["full_completion"] = False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path,required=True)
@@ -38,7 +43,8 @@ def main():
         started = time.monotonic()
         log = output / (label+".log")
         with log.open("xb") as stream:
-            result = subprocess.run(arguments,cwd=REPO_ROOT,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=600)
+            result = subprocess.run(arguments,cwd=REPO_ROOT,env=env,stdout=stream,stderr=subprocess.STDOUT,
+                                    timeout=None if label == "runtime" else 600)
         feedback = json.loads(feedback_path.read_text())
         feedback["commands"].append({"label":label,"argv":arguments,"log":str(log),"exit_code":result.returncode,
                                       "elapsed_seconds":time.monotonic()-started})
@@ -67,17 +73,30 @@ def main():
                       (["--frame-only"] if args.frame_only else []))
     except Exception as error:
         feedback = json.loads(feedback_path.read_text())
-        feedback["errors"].append({"stage":"toolchain","type":type(error).__name__,"message":str(error)})
+        record_failure(feedback,"toolchain",error)
         save_feedback(feedback_path,feedback)
         raise
     finally:
-        final_revision, changes = source_state(REPO_ROOT)
         feedback = json.loads(feedback_path.read_text())
-        feedback["source_after"] = {"revision":final_revision,"changes":changes}
+        source_failure = source_cause = None
+        try:
+            final_revision, changes = source_state(REPO_ROOT)
+            feedback["source_after"] = {"revision":final_revision,"changes":changes}
+            if final_revision != revision or changes != initial_changes:
+                source_failure = RuntimeError("Source/config changed during feedback command")
+        except Exception as error:
+            feedback["source_after"] = {"revision":None,"changes":None,
+                                        "error":{"type":type(error).__name__,"message":str(error)}}
+            source_failure = RuntimeError("Final source/Git state could not be verified: "+str(error))
+            source_cause = error
+        if source_failure:
+            record_failure(feedback,"source_after",source_failure)
         save_feedback(feedback_path,feedback)
         print("FEEDBACK_JSON "+str(feedback_path),flush=True)
-        if final_revision != revision or changes != initial_changes:
-            raise RuntimeError("Source/config changed during feedback command")
+        if source_failure:
+            if source_cause:
+                raise source_failure from source_cause
+            raise source_failure
 
 
 if __name__ == "__main__":

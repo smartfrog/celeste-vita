@@ -110,6 +110,11 @@ before input testing; image/startup/input/clean-exit/full-completion flags are
 separate. A later input failure returns nonzero while preserving the frame,
 logs, state, exact revision/VPK hash and concrete error. No required image stage
 is replaced by a `ready frame=0` marker.
+Build/non-input subprocesses keep a 600-second timeout. Runtime has no outer
+force-kill timeout: the smoke helper's bounded phases must unwind its owned-key
+cleanup before stopping its owned emulator. A failed final Git/source check is
+recorded before saving/raising and clears overall `full_completion`, while
+retaining completed guest-stage flags and artifacts.
 For the first-image checkpoint, add `--frame-only`: no keys are injected, only
 the owned emulator is stopped after the closed frame, and input/clean-exit/full
 completion remain false pending parent inspection. The frozen effective private
