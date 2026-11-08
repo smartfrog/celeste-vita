@@ -6,6 +6,11 @@ ordered static Hitboxes, now also immutable target Grids (see
 [native static tilemap](NATIVE_TILEMAP.md)). It is **not full Player.Update,
 game runtime or a playable port**. It has no external native dependencies.
 
+The subsequent [bounded Dash extension](NATIVE_DASH.md) adds sampled Dash,
+independent digital aim, freeze/input clock and Normal↔Dash transitions. The
+Normal-only oracle/profile invariants described below remain its historical
+regression boundary; they do not describe the extended native default API.
+
 ## Supported profile and API
 
 ```cpp

@@ -10,7 +10,7 @@ import zipfile
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
-from smoke_native_room import X11, main
+from smoke_native_room import X11, main, KEYBOARD_MAPPING
 
 
 class SmokeCleanupTests(unittest.TestCase):
@@ -23,6 +23,8 @@ class SmokeCleanupTests(unittest.TestCase):
             (fs / "ux0/app").mkdir(parents=True)
             (fs / "ux0/data").mkdir()
             config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
+            with config.open("a") as stream:
+                stream.write("".join(f"keyboard-button-{button}: {key}\n" for button, key in KEYBOARD_MAPPING.items()))
             member = "assets/native-room/provenance.json"
             payload = json.dumps({"revision":"synthetic","tracked_changes":False}).encode()
             with zipfile.ZipFile(vpk,"w") as package:

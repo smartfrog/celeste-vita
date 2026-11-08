@@ -38,7 +38,26 @@ internal static class Runner
     private static void Trace(string phase, CollisionData? data)
     {
         var p = player;
-#if HAZARD_ORACLE
+#if DASH_ORACLE
+        var d = data ?? default;
+        var co = Private<Coroutine>(p.StateMachine, "currentCoroutine");
+        Console.WriteLine(string.Join("\t", name, frame, phase, Bits(delta), Bits(Engine.DeltaTime), Bits(Engine.FreezeTimer), Engine.FrameCounter,
+            Bits(p.X), Bits(p.Y), Bits(p.PositionRemainder.X), Bits(p.PositionRemainder.Y), Bits(p.PreviousPosition.X), Bits(p.PreviousPosition.Y),
+            Bits(p.Speed.X), Bits(p.Speed.Y), (int)p.Facing, Private<int>(p,"moveX"), Flag(Private<bool>(p,"onGround")), Flag(Private<bool>(p,"wasOnGround")),
+            Flag(p.OnSafeGround), Flag(p.Ducking), p.Dashes, p.StateMachine.State, p.StateMachine.PreviousState, Flag(p.StateMachine.ChangedStates),
+            Bits(Private<float>(Input.Jump,"bufferCounter")), Flag(Input.Jump.Pressed), Flag(Input.Jump.Check),
+            Bits(Private<float>(Input.Dash,"bufferCounter")), Flag(Input.Dash.Pressed), Flag(Input.Dash.Check), Flag(p.StartedDashing),
+            Flag(Private<bool>(p,"dashStartedOnGround")), Flag(Private<bool>(p,"calledDashEvents")), world.Session.Dashes,
+            Bits(Private<Vector2>(p,"beforeDashSpeed").X), Bits(Private<Vector2>(p,"beforeDashSpeed").Y), Bits(p.DashDir.X), Bits(p.DashDir.Y),
+            Bits(Private<Vector2>(p,"lastAim").X), Bits(Private<Vector2>(p,"lastAim").Y), Bits(Private<float>(p,"dashAttackTimer")),
+            Bits(Private<float>(p,"dashCooldownTimer")), Bits(Private<float>(p,"dashRefillCooldownTimer")), Bits(Private<float>(p,"gliderBoostTimer")),
+            Bits(Private<float>(p,"dashTrailTimer")), Private<int>(p,"dashTrailCounter"), Flag(p.AutoJump), Bits(p.AutoJumpTimer),
+            Bits(Private<float>(p,"jumpGraceTimer")), Bits(Private<float>(p,"varJumpTimer")), Bits(Private<float>(p,"varJumpSpeed")), Bits(Private<float>(p,"maxFall")),
+            Bits(Private<float>(p,"wallSpeedRetentionTimer")), Bits(Private<float>(p,"wallSpeedRetained")), Flag(p.Dead), d.Hit == null ? -1 : ids[d.Hit],
+            Bits(d.Direction.X), Bits(d.Direction.Y), Bits(d.Moved.X), Bits(d.Moved.Y), Bits(d.TargetPosition.X), Bits(d.TargetPosition.Y),
+            Flag(co.Active), Bits(Private<float>(co,"waitTimer")), Flag(Private<bool>(co,"ended")), Private<Stack<System.Collections.IEnumerator>>(co,"enumerators").Count,
+            Flag(p.RefillCalls > 0), Identities(world.Tracker.Checks), Identities(world.Tracker.Overlaps)));
+#elif HAZARD_ORACLE
         string collider = ReferenceEquals(p.Collider, Private<Hitbox>(p, "normalHitbox")) ? "normal" : ReferenceEquals(p.Collider, Private<Hitbox>(p, "duckHitbox")) ? "duck" : "hurt";
         if (world.Session.Deaths != Flag(p.Dead) || world.Session.DeathsInCurrentLevel != Flag(p.Dead) || SaveData.Instance.DeathCalls != Flag(p.Dead))
             throw new InvalidOperationException("Isolated death counters differ from source guard");
@@ -76,6 +95,13 @@ internal static class Runner
             spawn = new(Float(f[2]), Float(f[3])); speed = new(Float(f[4]), Float(f[5]));
             world.Bounds = new Bounds { Left = (int)Float(f[6]), Right = (int)Float(f[7]) };
             Input.Jump = new(new Binding(), 0, 0.08f, 0f);
+#if DASH_ORACLE
+            Input.Dash = new(new Binding(), 0, 0.08f, 0.2f);
+            MInput.VirtualInputs.Clear(); MInput.VirtualInputs.Add(Input.Jump); MInput.VirtualInputs.Add(Input.Dash);
+            Engine.DeltaTime = Engine.RawDeltaTime = Engine.FreezeTimer = 0f; Engine.FrameCounter = 0;
+            SaveData.Instance.TotalDashes = Stats.Dashes = 0;
+            world.Tracker.Entities[typeof(SwapBlock)] = new();
+#endif
             Input.MoveX.Value = Input.MoveY.Value = 0;
             MInput.Disabled = false;
             return;
@@ -114,14 +140,21 @@ internal static class Runner
         }
         if (op != "tick") throw new ArgumentException("Unknown Player operation");
         player ??= new Player(world, spawn, speed) { Observe =
-#if HAZARD_ORACLE
+#if DASH_ORACLE
+            Trace
+#elif HAZARD_ORACLE
             Observe
 #else
             Trace
 #endif
         };
         frame++; delta = Float(f[1]); input = f;
-#if HAZARD_ORACLE
+#if DASH_ORACLE
+        try { player.Frame(delta, int.Parse(f[2]), int.Parse(f[3]), Flag(f[4]), Flag(f[5]), Flag(f[6]), Flag(f[7]), Flag(f[8]), Flag(f[9]),
+                int.Parse(f[10]), int.Parse(f[11]), Flag(f[12]), Flag(f[13]), Flag(f[14])); }
+        catch (NotSupportedException) { Trace("rejected", null); }
+        catch (ArgumentException) { Trace("rejected", null); }
+#elif HAZARD_ORACLE
         phases.Clear(); operation = "tick"; result = "frame";
         sample = string.Join(",", f[2..10]);
         try { player.Frame(delta, int.Parse(f[2]), int.Parse(f[3]), Flag(f[4]), Flag(f[5]), Flag(f[6]), Flag(f[7]), Flag(f[8]), Flag(f[9])); if (player.Dead) result = "removed"; }

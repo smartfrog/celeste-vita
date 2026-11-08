@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
 from feedback_native_room import main
 from native_room_feedback import collect_native_frame, RENDER_STAGE
-from smoke_native_room import main as smoke_main
+from smoke_native_room import main as smoke_main, KEYBOARD_MAPPING
 
 
 class NativeFeedbackTests(unittest.TestCase):
@@ -22,6 +22,8 @@ class NativeFeedbackTests(unittest.TestCase):
             fs, config, output, vpk = root / "state", root / "config.yml", root / "output", root / "synthetic.vpk"
             (fs / "ux0/app").mkdir(parents=True)
             config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
+            with config.open("a") as stream:
+                stream.write("".join(f"keyboard-button-{button}: {key}\n" for button, key in KEYBOARD_MAPPING.items()))
             vpk.write_bytes(b"synthetic package")
             with patch("sys.argv",["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--frame-only"]), \
                  patch("smoke_native_room.prepare",return_value=(fs,config)) as prepared, \

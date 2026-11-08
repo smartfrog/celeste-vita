@@ -25,18 +25,43 @@ def oracle_environment(sdk):
     }
 
 
+def verify_extraction(private):
+    manifest = json.loads((private / "source-manifest.json").read_text())
+    extracted = (private / "Extracted.cs").read_bytes()
+    if hashlib.sha256(extracted).hexdigest() != manifest["extracted_sha256"]:
+        raise ValueError("Generated extraction changed after its source manifest")
+    blocks = 0
+    for entry in manifest["extractions"]:
+        source = (ROOT / entry["source_path"]).read_bytes()
+        if hashlib.sha256(source).hexdigest() != entry["source_sha256"]:
+            raise ValueError("Source hash changed: " + entry["file"])
+        lines = source.decode().splitlines(keepends=True)
+        for (start, end), digest in zip(entry["lines_inclusive"], entry["blocks_sha256"], strict=True):
+            block = "".join(lines[start - 1:end]).encode()
+            if hashlib.sha256(block).hexdigest() != digest or block not in extracted:
+                raise ValueError("Unchanged source block identity failed: " + entry["file"])
+            blocks += 1
+    return {"blocks": blocks, "source_entries": len(manifest["extractions"]), "extracted_sha256": manifest["extracted_sha256"],
+            "verification": "Every selected source block is byte-identical and present unchanged in generated source"}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid", "hazards"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid", "hazards", "dash"), default="movement")
     parser.add_argument("--native", type=Path, help="Host native_trace_runner executable")
     parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
+    parser.add_argument("--output", type=Path, help="Fresh private extraction/build/evidence directory; never overwrite existing evidence")
     args = parser.parse_args()
     if not args.compile_only and args.native is None:
         parser.error("--native is required unless --compile-only is selected")
     if args.fixtures is None:
         args.fixtures = ROOT / f"tests/native/{args.domain}.fixtures"
     private = PRIVATE if args.domain == "movement" else PRIVATE / args.domain
+    if args.output is not None:
+        private = args.output.resolve()
+        if not private.is_relative_to(ROOT / ".audit") or private.exists():
+            parser.error("--output must be a fresh directory beneath .audit")
     if args.compile_only:
         compare_domain, field_count = None, None
     elif args.domain == "scheduling":
@@ -53,6 +78,9 @@ def main():
         field_count = len(FIELDS)
     elif args.domain == "hazards":
         from compare_hazard_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
+    elif args.domain == "dash":
+        from compare_dash_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
@@ -81,7 +109,10 @@ def main():
     run([sdk, "--list-runtimes"], "runtimes.log")
     if "Microsoft.NETCore.App 8.0.31 [" not in (evidence / "runtimes.log").read_text():
         raise RuntimeError("Expected private runtime 8.0.31 is missing")
-    run([sys.executable, ROOT / "scripts/extract_native_oracle.py", "--domain", args.domain], "extraction.log")
+    run([sys.executable, ROOT / "scripts/extract_native_oracle.py", "--domain", args.domain] +
+        (["--output", private] if args.output else []), "extraction.log")
+    identity = verify_extraction(private)
+    (evidence / "source-identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     run([sdk, "restore", private / "Oracle.csproj", "--configfile", private / "NuGet.Config"], "restore.log")
     run([sdk, "build", private / "Oracle.csproj", "--no-restore", "-c", "Release",
          "-p:UseSharedCompilation=false", "--disable-build-servers"], "build.log")

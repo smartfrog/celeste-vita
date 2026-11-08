@@ -1,10 +1,10 @@
 # Native Vita room diagnostic
 
 This is our own C++ executable/VPK, not the original game. It composes the
-accepted [Normal Player](NATIVE_PLAYER.md), [full merged solidmask](NATIVE_TILEMAP.md)
+accepted [Normal Player](NATIVE_PLAYER.md), [bounded Dash](NATIVE_DASH.md), [full merged solidmask](NATIVE_TILEMAP.md)
 and [five static Up/Left spikes](NATIVE_HAZARDS.md) for explicitly selected room
 `1`. Debug rectangles are **not faithful graphics**. Audio, original respawn,
-corpse/freeze/reload lifecycle, other Player states, room transitions and full
+corpse/reload lifecycle, other Player states, room transitions and full
 gameplay remain excluded. It is not a completed playable port or a hardware
 performance result.
 
@@ -14,13 +14,17 @@ performance result.
   neutral (diagnostic policy, not source hardware-input parity).
 - Cross: sampled held/rising-edge input to the existing Player VirtualButton.
   Releasing clears held; a subsequent press produces a new edge.
+- Square: sampled Dash VirtualButton; DPad also supplies resolved independent
+  digital aim. Cross/Jump, Triangle/manual reset and Start/exit remain separate.
 - Triangle rising edge: **manual diagnostic reset**, constructing a fresh Player
   at `(19,144)`. It skips simulation on that reset sample, works alive or dead,
   and is not source respawn. Dead Players are never updated.
 - Start: clean guest exit, taking precedence over reset and movement.
 
-One controller sample drives at most one fixed `1/60` core frame. No wall-clock
-catch-up, source Engine freeze/timing parity or lifecycle rendering is claimed.
+One controller sample drives at most one fixed `1/60` raw-float core frame.
+Both buffered buttons update during the bounded Dash freeze; its crossing tick
+still skips simulation. No wall-clock catch-up, full Engine/GameTime conversion
+parity or lifecycle rendering is claimed.
 `vglWaitVblankStart(GL_TRUE)` enables vsync once; frames use
 `vglSwapBuffers(GL_FALSE)`. Any observed FPS is an emulator diagnostic measurement.
 
@@ -180,7 +184,9 @@ The focused helper inventories
 existing X11 windows, finds our unique title plus actual OpenGL game-window
 title, validates its PID's isolated-config argument, and requires both
 `_NET_ACTIVE_WINDOW` and `XGetInputFocus` before XTest input. Physical X11 keycodes
-for this host's AZERTY layout: Right 114, Cross 53, Triangle 55, Start 36.
+for this host's AZERTY layout: Up 111, Right 114, Cross 53, Square 52,
+Triangle 55, Start 36. The fresh isolated config is checked against these
+physical mappings before any input; shared keyboard settings are not edited.
 Before injecting a press it checks server key state and refuses preheld keys
 without injecting or claiming ownership. It releases only accepted own injections,
 including cleanup after acknowledgement timeouts, never drives/closes unrelated windows, and
@@ -193,7 +199,8 @@ guest `.ready` signals acknowledge sampled input/death/reset for coordination
 only. Final evidence is the **completed** guest log after Start, not readiness
 signals. The stdio `fopen`-before-redirect ordering avoids the documented SDK
 pitfall. Logs include revision, counts, input edges, bounded-frequency state,
-actual death, manual reset counter, clean exit and measured elapsed time.
+actual Dash entry/freeze crossing/upward launch/Normal exit, actual death,
+manual reset counter, clean exit and measured elapsed time.
 `x11-input.json` records pending Xlib events, drained event types/keycodes, errors
 and keymaps before injection and at acknowledgement/timeout. Buffered events are
 drained and server state rechecked before blocking on the X11 file descriptor.
@@ -207,7 +214,7 @@ are retained privately, not a substitute for a new built-in visual check.
 
 Host tests cover pure parsers/corruption, input edges/opposing axes, fresh reset,
 exit precedence and fixed clock/viewport. `native_diagnostic_replay` with the
-staged mask/hazards first jumps at spawn, then walks right, reaching actual spike
+staged mask/hazards first jumps at spawn, then Dashes upward and walks right, reaching actual spike
 death without teleporting or calling `die`. Full host/source/static Vita checks
 and exact-commit runtime evidence are recorded privately in
 `.audit/native-room-vita/finalchecks.json`. Runtime/hardware success must never

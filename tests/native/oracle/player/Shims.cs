@@ -43,6 +43,9 @@ namespace Monocle
 #if HAZARD_ORACLE
         public IEnumerable<T> GetComponents<T>()
         {
+#if DASH_ORACLE
+            if (typeof(T) == typeof(DashListener)) return new List<T>();
+#endif
             if (typeof(T) == typeof(LedgeBlocker) || typeof(T) == typeof(PlayerCollider)) return HazardComponents<T>();
             if (typeof(T) != typeof(Holdable) && typeof(T) != typeof(SafeGroundBlocker))
                 throw new NotSupportedException("Unvalidated component category");
@@ -77,24 +80,26 @@ namespace Celeste
         public int Value;
         public static explicit operator float(Axis axis) => axis.Value;
     }
-    public static class Input
+    public static partial class Input
     {
         public static readonly Axis MoveX = new(), MoveY = new(), GliderMoveY = new();
         public static VirtualButton Jump = new(new Binding(), 0, 0.08f, 0f);
         public static readonly VirtualButton Talk = new(new Binding(), 0, 0f, 0f);
         public static bool GrabCheck => false;
+#if !DASH_ORACLE
         public static bool CrouchDashPressed => false;
         public static bool DashPressed => false;
         public static Vector2 GetAimVector(Facings facing) => new((int)facing, 0f);
+#endif
         public static void Rumble(RumbleStrength strength, RumbleLength length) { }
     }
-    public sealed class Assists
+    public sealed partial class Assists
     {
         public enum DashModes { Normal, Infinite }
         public DashModes DashMode;
         public bool NoGrabbing, LowFriction, Invincible;
     }
-    public sealed class SaveData
+    public sealed partial class SaveData
     {
         public static readonly SaveData Instance = new();
         public readonly Assists Assists = new();
@@ -104,7 +109,7 @@ namespace Celeste
         public void AddDeath(object area) { DeathCalls++; }
 #endif
     }
-    public sealed class Session
+    public sealed partial class Session
     {
         public enum CoreModes { None, Cold }
         public PlayerInventory Inventory = PlayerInventory.Default;
@@ -114,7 +119,7 @@ namespace Celeste
 #endif
     }
     public struct Bounds { public int Left, Right; }
-    public sealed class Level : Scene
+    public sealed partial class Level : Scene
     {
         public readonly Session Session = new();
         public Bounds Bounds = new() { Left = -10000, Right = 10000 };
@@ -128,10 +133,15 @@ namespace Celeste
     }
     public sealed class Displacement
     {
-        public void AddBurst(Vector2 at, float duration, float from, float to, float alpha, Func<float, float> ease1, Func<float, float> ease2) => throw new NotSupportedException("Dash displacement excluded");
+        public void AddBurst(Vector2 at, float duration, float from, float to, float alpha, Func<float, float> ease1, Func<float, float> ease2)
+        {
+#if !DASH_ORACLE
+            throw new NotSupportedException("Dash displacement excluded");
+#endif
+        }
     }
     public static class Ease { public static float QuadOut(float v) => throw new NotSupportedException("Dash excluded"); }
-    public sealed class PresentationSprite
+    public sealed partial class PresentationSprite
     {
         public Vector2 Scale;
         public void Play(string name) { }
@@ -176,7 +186,7 @@ namespace Celeste
     }
     public class DreamBlock : Solid { public void FootstepRipple(Vector2 at) => throw new NotSupportedException("Dream blocks excluded"); }
     public static class TalkComponent { public static object PlayerOver => null; }
-    public sealed class Booster { public bool Ch9HubTransition, BoostingPlayer;
+    public sealed partial class Booster { public bool Ch9HubTransition, BoostingPlayer;
 #if HAZARD_ORACLE
         public void PlayerDied() => throw new NotSupportedException("Booster excluded");
 #endif
@@ -231,9 +241,16 @@ namespace Celeste
             StateMachine = new StateMachine(26);
             for (int i = 1; i < 26; i++) StateMachine.SetCallbacks(i, () => throw new NotSupportedException("State excluded"), null, () => throw new NotSupportedException("State excluded"));
             StateMachine.SetCallbacks(0, NormalUpdate, null, NormalBegin, NormalEnd);
+#if DASH_ORACLE
+            StateMachine.SetCallbacks(2, () => { int state = DashUpdate(); Observe?.Invoke("dash_update", null); return state; }, DashCoroutine, DashBegin, DashEnd);
+#endif
             StateMachine.Added(this);
         }
-        public void Frame(float delta, int x, int y, bool held, bool pressed, bool released, bool disabled, bool grab, bool dash)
+        public void Frame(float delta, int x, int y, bool held, bool pressed, bool released, bool disabled, bool grab, bool dash
+#if DASH_ORACLE
+            , int aimX = 0, int aimY = 0, bool dashHeld = false, bool dashPressed = false, bool dashReleased = false
+#endif
+        )
         {
             if (!float.IsFinite(delta) || delta < 0f || !float.IsFinite(1000f * delta) || x < -1 || x > 1 || y < -1 || y > 1) throw new ArgumentException("Invalid frame input");
             if (grab || dash) throw new NotSupportedException("Grab/Dash excluded");
@@ -250,8 +267,24 @@ namespace Celeste
             Input.Jump.Binding.RawPressed = pressed;
             Input.Jump.Binding.RawReleased = released;
             MInput.Disabled = disabled;
+#if DASH_ORACLE
+            if (aimX < -1 || aimX > 1 || aimY < -1 || aimY > 1) throw new ArgumentException("Invalid digital aim");
+            Input.Aim.Value = new(aimX, aimY);
+            Input.Dash.Binding.Held = dashHeld;
+            Input.Dash.Binding.RawPressed = dashPressed;
+            Input.Dash.Binding.RawReleased = dashReleased;
+            Engine.Scene = level;
+            level.Simulate = Simulate;
+            var driver = new FrameDriver(level) { Sampled = Sampled, Frozen = Frozen };
+            driver.Frame(delta);
+            return;
+        }
+        private void Simulate()
+        {
+#else
             Input.Jump.Update();
             Observe?.Invoke("input", null);
+#endif
             SourceGround();
             Observe?.Invoke("ground", null);
             SourcePreamble();
@@ -260,6 +293,9 @@ namespace Celeste
             Observe?.Invoke("normal", null);
             SourceBoost();
             Observe?.Invoke("boost", null);
+#if DASH_ORACLE
+            SourceSnap();
+#endif
             SourceUnduck();
             Observe?.Invoke("unduck", null);
             SourceHorizontal();
@@ -285,14 +321,27 @@ namespace Celeste
             var i = Inventory;
             if (a.DashMode != Assists.DashModes.Normal || a.NoGrabbing || a.LowFriction || a.Invincible ||
                 i.Dashes != 1 || !i.DreamDash || !i.Backpack || i.NoRefills || level.InSpace || level.InCutscene ||
-                level.CoreMode != Session.CoreModes.None || level.Wind != Vector2.Zero || Holding != null || StateMachine.State != 0 ||
+                level.CoreMode != Session.CoreModes.None || level.Wind != Vector2.Zero || Holding != null ||
+#if DASH_ORACLE
+                (StateMachine.State != 0 && StateMachine.State != 2) ||
+#else
+                StateMachine.State != 0 ||
                 AutoJump || AutoJumpTimer != 0f || wallBoostTimer != 0f || dashAttackTimer != 0f || gliderBoostTimer != 0f ||
                 dashCooldownTimer != 0f || dashRefillCooldownTimer != 0f || forceMoveXTimer != 0f || lowFrictionStopTimer != 0f ||
                 climbHopSolid != null || minHoldTimer != 0f || launched || dreamJump || DashDir != Vector2.Zero || Dead ||
                 holdCannotDuck || windMovedUp || dashStartedOnGround || hopWaitX != 0 || noWindTimer != 0f ||
                 starFlyTimer != 0f || Stamina != 110f || Dashes != 1 || LastBooster != null || dreamBlock != null ||
+#endif
                 wallBoostDir != 0 || forceMoveX != 0 || lastClimbMove != 0)
                 throw new NotSupportedException("Unsupported Player profile/invariant");
+#if DASH_ORACLE
+            if (a.DashAssist || a.SuperDashing || a.ThreeSixtyDashing || Engine.TimeRate != 1f || Engine.TimeRateB != 1f ||
+                Engine.DashAssistFreeze || OverrideDashDirection.HasValue || CurrentBooster != null || LastBooster != null ||
+                Holding != null || Dead || Dashes < 0 || Dashes > 1 || wallBoostTimer != 0f || forceMoveXTimer != 0f ||
+                climbHopSolid != null || minHoldTimer != 0f || launched || dreamJump || holdCannotDuck || windMovedUp ||
+                hopWaitX != 0 || noWindTimer != 0f || starFlyTimer != 0f || Stamina != 110f || dreamBlock != null ||
+                lowFrictionStopTimer != 0f) throw new NotSupportedException("Unsupported Dash profile/invariant");
+#endif
             foreach (var pair in level.Tracker.Entities)
                 foreach (var entity in pair.Value)
                 {
@@ -310,7 +359,9 @@ namespace Celeste
                 }
         }
         private bool Pickup(Holdable holdable) => throw new NotSupportedException("Holding excluded");
+#if !DASH_ORACLE
         private int StartDash() => throw new NotSupportedException("Dash excluded");
+#endif
         private void Throw() => throw new NotSupportedException("Holding excluded");
 #if !HAZARD_ORACLE
         private void Drop() => throw new NotSupportedException("Holding excluded");
@@ -321,8 +372,10 @@ namespace Celeste
         private void SuperWallJump(int dir) => throw new NotSupportedException("Super wall jump excluded");
         private void Rebound(int dir = 0) => throw new NotSupportedException("Rebound excluded");
         private void ReflectBounce(Vector2 direction) => throw new NotSupportedException("Bounce excluded");
+#if !DASH_ORACLE
         private bool DashCorrectCheck(Vector2 at) => throw new NotSupportedException("Dash excluded");
         private bool OnGround(Vector2 at) => throw new NotSupportedException("Dash ground check excluded");
+#endif
         private void CreateWallSlideParticles(int dir) { }
         private void Play(string sound) { }
         private void Play(string sound, string parameter, int value) { }

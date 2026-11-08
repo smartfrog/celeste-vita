@@ -1,0 +1,229 @@
+# tick raw x y jump-held jump-press jump-release disabled grab legacy-dash aim-x aim-y dash-held dash-press dash-release
+case freeze_aimchange 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .03 0 0 1 1 0 0 0 0 0 -1 1 0 0 => freeze
+tick .03 0 0 0 0 1 0 0 0 -1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .01 0 0 0 0 0 0 0 0 0 0 0 0 0
+case update_before_launch 0 0 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => !dash
+case direction_left 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 -1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 -1 0 1 0 0 => freeze
+tick 0 0 0 0 0 0 0 0 0 -1 0 1 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 -1 0 1 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 -1 0 1 0 0 => dash
+tick .01 0 0 0 0 0 0 0 0 -1 0 0 0 1
+case direction_right 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case direction_up 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+case direction_down 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 0 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash
+tick .01 0 0 0 0 0 0 0 0 0 1 0 0 0
+case horizontal_duck 0 0 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+solid 2 4 -11 8 5 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick .01 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash h:2
+case horizontal_corner_down 0 0 0 0 -10000 10000
+solid 1 4 -10 8 1 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick .01 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash h:1
+case horizontal_corner_up 0 0 0 0 -10000 10000
+solid 1 4 -2 8 3 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick .01 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash h:1
+case horizontal_corner_spike_blocker 0 0 0 0 -10000 10000
+solid 1 4 -10 8 1 1
+spike 2 7 -9 1 left 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick .01 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash h:1
+case downward_edge_left 0 -2 0 0 -10000 10000
+solid 1 0 0 20 8 1
+tick 0 0 0 0 0 0 0 0 0 0 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 1 0 0 1 => freeze
+tick .02 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash v:1
+case downward_edge_right 0 -2 0 0 -10000 10000
+solid 1 -20 0 20 8 1
+tick 0 0 0 0 0 0 0 0 0 0 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 1 0 0 1 => freeze
+tick .02 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash v:1
+case upward_corner_five 0 0 0 0 -10000 10000
+solid 1 -1 -13 2 2 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick .02 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash v:1
+case jumpthru_six 0 6 0 0 -10000 10000
+jump 1 -30 0 60 8 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case jumpthru_six_blocked 0 6 0 0 -10000 10000
+jump 1 -30 0 60 8 1
+spike 2 -4 -4 8 up 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case snap_three 0 -2 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case snap_three_spike_blocked 0 -2 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+spike 2 -4 0 8 up 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case diagonal_landing 0 -10 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
+tick .1 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash v:1
+case upward_walljump_five_rejected 0 -100 0 0 -10000 10000
+solid 1 8 -200 8 200 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => !dash
+case upward_walljump_spike_shortens_reach 0 -100 0 0 -10000 10000
+solid 1 8 -200 8 200 1
+spike 2 10 -110 8 left 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case dash_spike_death 0 -10 0 0 -10000 10000
+spike 1 -4 0 8 up 1
+tick 0 0 0 0 0 0 0 0 0 0 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 1 0 0 1 => freeze
+tick .04 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash dead
+case direction_up_left 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 -1 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 -1 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 -1 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 -1 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 -1 -1 0 0 0 => dash
+case direction_up_right 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 1 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 -1 0 0 0 => dash
+case direction_down_left 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 -1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 -1 1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 -1 1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 -1 1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 -1 1 0 0 0 => dash
+case direction_down_right 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+case neutral_left 0 -100 0 0 -10000 10000
+tick 0 -1 0 0 0 0 0 0 0 0 0 1 1 0
+tick .05 -1 0 0 0 0 0 0 0 0 0 0 0 1 => freeze
+tick 0 -1 0 0 0 0 0 0 0 0 0 0 0 0 => dash
+case overspeed_same_sign 0 -100 400 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 -1 0 0 0 => dash
+case overspeed_opposite_sign 0 -100 -400 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case ground_down_diagonal_refill 0 0 400 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick .1 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick .001 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash
+tick .05 0 0 0 0 0 0 0 0 1 1 1 1 0
+case buffered_jump_not_eligible 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .01 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+case dash_press_release_during_freeze 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .02 0 0 0 0 0 0 0 0 0 1 0 0 1 => freeze
+tick .02 0 0 1 1 0 0 0 0 0 1 1 1 0 => freeze
+tick .02 0 0 0 0 1 0 0 0 0 1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 1 0 0 0 => dash
+case grid_wall 0 -100 0 0 -10000 10000
+grid 1 4 -200 0 0 8 8 1 25 1111111111111111111111111 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick .01 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash h:1
+case grid_diagonal_landing 0 -10 0 0 -10000 10000
+grid 1 -64 0 0 0 8 8 16 1 1111111111111111 1
+tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
+tick .1 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash v:1
+case depleted_refill_spike_blocks 0 0 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+spike 2 -100 2 200 up 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick .1 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+case horizontal_walljump_rejected 0 -100 0 0 -10000 10000
+solid 1 6 -200 8 200 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0 => !dash
+case diagonal_h_then_v 0 -10 0 0 -10000 10000
+solid 1 4 -200 8 200 1
+solid 2 -100 0 200 8 1
+tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
+tick .1 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash h:1 v:2
+case disabled_during_freeze 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .06 0 0 1 1 0 1 0 0 -1 -1 1 1 0 => freeze
+tick 0 0 0 1 0 0 0 0 0 -1 -1 1 0 0 => dash
+case buffered_jump_after_dash 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 0 0 0 0 0 0 0 0 0 0
+case normal_jump_clears_dash_attack 0 0 0 0 -10000 10000
+solid 1 -100 0 200 8 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0

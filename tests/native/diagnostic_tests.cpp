@@ -68,6 +68,15 @@ void opposing_axes_neutral() {
     const auto input = controller.sample({true,true,true,true}).player;
     expect(input.x == 0 && input.y == 0, "Opposing directions neutral");
 }
+void square_dash_is_independent_of_cross() {
+    Controller controller;
+    Controls controls; controls.right = true; controls.up = true; controls.square = true;
+    const auto first = controller.sample(controls).player;
+    expect(first.dash_button.held && first.dash_button.pressed && !first.jump.pressed && first.aim_x == 1 && first.aim_y == -1,
+           "Square maps to sampled Dash and resolved aim without Cross");
+    expect(!controller.sample(controls).player.dash_button.pressed, "Held Square must not repress");
+    expect(controller.sample({}).player.dash_button.released, "Square release must be sampled");
+}
 void reset_edge() {
     Controller controller;
     const Controls reset{false,false,false,false,false,true};
@@ -118,9 +127,9 @@ int main() {
     for (auto test : {checksum_known_vector, mask_geometry, mask_invalid_parameterized, mask_corruption,
          spike_geometry, spike_invalid_parameterized, spike_corruption, button_edges, opposing_axes_neutral,
          reset_edge, viewport_parameterized, invalid_viewport_parameterized, reset_fresh_after_death,
-         exit_wins_over_reset, diagnostic_clock_fixed, missing_asset_fails_before_world}) {
+          exit_wins_over_reset, diagnostic_clock_fixed, missing_asset_fails_before_world, square_dash_is_independent_of_cross}) {
         try { test(); } catch (const std::exception& e) { std::cerr << e.what() << '\n'; ++failed; }
     }
-    std::cout << "diagnostic cases=16 failed=" << failed << '\n';
+    std::cout << "diagnostic cases=17 failed=" << failed << '\n';
     return failed ? 1 : 0;
 }

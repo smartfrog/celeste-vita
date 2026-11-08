@@ -17,10 +17,22 @@ from vita_room_emulator import TITLE, prepare, launch_command
 from native_room_feedback import collect_native_frame, new_feedback, save_feedback
 from native_room_revision import REPO_ROOT
 
+KEYBOARD_MAPPING = {"up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter"}
+
+
+def verify_keyboard_mapping(text):
+    lines = text.splitlines()
+    for button, key in KEYBOARD_MAPPING.items():
+        if [line for line in lines if line.startswith("keyboard-button-"+button+":")] != ["keyboard-button-"+button+": "+key]:
+            raise ValueError("Isolated keyboard mapping differs for "+button)
+
 
 def verify_guest(text, revision):
     markers = [f"DIAGNOSTIC boot revision={revision} fixed_step=1/60", "assets ready", "frame ready",
-               "cross_held=1 cross_pressed=1", "cross_held=0 cross_pressed=0", "death frame=", "manual reset frame=", "clean exit frame="]
+               "cross_held=1 cross_pressed=1", "cross_held=0 cross_pressed=0", "square_held=1 square_pressed=1",
+               "from=0 to=2 freeze=0.050000001 dashes=0", "from=1 to=0 state=2",
+               "dir_x=0.000000 dir_y=-1.000000 vx=0.000 vy=-240.000", "from=2 to=0 freeze=0.000000000",
+               "death frame=", "manual reset frame=", "clean exit frame="]
     offset = 0
     for marker in markers:
         offset = text.index(marker,offset)+len(marker)
@@ -245,12 +257,14 @@ def main():
     feedback_path = (args.feedback or output / "feedback.json").resolve()
     feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
     fs, config = prepare(state,existing)
+    verify_keyboard_mapping(config.read_text())
     frozen_config = output / "effective-config.yml"
     frozen_config.write_bytes(config.read_bytes())
     feedback["emulator_config"] = {"path":str(config),"frozen_path":str(frozen_config),
                                   "sha256":hashlib.sha256(frozen_config.read_bytes()).hexdigest(),
                                   "backend":"OpenGL","resolution_multiplier":1,"disable_surface_sync":False,
-                                  "override_scope":"fresh private state only; shared config untouched"}
+                                   "override_scope":"fresh private state only; shared config untouched"}
+    feedback["emulator_config"]["verified_keyboard_mapping"] = KEYBOARD_MAPPING
     save_feedback(feedback_path,feedback)
     if (fs / "ux0/app" / TITLE).exists():
         parser.error("Use a fresh isolated state; never overwrite an installed title")
@@ -392,6 +406,11 @@ def main():
             delay(0.25)
             change(53,False)
             delay(1.0)
+            change(111,True)
+            change(52,True)
+            change(52,False)
+            wait(lambda: last_ready.startswith("dash_done "),120)
+            change(111,False)
             change(114,True)
             wait(lambda: last_ready.startswith("dead "),60)
             change(114,False)

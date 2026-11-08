@@ -23,6 +23,9 @@ struct PlayerInput {
     ButtonSample jump{};
     bool grab = false;
     bool dash = false;
+    ButtonSample dash_button{};
+    int aim_x = 0;
+    int aim_y = 0;
 };
 
 struct PlayerState {
@@ -45,6 +48,14 @@ struct PlayerState {
     float stamina = 110.0f;
     int dashes = 1;
     bool launched = false;
+    Vec2 before_dash_speed{}, dash_dir{}, last_aim{}, glider_boost_dir{};
+    bool started_dashing = false, dash_started_on_ground = false, called_dash_events = false;
+    bool can_curve_dash = false, auto_jump = false;
+    float auto_jump_timer = 0.0f;
+    float dash_cooldown_timer = 0.0f, dash_refill_cooldown_timer = 0.0f, dash_attack_timer = 0.0f;
+    float glider_boost_timer = 0.0f, dash_trail_timer = 0.0f;
+    int dash_trail_counter = 0;
+    unsigned dash_events = 0;
 };
 
 using PlayerObserver = std::function<void(const char*, const CollisionData*)>;
@@ -59,6 +70,8 @@ public:
     const Actor& actor() const { return actor_; }
     const PlayerState& state() const { return state_; }
     const VirtualButton& jump_button() const { return jump_; }
+    const VirtualButton& dash_button() const { return dash_; }
+    const FrameClock& clock() const { return clock_; }
     const StateMachine& state_machine() const { return machine_; }
     Hitbox hurtbox() const;
     const PlayerDeath& death() const { return death_; }
@@ -73,6 +86,8 @@ private:
     PlayerState state_;
     StateMachine machine_{26};
     VirtualButton jump_{0.08f};
+    VirtualButton dash_{0.08f};
+    FrameClock clock_;
     PlayerInput input_{};
     float delta_ = 0.0f;
     PlayerObserver observer_;
@@ -89,6 +104,15 @@ private:
     void normal_end();
     int normal_update();
     void jump();
+    void dash_begin();
+    void dash_end();
+    int dash_update();
+    IteratorPtr dash_coroutine();
+    void call_dash_events();
+    bool dash_attacking() const;
+    bool dash_correct_check(Vec2 add) const;
+    bool on_ground(Vec2 at) const;
+    bool wall_jump_check(int dir) const;
     void collide_h(CollisionData data);
     void collide_v(CollisionData data);
     bool overlaps_spike(Vec2 at) const;

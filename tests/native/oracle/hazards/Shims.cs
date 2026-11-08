@@ -43,6 +43,9 @@ namespace Monocle
         }
         public T GetEntity<T>() where T : Entity
         {
+#if DASH_ORACLE
+            if (typeof(T) == typeof(PlayerDashAssist) || typeof(T) == typeof(CassetteBlockManager)) return null;
+#endif
             if (typeof(T) != typeof(Lookout)) throw new NotSupportedException("Unvalidated entity lookup");
             if (Entities.TryGetValue(typeof(T), out var values) && values.Count != 0) throw new NotSupportedException("Lookout excluded");
             return null;

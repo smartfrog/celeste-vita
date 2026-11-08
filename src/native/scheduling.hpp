@@ -9,6 +9,17 @@
 
 namespace celeste {
 
+class FrameClock final {
+public:
+    float raw_delta = 0.0f;
+    float delta = 0.0f;
+    float freeze_timer = 0.0f;
+    std::uint64_t frame_counter = 0;
+    void sample(float raw);
+    bool simulate();
+    void freeze(float duration);
+};
+
 class Iterator;
 using IteratorPtr = std::shared_ptr<Iterator>;
 using Yield = std::variant<std::monostate, std::int32_t, float, IteratorPtr>;

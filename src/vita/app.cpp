@@ -30,12 +30,12 @@ void signal(const char* event, unsigned frame) {
 void state(const char* event, unsigned frame, const Session& session) {
     const auto& player = session.player();
     const auto position = player.actor().body.position;
-    log("%s frame=%u x=%.0f y=%.0f vx=%.3f vy=%.3f ground=%d dead=%d resets=%u",event,frame,
-        position.x,position.y,player.state().speed.x,player.state().speed.y,
-        player.state().on_ground,player.death().dead,session.resets());
+    log("%s frame=%u x=%.0f y=%.0f vx=%.3f vy=%.3f ground=%d dead=%d resets=%u state=%d freeze=%.9f dashes=%d",event,frame,
+         position.x,position.y,player.state().speed.x,player.state().speed.y,
+         player.state().on_ground,player.death().dead,session.resets(),player.state_machine().state(),player.clock().freeze_timer,player.state().dashes);
 }
 void run() {
-    log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle", revision);
+    log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle jump=Cross dash=Square aim=DPad exit=Start", revision);
     Room room(parse_mask(read_asset("app0:assets/native-room/global.mask",4'000'512),mask_checksum),
               parse_spikes(read_asset("app0:assets/native-room/hazards.txt",8192),spike_checksum));
     if (room.grid.columns() != 541 || room.grid.rows() != 440 || room.solids.position.x != -64 ||
@@ -69,18 +69,32 @@ void run() {
         const auto buttons = pad.buttons;
         const auto down = [&](unsigned flag) { return (buttons & flag) != 0; };
         const auto sample = controller.sample({down(SCE_CTRL_LEFT),down(SCE_CTRL_RIGHT),down(SCE_CTRL_UP),down(SCE_CTRL_DOWN),
-                                              down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START)});
+                                              down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START),down(SCE_CTRL_SQUARE)});
         const bool changed = buttons != previous;
-        if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d",frame,
-                         unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit);
+        if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d",frame,
+                         unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit,
+                         sample.player.dash_button.held,sample.player.dash_button.pressed);
         const bool dead = session.player().death().dead;
+        const int old_state = session.player().state_machine().state();
+        const bool frozen = session.player().clock().freeze_timer > 0.0f;
+        const unsigned dash_events = session.player().state().dash_events;
         session.step(sample);
         if (session.exiting()) break;
         ++frame;
         draw(room,session.player());
+        const auto& player = session.player();
+        const int new_state = player.state_machine().state();
+        if (!sample.reset && old_state != new_state)
+            log("dash transition frame=%u from=%d to=%d freeze=%.9f dashes=%d",frame,old_state,new_state,player.clock().freeze_timer,player.state().dashes);
+        if (!sample.reset && frozen != (player.clock().freeze_timer > 0.0f))
+            log("freeze transition frame=%u from=%d to=%d state=%d",frame,frozen,player.clock().freeze_timer > 0.0f,new_state);
+        if (!sample.reset && player.state().dash_events > dash_events)
+            log("dash launch frame=%u state=%d dir_x=%.6f dir_y=%.6f vx=%.3f vy=%.3f",frame,new_state,
+                player.state().dash_dir.x,player.state().dash_dir.y,player.state().speed.x,player.state().speed.y);
         const bool died = !dead && session.player().death().dead;
         if (died || sample.reset || changed || frame%120 == 0) state(died ? "death" : sample.reset ? "manual reset" : "frame",frame,session);
         if (died || sample.reset || changed) signal(died ? "dead" : sample.reset ? "reset" : "sampled",frame);
+        else if (old_state == 2 && new_state == 0) signal("dash_done",frame);
         previous = buttons;
     }
     finish_graphics();

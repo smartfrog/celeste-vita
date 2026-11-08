@@ -29,13 +29,18 @@ SOURCE_HASHES = {
     "Celeste.Spikes.cs": "fb485592822286d316d93fe029acf92b83e4a0b119492dd3d2fa77f6b5e11901",
     "Celeste.PlayerCollider.cs": "d4709c9a080fcacf8b5beee20c5a2557d1e39ea497042d0eeb7c06ca9befd37f",
     "Celeste.LedgeBlocker.cs": "7e88c7a9e7734a450dfc622a1daa9f68796a64d510fdf2be300203641be91def",
+    "Celeste.Input.cs": "ee8911a5c457eac05d652c59462248db058bc342fb9c973dabf3fc698ea4ed00",
+    "Monocle.Engine.cs": "ee6c3a4d8f6ff9fb6fcf5e45cc9710b0f038023ee9484ec1837f619ffe385f45",
+    "Monocle.MInput.cs": "66607163228c899c9a15591753aae31192b4e761fdc84af4069b52d56f997183",
+    "Celeste.Celeste.cs": "9d7da1708373642d89ead7bbdf3f3bc97e52242c11ba08e3fe640c4665351b32",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/ilspy")
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid", "hazards"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid", "hazards", "dash"), default="movement")
+    parser.add_argument("--output", type=Path, help="Fresh private extraction/build directory")
     args = parser.parse_args()
     actual = hashlib.sha256((args.source / "inputs/Celeste.exe").read_bytes()).hexdigest()
     if actual != INPUT_SHA:
@@ -43,11 +48,17 @@ def main():
     output = ROOT / ".audit/native-oracle"
     if args.domain != "movement":
         output /= args.domain
+    if args.output is not None:
+        output = args.output.resolve()
+        if not output.is_relative_to(ROOT / ".audit"):
+            raise ValueError("Oracle source must remain private beneath .audit")
     output.mkdir(parents=True, exist_ok=True)
     manifest = {"input_sha256": actual, "version": "PC 1.4.0.0", "extractions": []}
 
     def extract(filename, ranges):
         source_path = args.source / "cs" / filename
+        if filename in {"Monocle.Engine.cs", "Monocle.MInput.cs", "Celeste.Celeste.cs"}:
+            source_path = ROOT / ".audit/native-dash/closure" / filename
         if filename in {"Celeste.LevelLoader.cs", "Celeste.MapData.cs"}:
             source_path = ROOT / ".audit/native-static-tilemap" / filename
         if filename in {"Celeste.Spikes.cs", "Celeste.PlayerCollider.cs", "Celeste.LedgeBlocker.cs"}:
@@ -57,29 +68,32 @@ def main():
             raise RuntimeError(f"Changed decompilation input: {filename}")
         lines = source.decode().splitlines(keepends=True)
         blocks = ["".join(lines[start - 1:end]) for start, end in ranges]
-        manifest["extractions"].append({"file": filename, "source_sha256": hashlib.sha256(source).hexdigest(),
+        manifest["extractions"].append({"file": filename, "source_path": str(source_path.relative_to(ROOT)), "source_sha256": hashlib.sha256(source).hexdigest(),
                                          "lines_inclusive": ranges,
                                          "blocks_sha256": [hashlib.sha256(b.encode()).hexdigest() for b in blocks]})
         return "\n".join(blocks)
 
-    player_domain = args.domain in {"player", "hazards"}
-    if args.domain in {"movement", "player", "grid", "hazards"}:
+    player_domain = args.domain in {"player", "hazards", "dash"}
+    hazard_domain = args.domain in {"hazards", "dash"}
+    if args.domain in {"movement", "player", "grid", "hazards", "dash"}:
         header = "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nusing Microsoft.Xna.Framework;\nusing Monocle;\n"
+        if args.domain == "dash":
+            header += "using static Monocle.Engine;\n"
         if player_domain:
             header += "using Microsoft.Xna.Framework.Input;\n"
         content = header + "namespace Celeste { public partial class Actor {\n"
-        content += extract("Celeste.Actor.cs", [(186, 281)]) + "\n} }\n"
+        content += extract("Celeste.Actor.cs", [(134, 154), (186, 281)] if args.domain == "dash" else [(186, 281)]) + "\n} }\n"
         content += "namespace Celeste {\n" + extract("Celeste.CollisionData.cs", [(5, 18)]) + "\n}\n"
         content += "namespace Monocle { public static class Collide {\n"
         content += extract("Monocle.Collide.cs", [(8, 101)] if player_domain else [(8, 28), (51, 70)]) + "\n} }\n"
         content += "namespace Monocle { public partial class Entity {\n"
         content += extract("Monocle.Entity.cs", [(682, 690), (728, 738)]) + "\n} }\n"
         content += "namespace Monocle { public abstract partial class Collider {\n"
-        collider_ranges = [(8, 22), (205, 253 if args.domain in {"grid", "player", "hazards"} else 251), (255, 258)]
+        collider_ranges = [(8, 22), (205, 253 if args.domain in {"grid", "player", "hazards", "dash"} else 251), (255, 258)]
         content += extract("Monocle.Collider.cs", collider_ranges) + "\n} }\n"
         content += "namespace Monocle { public class Hitbox : Collider {\n"
-        content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 188 if args.domain in {"grid", "player", "hazards"} else 183)]) + "\n} }\n"
-        if args.domain in {"grid", "player", "hazards"}:
+        content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 188 if args.domain in {"grid", "player", "hazards", "dash"} else 183)]) + "\n} }\n"
+        if args.domain in {"grid", "player", "hazards", "dash"}:
             content += "namespace Monocle { public class Grid : Collider {\n"
             content += extract("Monocle.Grid.cs", [(8, 56), (76, 129), (315, 346), (418, 429), (481, 484)]) + "\n} }\n"
         if args.domain == "grid":
@@ -96,7 +110,7 @@ def main():
         if player_domain:
             content += "namespace Monocle { public partial class Entity {\n"
             content += extract("Monocle.Entity.cs", [(531, 540), (551, 581), (648, 658), (762, 776)]) + "\n} }\n"
-            if args.domain == "hazards":
+            if hazard_domain:
                 content += "namespace Monocle { public partial class Entity {\n" + extract("Monocle.Entity.cs", [(189, 210)]) + "\n} }\n"
             content += "namespace Monocle {\n"
             content += extract("Monocle.Coroutine.cs", [(6, 102)]) + "\n"
@@ -106,23 +120,27 @@ def main():
             content += "public partial class Player : Actor {\n"
             content += extract("Celeste.Player.cs", [(605, 613), (934, 954), (956, 1044), (1048, 1088),
                                                      (1092, 1102), (2353, 2362), (2436, 2478), (2521, 2546),
-                                                     *([(2824, 2832)] if args.domain != "hazards" else []),
+                                                     *([(2824, 2832)] if not hazard_domain else []),
                                                      (2910, 2929), (3135, 3473), (3531, 3550),
                                                      (3557, 3843), (4179, 4189)])
-            if args.domain == "hazards":
+            if args.domain == "dash":
+                content += extract("Celeste.Player.cs", [(1090, 1090), (4191, 4567), (4569, 4576)])
+            if hazard_domain:
                 content += extract("Celeste.Player.cs", [(2855, 2908), (2997, 3005)])
                 content += "\npublic int RefillCalls; public bool RefillDash() { RefillCalls++;\n"
                 content += extract("Celeste.Player.cs", [(2826, 2831)]) + "\n}\n"
             content += "\npublic void SourceGround() {\n"
-            content += extract("Celeste.Player.cs", [(1431, 1431), (1437, 1437), (1499, 1541)]) + "\n}\n"
+            content += extract("Celeste.Player.cs", [(1431, 1431), (1437, 1437), *([(1457, 1460)] if args.domain == "dash" else []), (1499, 1541)]) + "\n}\n"
             content += "public void SourcePreamble() {\n"
             content += extract("Celeste.Player.cs", [(1542, 1550), (1555, 1682)]) + "\n}\n"
             for method, ranges in [("SourceBoost", [(1787, 1790)]), ("SourceUnduck", [(1795, 1798)]),
                                    ("SourceHorizontal", [(1799, 1802)]), ("SourceVertical", [(1803, 1806)])]:
                 content += f"public void {method}() {{\n" + extract("Celeste.Player.cs", ranges) + "\n}\n"
-            content += ("public void SourceFinish() {\n" if args.domain == "hazards" else "public void SourceHazards() {\n")
+            if args.domain == "dash":
+                content += "public void SourceSnap() {\n" + extract("Celeste.Player.cs", [(1791, 1794)]) + "\n}\n"
+            content += ("public void SourceFinish() {\n" if hazard_domain else "public void SourceHazards() {\n")
             content += extract("Celeste.Player.cs", [(1898, 1914)])
-            if args.domain == "hazards":
+            if hazard_domain:
                 content += '\nObserve?.Invoke("hazards", null);\n'
                 content += extract("Celeste.Player.cs", [(1944, 1945)]) + '\nObserve?.Invoke("complete", null);\n}\n} }\n'
                 content += "namespace Celeste { public partial class Spikes : Entity {\n"
@@ -144,7 +162,16 @@ def main():
     else:
         content = "using Microsoft.Xna.Framework.Input;\nnamespace Monocle {\n"
         content += extract("Monocle.VirtualButton.cs", [(5, 163)]) + "\n}\n"
+    if args.domain == "dash":
+        content += "namespace Celeste { public static partial class Input {\n"
+        content += extract("Celeste.Input.cs", [(103, 135), (331, 373)]) + "\n}\npublic static class Celeste {\n"
+        content += extract("Celeste.Celeste.cs", [(152, 162)]) + "\n} }\n"
+        content += "namespace Monocle { public partial class FrameDriver { public void Frame(float raw) { Engine.RawDeltaTime = raw;\n"
+        content += extract("Monocle.Engine.cs", [(227, 229)]) + "\nSampled?.Invoke(); bool frozen = FreezeTimer > 0f;\n"
+        content += extract("Monocle.Engine.cs", [(264, 276)]) + "\nif (frozen) Frozen?.Invoke();\n} public Action Sampled, Frozen; }\npublic static partial class MInput {\n"
+        content += extract("Monocle.MInput.cs", [(1380, 1424), (1437, 1443)]) + "\n} }\n"
     (output / "Extracted.cs").write_text(content)
+    manifest["extracted_sha256"] = hashlib.sha256((output / "Extracted.cs").read_bytes()).hexdigest()
     manifest["stub_boundaries"] = [
         "Two-float Vector2 addition/multiplication; no FNA runtime",
         "Entity position, collider ownership and Collidable fields only",
@@ -179,7 +206,7 @@ def main():
             "Unsupported shells throw; validated-absent collections empty; presentation shells inert",
             "Bounds enforcement disabled, bounds retained for ClimbBoundsCheck; stats/replay services excluded, source TotalJumps increments an isolated counter",
         ]
-        if args.domain == "hazards":
+        if hazard_domain:
             manifest["stub_boundaries"] = [
                 "Accepted bounded Normal/Actor/Grid/scheduling/input closure and synthetic common fixture bindings; not original CIL/full runtime",
                 "Unchanged complete Die, Drop, PlayerCollider.Check, Spikes.OnCollide and LedgeBlocker methods; static constructor shells retain source Up/Left cases",
@@ -198,19 +225,31 @@ def main():
             "MapData bounds, complete LevelLoader 95-266 and SolidTiles 26-48 unchanged; no runtime loading, rendering or autotiling",
             "Dense AnyInSegmentAtTile always scans valid segments; default char zero makes omitted empty segments collision-equivalent",
         ]
+    if args.domain == "dash":
+        manifest["stub_boundaries"] = [
+            "Unchanged complete StartDash/CallDashEvents/DashBegin/DashAssistInit/DashEnd/DashUpdate/CorrectDashPrecision/DashCoroutine/SwimCheck, existing Normal/Jump/collision closure, Actor.OnGround and spike blockers",
+            "Unchanged Input.DashPressed/CrouchDashPressed/GetAimVector; resolved digital Aim and sampled Binding inputs, no hardware threshold or mapping claim",
+            "Raw caller float assigned at synthetic FrameDriver boundary; unchanged Engine 227-229 and 264-276, full MInput.Update/UpdateVirtualInputs and Celeste.Freeze; no TimeSpan/GameTime conversion or full Engine claim",
+            "Canonical rates 1, no dash assist/super dashing; absent water, DreamBlock, SwapBlock, Holdable, booster, listeners, cassette manager and other states validated by driver",
+            "Scalar Vector2/Calc/geometry shells and existing Actor/Grid/scheduling/button machinery; static Hitbox/Grid/Up/Left spikes only",
+            "Presentation-only trails, rumble, displacement, shake, slash and interval particles inert; isolated dash/death counters, no persistence/cosmetics/full runtime",
+            "Unsupported SuperJump/WallJump/SuperWallJump throw at selected source call sites; no rewritten C# Dash algorithm",
+        ]
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     maintained = ROOT / "tests/native/oracle"
     if args.domain != "movement":
         maintained /= args.domain
-    runner = ROOT / "tests/native/oracle/player/Runner.cs" if args.domain == "hazards" else maintained / "Runner.cs"
+    runner = ROOT / "tests/native/oracle/player/Runner.cs" if hazard_domain else maintained / "Runner.cs"
     extra = ""
     if player_domain:
         extra = "\n".join(f'    <Compile Include="{ROOT / "tests/native/oracle" / name / "Shims.cs"}" />'
                           for name in ("scheduling", "input"))
         extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/Shims.cs"}" />'
         extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/grid/Shims.cs"}" />'
-        if args.domain == "hazards":
+        if hazard_domain:
             extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/player/Shims.cs"}" />'
+        if args.domain == "dash":
+            extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/hazards/Shims.cs"}" />'
     elif args.domain == "grid":
         extra = f'    <Compile Include="{ROOT / "tests/native/oracle/Shims.cs"}" />'
         extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/Runner.cs"}" />'
@@ -220,7 +259,7 @@ def main():
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <UseAppHost>false</UseAppHost><CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
     <NuGetAudit>false</NuGetAudit>
-    <DefineConstants>{"PLAYER_ORACLE;GRID_ORACLE;HAZARD_ORACLE" if args.domain == "hazards" else "PLAYER_ORACLE;GRID_ORACLE" if args.domain == "player" else "GRID_ORACLE" if args.domain == "grid" else ""}</DefineConstants>
+    <DefineConstants>{"PLAYER_ORACLE;GRID_ORACLE;HAZARD_ORACLE;DASH_ORACLE" if args.domain == "dash" else "PLAYER_ORACLE;GRID_ORACLE;HAZARD_ORACLE" if hazard_domain else "PLAYER_ORACLE;GRID_ORACLE" if args.domain == "player" else "GRID_ORACLE" if args.domain == "grid" else ""}</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extracted.cs" />

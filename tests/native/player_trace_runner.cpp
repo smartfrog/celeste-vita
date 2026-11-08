@@ -80,7 +80,13 @@ public:
         delta_ = parse_float(f.at(1));
         input_ = {std::stoi(f.at(2)), std::stoi(f.at(3)),
                   {flag(f.at(4)), flag(f.at(5)), flag(f.at(6)), flag(f.at(7)), false}, flag(f.at(8)), flag(f.at(9))};
-#ifdef HAZARD_TRACE
+#ifdef DASH_TRACE
+        input_.aim_x = std::stoi(f.at(10)); input_.aim_y = std::stoi(f.at(11));
+        input_.dash_button = {flag(f.at(12)), flag(f.at(13)), flag(f.at(14)), flag(f.at(7))};
+        try {
+            player_->frame(delta_, input_, [this](const char* phase, const CollisionData* data) { trace(phase, data); });
+        } catch (const std::invalid_argument&) { trace("rejected", nullptr); }
+#elif defined(HAZARD_TRACE)
         phases_.clear();
         operation_ = "tick";
         sample_.clear();
@@ -141,7 +147,24 @@ private:
         const auto& s = p.state();
         const auto pos = p.actor().body.position;
         const auto rem = p.actor().position_remainder();
-#ifdef HAZARD_TRACE
+#ifdef DASH_TRACE
+        const CollisionData d = data ? *data : CollisionData{};
+        const auto& co = p.state_machine().coroutine();
+        const auto& h = p.hazard_frame();
+        std::cout << name_ << '\t' << frame_ << '\t' << phase << '\t' << bits(delta_) << '\t' << bits(p.clock().delta) << '\t' << bits(p.clock().freeze_timer) << '\t' << p.clock().frame_counter
+            << '\t' << bits(pos.x) << '\t' << bits(pos.y) << '\t' << bits(rem.x) << '\t' << bits(rem.y) << '\t' << bits(s.previous_position.x) << '\t' << bits(s.previous_position.y)
+            << '\t' << bits(s.speed.x) << '\t' << bits(s.speed.y) << '\t' << s.facing << '\t' << s.move_x << '\t' << s.on_ground << '\t' << s.was_on_ground
+            << '\t' << s.on_safe_ground << '\t' << s.ducking << '\t' << s.dashes << '\t' << p.state_machine().state() << '\t' << p.state_machine().previous_state() << '\t' << p.state_machine().changed_states
+            << '\t' << bits(p.jump_button().buffer_counter()) << '\t' << p.jump_button().pressed() << '\t' << p.jump_button().check()
+            << '\t' << bits(p.dash_button().buffer_counter()) << '\t' << p.dash_button().pressed() << '\t' << p.dash_button().check() << '\t' << s.started_dashing
+            << '\t' << s.dash_started_on_ground << '\t' << s.called_dash_events << '\t' << s.dash_events << '\t' << bits(s.before_dash_speed.x) << '\t' << bits(s.before_dash_speed.y)
+            << '\t' << bits(s.dash_dir.x) << '\t' << bits(s.dash_dir.y) << '\t' << bits(s.last_aim.x) << '\t' << bits(s.last_aim.y) << '\t' << bits(s.dash_attack_timer)
+            << '\t' << bits(s.dash_cooldown_timer) << '\t' << bits(s.dash_refill_cooldown_timer) << '\t' << bits(s.glider_boost_timer) << '\t' << bits(s.dash_trail_timer) << '\t' << s.dash_trail_counter
+            << '\t' << s.auto_jump << '\t' << bits(s.auto_jump_timer) << '\t' << bits(s.jump_grace_timer) << '\t' << bits(s.var_jump_timer) << '\t' << bits(s.var_jump_speed) << '\t' << bits(s.max_fall)
+            << '\t' << bits(s.wall_speed_retention_timer) << '\t' << bits(s.wall_speed_retained) << '\t' << p.death().dead << '\t' << (d.hit ? ids_.at(d.hit) : -1)
+            << '\t' << bits(d.direction.x) << '\t' << bits(d.direction.y) << '\t' << bits(d.moved.x) << '\t' << bits(d.moved.y) << '\t' << bits(d.target_position.x) << '\t' << bits(d.target_position.y)
+            << '\t' << co.active << '\t' << bits(co.wait_timer()) << '\t' << co.ended() << '\t' << co.stack_depth() << '\t' << h.refill_called << '\t' << identities(h.checked) << '\t' << identities(h.overlaps) << '\n';
+#elif defined(HAZARD_TRACE)
         (void)phase;
         (void)data;
         const auto& d = p.death();

@@ -18,13 +18,13 @@ namespace Monocle
         public bool Released(int gamepadIndex, float threshold) => RawReleased;
     }
 
-    public static class MInput
+    public static partial class MInput
     {
         public static bool Disabled;
         public static readonly SampledKeyboard Keyboard = new();
     }
 
-    public sealed class SampledKeyboard
+    public sealed partial class SampledKeyboard
     {
         public bool DebugHeld;
         public bool Check(Microsoft.Xna.Framework.Input.Keys key) => DebugHeld;

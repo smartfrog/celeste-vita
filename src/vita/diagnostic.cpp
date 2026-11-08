@@ -7,7 +7,10 @@ Sample Controller::sample(Controls controls) {
     Sample result;
     result.player.x = int(controls.right) - int(controls.left);
     result.player.y = int(controls.down) - int(controls.up);
-    result.player.jump = {controls.cross, controls.cross && !previous_.cross};
+    result.player.jump = {controls.cross, controls.cross && !previous_.cross, !controls.cross && previous_.cross};
+    result.player.aim_x = result.player.x;
+    result.player.aim_y = result.player.y;
+    result.player.dash_button = {controls.square, controls.square && !previous_.square, !controls.square && previous_.square};
     result.reset = controls.triangle && !previous_.triangle;
     result.exit = controls.start;
     previous_ = controls;

@@ -18,13 +18,14 @@ def main():
     parser.add_argument("--prepared", type=Path, default=ROOT / ".audit/native-static-tilemap/prepared")
     parser.add_argument("--output", type=Path, default=ROOT / ".audit/native-static-tilemap/mask-verification")
     parser.add_argument("--native", type=Path, required=True)
+    parser.add_argument("--oracle", type=Path, default=PRIVATE / "grid", help="Private freshly built Grid oracle directory")
     args = parser.parse_args()
     if not args.output.resolve().is_relative_to(ROOT / ".audit"):
         parser.error("Private evidence must stay under .audit")
     args.output.mkdir(parents=True, exist_ok=True)
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
-    oracle = PRIVATE / "grid/bin/Release/net8.0/Oracle.dll"
-    manifest = json.loads((PRIVATE / "grid/source-manifest.json").read_text())
+    oracle = args.oracle / "bin/Release/net8.0/Oracle.dll"
+    manifest = json.loads((args.oracle / "source-manifest.json").read_text())
     if manifest["input_sha256"] != INPUT_SHA:
         raise ValueError("Unexpected oracle provenance")
     provenance = json.loads((args.prepared / "provenance.json").read_text())

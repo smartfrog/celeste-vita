@@ -1,10 +1,32 @@
 #include "scheduling.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <utility>
 
 namespace celeste {
+
+void FrameClock::sample(float raw) {
+    if (!std::isfinite(raw) || raw < 0.0f || !std::isfinite(1000.0f * raw))
+        throw std::invalid_argument("Invalid raw frame delta");
+    raw_delta = raw;
+    delta = (raw * 1.0f) * 1.0f;
+    ++frame_counter;
+}
+
+bool FrameClock::simulate() {
+    if (freeze_timer > 0.0f) {
+        freeze_timer = std::max(freeze_timer - raw_delta, 0.0f);
+        return false;
+    }
+    return true;
+}
+
+void FrameClock::freeze(float duration) {
+    if (!std::isfinite(duration) || duration < 0.0f) throw std::invalid_argument("Invalid freeze duration");
+    if (freeze_timer < duration) freeze_timer = duration;
+}
 
 Iterator::Iterator(std::function<IteratorStep()> next) : next_(std::move(next)) {
     if (!next_) throw std::invalid_argument("Iterator requires a step callback");
