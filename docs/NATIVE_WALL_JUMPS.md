@@ -35,6 +35,9 @@ existing preamble 1632–1666, selectors, guards and collision closure. Pinned
 its unchanged AngleToVector is lines 854–857. New C# shims only permit zero
 Actor/Platform LiftSpeed assignment, inert wall sound lookup and isolated
 TotalWallJumps. No Player algorithm is rewritten in shims.
+New helper extraction writes `<type>.preparation.json` beside its source only
+after successful extraction and hash verification. Historical aggregate receipts
+remain untouched; cached reruns verify hashes without rewriting files.
 
 The first private compile/numeric checkpoint is preserved under
 `.audit/native-wall-jumps/first-compile/`. SDK/runtime 8.0.425/8.0.31 compile only

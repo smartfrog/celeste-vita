@@ -20,23 +20,23 @@ def main():
     if hashlib.sha256(executable.read_bytes()).hexdigest() != INPUT_SHA:
         raise ValueError("Unexpected private reference executable")
     output.mkdir(parents=True, exist_ok=True)
-    rows = []
     for name in ("Monocle.Engine", "Monocle.MInput", "Celeste.Celeste", "Monocle.Calc"):
         directory = ROOT / ".audit/native-wall-jumps/closure" if name == "Monocle.Calc" else output
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / (name + ".cs")
+        command = None
         if not destination.exists():
             command = [str(sdk), str(tool), "--disable-updatecheck", "-r", str(source / "inputs"), "-t", name, str(executable)]
             with destination.open("xb") as stdout, (directory / (name + ".stderr")).open("xb") as stderr:
                 subprocess.run(command, env=oracle_environment(sdk), stdout=stdout, stderr=stderr, check=True, timeout=180)
-            rows.append({"type": name, "command": command})
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()
         if digest != SOURCE_HASHES[name + ".cs"]:
             raise ValueError("Changed private source preserved for diagnosis: " + str(destination))
+        if command is not None:
+            with (directory / (name + ".preparation.json")).open("x") as receipt:
+                receipt.write(json.dumps({"type": name, "command": command, "input_sha256": INPUT_SHA,
+                                          "source_sha256": digest}, indent=2) + "\n")
         print(name + " SHA256 " + digest)
-    if rows:
-        with (output / "preparation.json").open("x") as receipt:
-            receipt.write(json.dumps(rows, indent=2) + "\n")
 
 
 if __name__ == "__main__":
