@@ -1,6 +1,7 @@
 #pragma once
 
 #include "input.hpp"
+#include "hazards.hpp"
 #include "movement.hpp"
 #include "scheduling.hpp"
 
@@ -13,6 +14,7 @@ struct PlayerWorld {
     std::vector<Body*> safe_ground;
     std::int32_t bounds_left = -10000;
     std::int32_t bounds_right = 10000;
+    std::vector<const StaticSpike*> spikes;
 };
 
 struct PlayerInput {
@@ -59,6 +61,9 @@ public:
     const VirtualButton& jump_button() const { return jump_; }
     const StateMachine& state_machine() const { return machine_; }
     Hitbox hurtbox() const;
+    const PlayerDeath& death() const { return death_; }
+    const HazardFrame& hazard_frame() const { return hazard_frame_; }
+    bool die(Vec2 direction);
     void request_state(int state);
     void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {});
 
@@ -72,6 +77,8 @@ private:
     float delta_ = 0.0f;
     PlayerObserver observer_;
     bool updating_ = false;
+    PlayerDeath death_;
+    HazardFrame hazard_frame_;
 
     void validate_world() const;
     void emit(const char* phase, const CollisionData* collision = nullptr) const;
@@ -84,6 +91,10 @@ private:
     void jump();
     void collide_h(CollisionData data);
     void collide_v(CollisionData data);
+    bool overlaps_spike(Vec2 at) const;
+    bool jump_thru_boost_blocked_check() const;
+    bool check_hazards();
+    bool die_immediate(Vec2 direction);
 };
 
 }

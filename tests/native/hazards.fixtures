@@ -1,0 +1,78 @@
+# Synthetic kinematic seeds, not arbitrary gameplay snapshots. Overlap annotations are coverage.
+case up_zero_bottom 0 2 0 0 -100 100
+spike 1 -8 0 16 up 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1
+die 1 0 => ignored
+tick 0 0 0 0 0 0 0 0 0 => rejected -
+case up_bottom_fails 0 3 0 0 -100 100
+spike 1 -8 0 16 up 1
+tick 0 0 0 0 0 0 0 0 0 => alive 1
+case up_ascending 0 2 0 -1 -100 100
+spike 1 -8 0 16 up 1
+tick 0 0 0 0 0 0 0 0 0 => alive 1
+case up_falling 0 2 0 1 -100 100
+spike 1 -8 0 16 up 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1
+case left_negative 0 0 -1 0 -100 100
+spike 1 4 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => alive 1
+case left_zero 0 0 0 0 -100 100
+spike 1 4 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1
+case left_positive 0 0 1 0 -100 100
+spike 1 4 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1
+case strict_edge 0 0 0 0 -100 100
+spike 1 7 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => alive -
+case one_pixel_overlap 0 0 0 0 -100 100
+spike 1 6 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1
+case noncollidable 0 0 0 0 -100 100
+spike 1 4 -8 16 left 0
+tick 0 0 0 0 0 0 0 0 0 => alive -
+case nonlethal_then_lethal 0 2 0 -1 -100 100
+spike 1 -8 0 16 up 1
+spike 2 4 -8 16 left 1
+spike 3 4 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => dead:2 1,2
+case movement_only_refill_denial 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 4 -1 1 left 1
+tick 0 0 0 0 0 0 0 0 0 => alive -
+case refill_without_overlap 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 7 -1 1 left 1
+tick 0 0 0 0 0 0 0 0 0 => alive -
+case nonlethal_overlap_refill_denial 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 -8 -4 16 up 1
+tick 0 0 0 0 0 0 0 0 0 => alive 1
+case duck_bottom_gap 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 4 -2 1 left 1
+tick 0 0 1 0 0 0 0 0 0 => alive -
+case duck_hurt_overlap 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 4 -5 1 left 1
+tick 0 0 1 0 0 0 0 0 0 => dead:1 1
+case duck_avoids_standing_overlap 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 4 -10 1 left 1
+tick 0 0 1 0 0 0 0 0 0 => alive -
+case boost_blocked 0 0 0 -30 -100 100
+jump 9 -10 -4 20 8 1
+spike 1 -8 -11 16 up 1
+tick 0.025 0 0 0 0 0 0 0 0 => alive -
+case boost_unblocked 0 0 0 -30 -100 100
+jump 9 -10 -4 20 8 1
+spike 1 -8 -11 16 up 0
+tick 0.025 0 0 0 0 0 0 0 0 => alive -
+case immediate_die 0 0 13 -17 -100 100
+die -1 0 => accepted
+die 0 -1 => ignored
+tick 0 0 0 0 0 0 0 0 0 => rejected -
+case grounded_early_exit 0 0 0 0 -100 100
+solid 9 -100 0 200 8 1
+spike 1 4 -8 16 left 1
+tick 0 0 0 0 0 0 0 0 0 => dead:1 1

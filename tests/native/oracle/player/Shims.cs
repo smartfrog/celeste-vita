@@ -40,12 +40,22 @@ namespace Monocle
     public sealed partial class Tracker
     {
         public List<Entity> GetEntities<T>() where T : Entity => Entities[typeof(T)];
+#if HAZARD_ORACLE
+        public IEnumerable<T> GetComponents<T>()
+        {
+            if (typeof(T) == typeof(LedgeBlocker) || typeof(T) == typeof(PlayerCollider)) return HazardComponents<T>();
+            if (typeof(T) != typeof(Holdable) && typeof(T) != typeof(SafeGroundBlocker))
+                throw new NotSupportedException("Unvalidated component category");
+            return new List<T>();
+        }
+#else
         public List<T> GetComponents<T>()
         {
             if (typeof(T) != typeof(Holdable) && typeof(T) != typeof(SafeGroundBlocker) && typeof(T) != typeof(LedgeBlocker) && typeof(T) != typeof(PlayerCollider))
                 throw new NotSupportedException("Unvalidated component category");
             return new();
         }
+#endif
     }
     public partial class Entity
     {
@@ -89,11 +99,19 @@ namespace Celeste
         public static readonly SaveData Instance = new();
         public readonly Assists Assists = new();
         public ulong TotalJumps;
+#if HAZARD_ORACLE
+        public int DeathCalls;
+        public void AddDeath(object area) { DeathCalls++; }
+#endif
     }
     public sealed class Session
     {
         public enum CoreModes { None, Cold }
         public PlayerInventory Inventory = PlayerInventory.Default;
+#if HAZARD_ORACLE
+        public int Deaths, DeathsInCurrentLevel;
+        public object Area;
+#endif
     }
     public struct Bounds { public int Left, Right; }
     public sealed class Level : Scene
@@ -104,6 +122,9 @@ namespace Celeste
         public Session.CoreModes CoreMode;
         public bool InSpace, InCutscene;
         public readonly Displacement Displacement = new();
+#if HAZARD_ORACLE
+        public void Shake() { }
+#endif
     }
     public sealed class Displacement
     {
@@ -130,16 +151,23 @@ namespace Celeste
     {
         public bool SlowRun, SlowFall;
         public bool Check(Player player) => throw new NotSupportedException("Holding excluded");
+#if HAZARD_ORACLE
+        public void Release(Vector2 direction) => throw new NotSupportedException("Holding excluded");
+#endif
     }
     public class SafeGroundBlocker { public bool Check(Player player) => throw new NotSupportedException("Blockers excluded"); }
+#if !HAZARD_ORACLE
     public class LedgeBlocker { public bool JumpThruBoostCheck(Player player) => throw new NotSupportedException("Blockers excluded"); }
     public class PlayerCollider { public bool Check(Player player) => throw new NotSupportedException("Hazards excluded"); }
+#endif
     public static class ClimbBlocker
     {
         public static bool Check(Scene scene, Player player, Vector2 at) => false;
         public static bool EdgeCheck(Level level, Player player, int dir) => false;
     }
+#if !HAZARD_ORACLE
     public class Spikes : Entity { public enum Directions { Left, Right } public Directions Direction; }
+#endif
     public class NegaBlock : Entity { }
     public class Water : Entity
     {
@@ -148,7 +176,11 @@ namespace Celeste
     }
     public class DreamBlock : Solid { public void FootstepRipple(Vector2 at) => throw new NotSupportedException("Dream blocks excluded"); }
     public static class TalkComponent { public static object PlayerOver => null; }
-    public sealed class Booster { public bool Ch9HubTransition, BoostingPlayer; }
+    public sealed class Booster { public bool Ch9HubTransition, BoostingPlayer;
+#if HAZARD_ORACLE
+        public void PlayerDied() => throw new NotSupportedException("Booster excluded");
+#endif
+    }
     public static class SurfaceIndex
     {
         public static Platform GetPlatformByPriority(List<Entity> entities) => entities.Count == 0 ? null : (Platform)entities[0];
@@ -206,6 +238,11 @@ namespace Celeste
             if (!float.IsFinite(delta) || delta < 0f || !float.IsFinite(1000f * delta) || x < -1 || x > 1 || y < -1 || y > 1) throw new ArgumentException("Invalid frame input");
             if (grab || dash) throw new NotSupportedException("Grab/Dash excluded");
             ValidateProfile();
+#if HAZARD_ORACLE
+            level.Tracker.Checks.Clear();
+            level.Tracker.Overlaps.Clear();
+            RefillCalls = 0;
+#endif
             Engine.DeltaTime = Engine.RawDeltaTime = delta;
             Input.MoveX.Value = x;
             Input.MoveY.Value = y;
@@ -229,13 +266,21 @@ namespace Celeste
             Observe?.Invoke("horizontal", null);
             SourceVertical();
             Observe?.Invoke("vertical", null);
+#if HAZARD_ORACLE
+            SourceFinish();
+            if (Dead) Observe?.Invoke("removed", null);
+#else
             SourceHazards();
             Observe?.Invoke("hazards", null);
             SourceComplete();
             Observe?.Invoke("complete", null);
+#endif
         }
         private void ValidateProfile()
         {
+#if HAZARD_ORACLE
+            if (Leader.Followers.Count != 0) throw new NotSupportedException("Followers excluded");
+#endif
             var a = SaveData.Instance.Assists;
             var i = Inventory;
             if (a.DashMode != Assists.DashModes.Normal || a.NoGrabbing || a.LowFriction || a.Invincible ||
@@ -251,6 +296,10 @@ namespace Celeste
             foreach (var pair in level.Tracker.Entities)
                 foreach (var entity in pair.Value)
                 {
+#if HAZARD_ORACLE
+                    if (pair.Key == typeof(Spikes) && entity is Spikes spike &&
+                        (spike.Direction == Spikes.Directions.Up || spike.Direction == Spikes.Directions.Left)) continue;
+#endif
                     if (pair.Key != typeof(Solid) && pair.Key != typeof(JumpThru) && pair.Key != typeof(Platform))
                         throw new NotSupportedException("Unsupported entity category");
                     if (entity.GetType() != typeof(Solid) && entity.GetType() != typeof(JumpThru))
@@ -263,7 +312,9 @@ namespace Celeste
         private bool Pickup(Holdable holdable) => throw new NotSupportedException("Holding excluded");
         private int StartDash() => throw new NotSupportedException("Dash excluded");
         private void Throw() => throw new NotSupportedException("Holding excluded");
+#if !HAZARD_ORACLE
         private void Drop() => throw new NotSupportedException("Holding excluded");
+#endif
         private void ClimbTrigger(int dir) => throw new NotSupportedException("Grab excluded");
         private void ClimbJump() => throw new NotSupportedException("Climb jump excluded");
         private void WallJump(int dir) => throw new NotSupportedException("Wall jump excluded");

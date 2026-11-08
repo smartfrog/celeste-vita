@@ -57,6 +57,12 @@ void Player::validate_world() const {
                       std::find(world_.collision.jump_thrus.begin(), world_.collision.jump_thrus.end(), safe) == world_.collision.jump_thrus.end()))
             throw std::invalid_argument("Safe ground must belong to the static world");
     }
+    for (std::size_t i = 0; i < world_.spikes.size(); ++i) {
+        const auto* spike = world_.spikes[i];
+        if (!spike || std::find(world_.spikes.begin(), world_.spikes.begin() + i, spike) != world_.spikes.begin() + i)
+            throw std::invalid_argument("Null or duplicate static spike");
+        collide_check(actor_.body, spike->body(), actor_.body.position);
+    }
 }
 
 Hitbox Player::hurtbox() const {
@@ -66,6 +72,62 @@ Hitbox Player::hurtbox() const {
 void Player::request_state(int state) {
     if (state != 0) throw std::invalid_argument("Only Normal state is supported");
     machine_.set_state(state);
+}
+
+bool Player::die(Vec2 direction) {
+    if (updating_) throw std::logic_error("Death cannot be requested from a read-only observer");
+    finite(direction);
+    return die_immediate(direction);
+}
+
+bool Player::die_immediate(Vec2 direction) {
+    if (death_.dead) return false;
+    death_.dead = true;
+    death_.depth = -1000000;
+    state_.speed = {};
+    machine_.locked = true;
+    actor_.body.collidable = false;
+    death_.direction = direction;
+    death_.events.push_back(DeathEvent::corpse_created);
+    death_.events.push_back(DeathEvent::corpse_added);
+    death_.removed = true;
+    death_.events.push_back(DeathEvent::player_removed);
+    return true;
+}
+
+bool Player::overlaps_spike(Vec2 at) const {
+    for (const auto* spike : world_.spikes)
+        if (collide_check(actor_.body, spike->body(), at)) return true;
+    return false;
+}
+
+bool Player::jump_thru_boost_blocked_check() const {
+    const auto pos = actor_.body.position;
+    return overlaps_spike({pos.x, pos.y - 2.0f});
+}
+
+bool Player::check_hazards() {
+    const auto saved = actor_.body.collider;
+    actor_.body.collider = hurtbox();
+    for (std::size_t i = 0; i < world_.spikes.size(); ++i) {
+        hazard_frame_.checked.push_back(i);
+        const auto& spike = *world_.spikes[i];
+        if (!collide_check(actor_.body, spike.body(), actor_.body.position)) continue;
+        hazard_frame_.overlaps.push_back(i);
+        const auto& box = *actor_.body.collider;
+        const auto& target = *spike.body().collider;
+        const bool lethal = spike.direction() == SpikeDirection::up
+            ? state_.speed.y >= 0.0f && actor_.body.position.y + (box.offset.y + box.height) <=
+                spike.body().position.y + (target.offset.y + target.height)
+            : state_.speed.x >= 0.0f;
+        if (lethal) die_immediate(spike.direction() == SpikeDirection::up ? Vec2{0.0f, -1.0f} : Vec2{-1.0f, 0.0f});
+        if (death_.dead) {
+            actor_.body.collider = saved;
+            return true;
+        }
+    }
+    actor_.body.collider = saved;
+    return false;
 }
 
 void Player::emit(const char* phase, const CollisionData* collision) const {
@@ -208,6 +270,7 @@ void Player::collide_v(CollisionData data) {
 
 void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer) {
     if (updating_) throw std::logic_error("Recursive Player frame is unsupported");
+    if (death_.removed) throw std::invalid_argument("Removed Player cannot simulate another frame");
     if (!std::isfinite(delta_time) || delta_time < 0.0f || !std::isfinite(1000.0f * delta_time) ||
         input.x < -1 || input.x > 1 || input.y < -1 || input.y > 1)
         throw std::invalid_argument("Invalid Player frame input");
@@ -220,6 +283,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
     observer_ = std::move(observer);
     try {
         delta_ = delta_time;
+        hazard_frame_ = {};
         input_ = input;
         auto& s = state_;
         auto& pos = actor_.body.position;
@@ -243,7 +307,11 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
             s.stamina = 110.0f;
             s.wall_slide_timer = 1.2f;
             s.jump_grace_timer = 0.1f;
-            if (s.dashes < 1) s.dashes = 1;
+            hazard_frame_.refill_checked = true;
+            if (!overlaps_spike(pos)) {
+                hazard_frame_.refill_called = true;
+                if (s.dashes < 1) s.dashes = 1;
+            }
         } else if (s.jump_grace_timer > 0.0f) s.jump_grace_timer -= delta_;
         if (s.var_jump_timer > 0.0f) s.var_jump_timer -= delta_;
         s.move_x = input.x;
@@ -261,7 +329,9 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         if (!s.on_ground && s.speed.y <= 0.0f) {
             for (const Body* platform : world_.collision.jump_thrus) {
                 if (collide_check(actor_.body, *platform, pos)) {
-                    actor_.move_v(-40.0f * delta_);
+                    hazard_frame_.boost_checked = true;
+                    hazard_frame_.boost_blocked = jump_thru_boost_blocked_check();
+                    if (!hazard_frame_.boost_blocked) actor_.move_v(-40.0f * delta_);
                     break;
                 }
             }
@@ -273,9 +343,12 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         emit("horizontal");
         actor_.move_v(s.speed.y * delta_, [this](CollisionData data) { collide_v(data); });
         emit("vertical");
-        emit("hazards");
-        s.was_on_ground = s.on_ground;
-        emit("complete");
+        if (check_hazards()) emit("removed");
+        else {
+            emit("hazards");
+            s.was_on_ground = s.on_ground;
+            emit("complete");
+        }
     } catch (...) {
         observer_ = {};
         updating_ = false;

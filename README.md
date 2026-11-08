@@ -4,14 +4,16 @@ Portage homebrew natif de **Celeste 1.4.0.0** sur PlayStation Vita, en cours.
 
 **État : noyau C++ de mouvement/collisions statiques, StateMachine/Coroutine, boutons
 échantillonnés et locomotion Player Normal + saut sol/coyote testés sur hôte ;
-Grid statique et masque global ForsakenCity vérifiés, essai borné dans la salle `1` ;
+Grid statique, masque global ForsakenCity et pics Up/Left avec mort immédiate
+vérifiés sur hôte, essais bornés dans la salle `1` ;
 exécution du jeu sur Vita non démontrée.** Le noyau n'embarque ni Mono ni CLR.
 Voir [le noyau natif](docs/NATIVE_KERNEL.md) et
 [la compatibilité d'ordonnancement](docs/NATIVE_SCHEDULING.md) et
 [les boutons échantillonnés](docs/NATIVE_INPUT.md) et
 [la locomotion Player bornée](docs/NATIVE_PLAYER.md) et
-[le tilemap statique borné](docs/NATIVE_TILEMAP.md) pour le périmètre,
-les tests et les oracles privés. Dangers, cycle de vie des salles, autres états Player,
+[le tilemap statique borné](docs/NATIVE_TILEMAP.md) et
+[les dangers statiques bornés](docs/NATIVE_HAZARDS.md) pour le périmètre,
+les tests et les oracles privés. Autres dangers, respawn, cycle de vie des salles, autres états Player,
 gameplay complet, graphique, audio et mémoire restent à traiter.
 
 Voir [l'audit de faisabilité](docs/FEASIBILITY.md) pour les résultats, les preuves

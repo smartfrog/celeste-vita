@@ -27,7 +27,7 @@ def oracle_environment(sdk):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid", "hazards"), default="movement")
     parser.add_argument("--native", type=Path, help="Host native_trace_runner executable")
     parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
@@ -50,6 +50,9 @@ def main():
         field_count = len(FIELDS)
     elif args.domain == "grid":
         from compare_grid_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
+    elif args.domain == "hazards":
+        from compare_hazard_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16

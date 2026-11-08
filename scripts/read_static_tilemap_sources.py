@@ -9,15 +9,14 @@ from check_native_oracle import ROOT, PRIVATE, oracle_environment
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
 
 
-def main():
+def retain_sources(output, names):
     exe = ROOT / ".audit/ilspy/inputs/Celeste.exe"
     if hashlib.sha256(exe.read_bytes()).hexdigest() != INPUT_SHA:
         raise ValueError("Unexpected private executable hash")
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
     ilspy = ROOT / ".audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll"
-    output = ROOT / ".audit/native-static-tilemap"
     output.mkdir(parents=True, exist_ok=True)
-    for name in ("Celeste.LevelLoader", "Celeste.MapData"):
+    for name in names:
         path = output / (name + ".cs")
         if path.exists():
             if hashlib.sha256(path.read_bytes()).hexdigest() != SOURCE_HASHES[path.name]:
@@ -41,4 +40,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    retain_sources(ROOT / ".audit/native-static-tilemap", ("Celeste.LevelLoader", "Celeste.MapData"))

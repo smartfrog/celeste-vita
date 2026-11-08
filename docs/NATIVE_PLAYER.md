@@ -19,8 +19,9 @@ player.frame(1.0f / 60.0f, input);
 ```
 
 - Default inventory, ordinary core/gravity, no assists, space, wind, water,
-  holding, movers/lift, triggers, blockers, hazards or platform gameplay hooks.
-  These features have no representation in `PlayerWorld`. Its only accepted
+  holding, movers/lift, triggers or platform gameplay hooks. The bounded
+  [static Up/Left hazard extension](NATIVE_HAZARDS.md) adds spikes, hurtbox death,
+  refill denial and their boost blockers separately. Its only accepted
   profile is `default_static`; other profile values and non-Normal state
   requests throw. Grab, Dash and debug-override requests throw before input
   mutation. Ordinary disabled sampled input remains supported.
@@ -36,8 +37,9 @@ player.frame(1.0f / 60.0f, input);
   not an arbitrary gameplay snapshot or proof that another state can reach it.
   No timer, collider, inventory, state-machine or Actor mutation API is exposed.
 - Default dashes remain 1 and stamina 110: no supported operation spends either.
-  Ground refilling follows the static Solid/outside-JumpThru condition; there is
-  no general refill/hazard/platform callback stub. Depleted-dash snapshots and
+  Ground refilling follows the static Solid/outside-JumpThru condition and is
+  denied by movement-collider overlap with static spikes. There is no general
+  refill/hazard/platform callback stub. Depleted-dash snapshots and
   depleted stamina from excluded gameplay are not accepted setup inputs.
 - LiftSpeed is zero. Jump preserves the zero-vector addition and therefore
   `LaunchedBoostCheck`'s actual result/reset is false. AutoJump, dash/wall-boost,
@@ -61,8 +63,9 @@ so ClimbJump cannot be selected through an accepted input.
 
 The observation order is input update, previous-position/ground snapshot,
 timers/input/facing/retention, scheduler NormalUpdate, overlap-JumpThru upward
-boost, falling unduck, H movement, V movement, validated-empty hazard slot,
-then `wasOnGround`. Collision before/after observations occur synchronously
+boost (unless a static spike LedgeBlocker denies it), falling unduck, H movement,
+V movement, hurtbox hazard pass, then `wasOnGround` only on nonlethal completion.
+Collision before/after observations occur synchronously
 inside their movement phase. Ground is **pre-movement**: landing does not refresh
 coyote grace until the following frame. Stand assistance searches 4 to 1,
 right before left, using MoveH subpixels. Ceiling correction searches left
@@ -106,7 +109,8 @@ lastAim; hardware Aim resolution and later-state use of lastAim are excluded.
 Unsupported actions throw; only validated-absent entity/component categories
 are empty. The complete real DreamDashCheck short-circuits because DashAttacking
 is false, **not** because Default inventory disables DreamDash (it enables it).
-JumpThruBoostBlockedCheck runs its actual empty LedgeBlocker iteration.
+The original Player oracle retains its validated-empty hazard/blocker collections;
+the separate hazard domain extends them with unchanged source methods.
 
 Stats, replay/chaser history, strawberry collection, idle services, camera,
 carry, triggers, water transitions and bounds services are **excluded services**,

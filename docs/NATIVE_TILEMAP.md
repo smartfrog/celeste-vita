@@ -30,6 +30,8 @@ hazards, bounds enforcement, room transitions, rendering and audio are excluded.
 No virtual collider hierarchy or arbitrary unsupported-shape fallback exists.
 World list order, callback identity/payload/order, subpixels and old Hitbox
 predicates remain unchanged.
+The subsequent [bounded static hazard composition](NATIVE_HAZARDS.md) supplies
+spikes separately from solid Grid cells; it does not change this geometry contract.
 
 Grid collision uses integer Collider.Bounds: truncate absolute left/top and
 width/height toward zero, then strict integer rectangle overlap. Cell endpoints

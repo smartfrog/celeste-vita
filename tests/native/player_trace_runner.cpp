@@ -20,6 +20,11 @@ public:
             bodies_.clear();
             grids_.clear();
             ids_.clear();
+#ifdef HAZARD_TRACE
+            spikes_.clear();
+            spike_ids_.clear();
+            phases_.clear();
+#endif
             name_ = f.at(1);
             frame_ = 0;
             spawn_ = {parse_float(f.at(2)), parse_float(f.at(3))};
@@ -28,6 +33,28 @@ public:
             world_.bounds_right = std::stoi(f.at(7));
             return;
         }
+#ifdef HAZARD_TRACE
+        if (op == "spike") {
+            if (player_) throw std::invalid_argument("Spikes must precede frames");
+            if (f.at(5) != "up" && f.at(5) != "left") throw std::invalid_argument("Unsupported spike direction");
+            spikes_.emplace_back(Vec2{parse_float(f.at(2)), parse_float(f.at(3))}, std::stoi(f.at(4)),
+                                 f.at(5) == "up" ? SpikeDirection::up : SpikeDirection::left, flag(f.at(6)));
+            world_.spikes.push_back(&spikes_.back());
+            spike_ids_.push_back(f.at(1));
+            return;
+        }
+        if (op == "die") {
+            if (!player_) player_ = std::make_unique<Player>(world_, spawn_, speed_);
+            ++frame_;
+            delta_ = 0;
+            phases_.clear();
+            operation_ = "die";
+            sample_ = bits(parse_float(f.at(1))) + ',' + bits(parse_float(f.at(2)));
+            result_ = player_->die({parse_float(f.at(1)), parse_float(f.at(2))}) ? "accepted" : "ignored";
+            trace("", nullptr);
+            return;
+        }
+#endif
         if (op == "grid") {
             if (player_) throw std::invalid_argument("Grid must precede frames");
             grids_.push_back(parse_grid(f));
@@ -53,9 +80,29 @@ public:
         delta_ = parse_float(f.at(1));
         input_ = {std::stoi(f.at(2)), std::stoi(f.at(3)),
                   {flag(f.at(4)), flag(f.at(5)), flag(f.at(6)), flag(f.at(7)), false}, flag(f.at(8)), flag(f.at(9))};
+#ifdef HAZARD_TRACE
+        phases_.clear();
+        operation_ = "tick";
+        sample_.clear();
+        for (std::size_t i = 2; i < 10; ++i) {
+            if (!sample_.empty()) sample_ += ',';
+            sample_ += f.at(i);
+        }
+        result_ = "frame";
+        try {
+            player_->frame(delta_, input_, [this](const char* phase, const CollisionData* data) {
+                if (!phases_.empty()) phases_ += ',';
+                phases_ += phase;
+                if (data) phases_ += ':' + std::to_string(ids_.at(data->hit));
+            });
+            if (player_->death().dead) result_ = "removed";
+        } catch (const std::invalid_argument&) { result_ = "rejected"; }
+        trace("", nullptr);
+#else
         try {
             player_->frame(delta_, input_, [this](const char* phase, const CollisionData* data) { trace(phase, data); });
         } catch (const std::invalid_argument&) { trace("rejected", nullptr); }
+#endif
     }
 
 private:
@@ -69,6 +116,20 @@ private:
     int frame_ = 0;
     float delta_ = 0.0f;
     PlayerInput input_;
+#ifdef HAZARD_TRACE
+    std::deque<StaticSpike> spikes_;
+    std::vector<std::string> spike_ids_;
+    std::string phases_, operation_, result_, sample_;
+
+    std::string identities(const std::vector<std::size_t>& indices) const {
+        std::string result;
+        for (auto i : indices) {
+            if (!result.empty()) result += ',';
+            result += spike_ids_.at(i);
+        }
+        return result.empty() ? "-" : result;
+    }
+#endif
 
     static bool flag(const std::string& value) {
         if (value != "0" && value != "1") throw std::invalid_argument("Invalid Player flag");
@@ -80,6 +141,31 @@ private:
         const auto& s = p.state();
         const auto pos = p.actor().body.position;
         const auto rem = p.actor().position_remainder();
+#ifdef HAZARD_TRACE
+        (void)phase;
+        (void)data;
+        const auto& d = p.death();
+        const auto& h = p.hazard_frame();
+        const auto& box = *p.actor().body.collider;
+        const std::string collider = box.height == 11 ? "normal" : box.height == 6 ? "duck" : box.height == 9 ? "hurt_normal" : "hurt_duck";
+        std::string events;
+        for (auto event : d.events) {
+            if (!events.empty()) events += ',';
+            events += event == DeathEvent::corpse_created ? "corpse_created" : event == DeathEvent::corpse_added ? "corpse_added" : "player_removed";
+        }
+        std::cout << name_ << '\t' << frame_ << '\t' << operation_ << '\t' << result_ << '\t' << bits(delta_)
+                  << '\t' << bits(pos.x) << '\t' << bits(pos.y) << '\t' << bits(rem.x) << '\t' << bits(rem.y)
+                  << '\t' << bits(s.speed.x) << '\t' << bits(s.speed.y) << '\t' << s.ducking << '\t' << collider
+                  << '\t' << s.on_ground << '\t' << s.was_on_ground << '\t' << d.dead << '\t' << d.depth
+                  << '\t' << p.state_machine().locked << '\t' << p.actor().body.collidable << '\t' << d.removed
+                  << '\t' << bits(d.direction.x) << '\t' << bits(d.direction.y) << '\t' << (events.empty() ? "-" : events)
+                  << '\t' << h.refill_called << '\t' << identities(h.checked) << '\t' << identities(h.overlaps)
+                  << '\t' << (phases_.empty() ? "-" : phases_) << '\t' << s.dashes << '\t' << bits(s.stamina)
+                  << '\t' << p.state_machine().state() << '\t' << p.state_machine().previous_state() << '\t' << p.state_machine().changed_states
+                  << '\t' << bits(s.previous_position.x) << '\t' << bits(s.previous_position.y)
+                  << '\t' << bits(s.jump_grace_timer) << '\t' << bits(s.var_jump_timer) << '\t' << bits(s.var_jump_speed) << '\t' << bits(s.max_fall)
+                  << '\t' << sample_ << '\n';
+#else
         const CollisionData d = data ? *data : CollisionData{};
         std::cout << name_ << '\t' << frame_ << '\t' << phase << '\t' << bits(delta_)
                   << '\t' << input_.x << '\t' << input_.y << '\t' << input_.jump.held << '\t' << input_.jump.pressed
@@ -97,7 +183,8 @@ private:
                   << '\t' << bits(p.jump_button().buffer_counter()) << '\t' << p.jump_button().pressed()
                   << '\t' << p.jump_button().consumed() << '\t' << s.launched << '\t' << (d.hit ? ids_.at(d.hit) : -1)
                   << '\t' << bits(d.direction.x) << '\t' << bits(d.direction.y) << '\t' << bits(d.moved.x) << '\t' << bits(d.moved.y)
-                  << '\t' << bits(d.target_position.x) << '\t' << bits(d.target_position.y) << '\n';
+                   << '\t' << bits(d.target_position.x) << '\t' << bits(d.target_position.y) << '\n';
+#endif
     }
 };
 
