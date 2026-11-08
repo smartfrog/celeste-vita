@@ -1,6 +1,8 @@
 import json
+import itertools
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -11,6 +13,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
 from smoke_native_room import X11, main, KEYBOARD_MAPPING
+from test_diagnostic_guest import completed_log
 
 
 class SmokeCleanupTests(unittest.TestCase):
@@ -23,7 +26,14 @@ class SmokeCleanupTests(unittest.TestCase):
     def test_post_climb_startup_allows_input_before_image_and_preserves_cleanup(self):
         self.check_timeout_cleanup(True, after_climb=True)
 
-    def check_timeout_cleanup(self, after_wall_jump, after_climb=False):
+    def test_manual_default_retains_legacy_guest_completion_policy_on_host_wait_timeout(self):
+        feedback=self.check_timeout_cleanup(False,complete_manual=True)
+        self.assertTrue(feedback["stages"]["input"])
+        self.assertTrue(feedback["stages"]["clean_exit"])
+        self.assertTrue(feedback["stages"]["full_completion"])
+        self.assertNotIn("guest_replay_observed",feedback)
+
+    def check_timeout_cleanup(self, after_wall_jump, after_climb=False, complete_manual=False):
         directory = ROOT / ".audit/native-room-vita/wrapper-correction-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -59,7 +69,10 @@ class SmokeCleanupTests(unittest.TestCase):
             class Process:
                 def __init__(self,label,pid): self.label,self.pid,self.returncode=label,pid,None
                 def terminate(self): order.append(("terminate",self.label)); self.returncode=-15
-                def wait(self,timeout=None): return self.returncode
+                def wait(self,timeout=None):
+                    if complete_manual and self.label=="runtime" and timeout==30:
+                        raise subprocess.TimeoutExpired("synthetic-manual-runtime",timeout)
+                    return self.returncode
             installer, runtime = Process("installer",101), Process("runtime",102)
             def start(*args,**kwargs):
                 if not (fs / "ux0/app/CELR00001").exists():
@@ -67,15 +80,21 @@ class SmokeCleanupTests(unittest.TestCase):
                     destination.parent.mkdir(parents=True)
                     destination.write_bytes(payload)
                     return installer
+                if complete_manual: (fs / "ux0/data/celeste_native_room.log").write_text(completed_log())
                 return runtime
+            notifications=iter(["ready","sampled","sampled","sampled","sampled","sampled","dash_done",
+                                "sampled","sampled","dead","sampled","reset","sampled"])
+            frames=itertools.count()
             def notify_read(*args):
-                (fs / "ux0/data/celeste_native_room.ready").write_text("ready frame=0\n")
+                text=f"{next(notifications)} frame={next(frames)}\n" if complete_manual else "ready frame=0\n"
+                (fs / "ux0/data/celeste_native_room.ready").write_text(text)
                 return b"synthetic readiness event"
             original_read = Path.read_bytes
             def read_bytes(path):
                 if str(path)=="/proc/424242/cmdline": return str(config.parent).encode()
                 return original_read(path)
             libc = SimpleNamespace(inotify_init1=Mock(return_value=55),inotify_add_watch=Mock(return_value=1))
+            clock=itertools.count()
             arguments = ["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]
             if after_wall_jump:
                 arguments.append("--after-climb" if after_climb else "--after-wall-jump")
@@ -85,11 +104,17 @@ class SmokeCleanupTests(unittest.TestCase):
                  patch("smoke_native_room.os.pidfd_open",side_effect=[201,202]), patch("smoke_native_room.os.close"), \
                  patch("smoke_native_room.os.read",side_effect=notify_read), patch.object(Path,"read_bytes",read_bytes), \
                  patch("smoke_native_room.collect_native_frame",return_value=None if after_wall_jump else {"artifacts":{},"black_letterbox_rows":True,"nonzero_rgb_bytes":1}), \
-                 patch("smoke_native_room.select.select",side_effect=[([55],[],[]),TimeoutError("synthetic guest phase timeout")]):
-                with self.assertRaisesRegex(TimeoutError,"synthetic guest phase timeout"):
-                    main()
-            code = 113 if after_wall_jump else 53
-            self.assertEqual([item for item in order if item[0]=="inject"],[("inject",code,True),("inject",code,False)])
+                 patch("smoke_native_room.time.monotonic",side_effect=lambda:next(clock)), \
+                 patch("smoke_native_room.select.select",side_effect=(lambda *args:([55],[],[])) if complete_manual else [([55],[],[]),TimeoutError("synthetic guest phase timeout")]):
+                if complete_manual: main()
+                else:
+                    with self.assertRaisesRegex(TimeoutError,"synthetic guest phase timeout"): main()
+            code = 36 if complete_manual else 113 if after_wall_jump else 53
+            injections=[item for item in order if item[0]=="inject"]
+            if complete_manual:
+                self.assertEqual(injections[-2:],[("inject",36,True),("inject",36,False)])
+            else:
+                self.assertEqual(injections,[("inject",code,True),("inject",code,False)])
             self.assertLess(order.index(("inject",code,False)),order.index(("display-close",)))
             self.assertLess(order.index(("display-close",)),order.index(("terminate","runtime")))
             self.assertEqual(x.keys,set())
@@ -97,3 +122,4 @@ class SmokeCleanupTests(unittest.TestCase):
             feedback = json.loads((output / "feedback.json").read_text())
             self.assertTrue(feedback["stages"]["startup"])
             self.assertEqual(feedback["stages"]["native_image"],not after_wall_jump)
+            return feedback

@@ -14,7 +14,7 @@ from feedback_native_room import main
 
 
 class FeedbackWrapperTests(unittest.TestCase):
-    def run_completed_pipeline(self, final_state, runtime_exit=0):
+    def run_completed_pipeline(self, final_state, runtime_exit=0, guest_replay=False):
         directory = ROOT / ".audit/native-room-vita/wrapper-correction-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -23,6 +23,9 @@ class FeedbackWrapperTests(unittest.TestCase):
             def execute(arguments, **options):
                 label = Path(options["stdout"].name).stem
                 calls[label] = options.get("timeout")
+                if guest_replay:
+                    if label in {"stage","runtime"}: self.assertIn("--guest-replay",arguments)
+                    if label == "configure": self.assertIn("-DCELESTE_ROOM_GUEST_REPLAY=ON",arguments)
                 if label == "package":
                     options["stdout"].write(b'{"vpk_sha256":"synthetic-vpk"}')
                 if label == "runtime":
@@ -33,7 +36,8 @@ class FeedbackWrapperTests(unittest.TestCase):
                     path.write_text(json.dumps(feedback))
                 return SimpleNamespace(returncode=runtime_exit if label == "runtime" else 0)
             failure = None
-            with patch("sys.argv",["feedback_native_room.py","--output",str(output)]), \
+            arguments=["feedback_native_room.py","--output",str(output)]+(["--guest-replay","--after-climb"] if guest_replay else [])
+            with patch("sys.argv",arguments), \
                  patch("feedback_native_room.source_state",side_effect=[("synthetic",[]),final_state]), \
                  patch("feedback_native_room.subprocess.run",side_effect=execute):
                 try:
@@ -41,6 +45,20 @@ class FeedbackWrapperTests(unittest.TestCase):
                 except Exception as error:
                     failure = error
             return json.loads((output / "feedback.json").read_text()), failure, calls
+
+    def test_guest_replay_intent_reaches_staging_build_and_runtime_without_physical_claim(self):
+        feedback,failure,_=self.run_completed_pipeline(("synthetic",[]),guest_replay=True)
+        self.assertIsNone(failure)
+        self.assertEqual(feedback["requested_scope"],"guest_replay_smoke")
+        self.assertFalse(feedback["physical_controller_verified"])
+        self.assertFalse(feedback["host_input_injected"])
+        self.assertEqual(feedback["portal_requests"],0)
+
+    def test_guest_replay_source_after_failure_retains_closed_frame_but_is_partial(self):
+        feedback,failure,_=self.run_completed_pipeline(("changed",[]),guest_replay=True)
+        self.assertIsInstance(failure,RuntimeError)
+        self.assertFalse(feedback["stages"]["full_completion"])
+        self.assertEqual(feedback["artifacts"]["native-frame.png"]["sha256"],"synthetic-frame")
 
     def assert_source_failure_preserves_completed_stages(self, final_state):
         feedback, failure, calls = self.run_completed_pipeline(final_state)

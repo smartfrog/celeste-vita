@@ -9,11 +9,26 @@
 
 namespace celeste::diagnostic {
 namespace {
-std::array<GLuint,6> textures{};
+std::array<GLuint,8> textures{};
 unsigned uploaded = 0;
 std::array<GLuint,10> player_textures{};
 unsigned player_uploaded=0;
-constexpr unsigned submitted_rgba_bytes = 5*64*128*4+16*16*4;
+#ifdef CELESTE_ROOM_DECALS
+GLuint decal_texture=0;
+bool decal_uploaded=false;
+constexpr unsigned decal_rgba_bytes=64*128*4;
+#endif
+constexpr unsigned six_texture_rgba_bytes = 5*64*128*4+16*16*4;
+constexpr unsigned spike_rgba_bytes = 2*16*16*4;
+unsigned room_rgba_bytes(const VisualAssets& visuals, const DecalAssets* decals) {
+    unsigned total = six_texture_rgba_bytes + (visuals.spike_art() ? spike_rgba_bytes : 0);
+#ifdef CELESTE_ROOM_DECALS
+    if (decals) total += decal_rgba_bytes;
+#else
+    (void)decals;
+#endif
+    return total;
+}
 void check(const char* stage) {
     const auto error = glGetError();
     if (error != GL_NO_ERROR) throw std::runtime_error(std::string(stage) + ": GL error " + std::to_string(error));
@@ -79,7 +94,37 @@ void hazard_markers(const Room& room) {
     glColor3f(1,0.2f,0.2f);
     for (const auto& spike : room.spikes) body(spike.body());
 }
-std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
+#ifdef CELESTE_ROOM_SPIKE_ART
+void spike_layer(const VisualAssets& visuals) {
+    if (!visuals.spike_art()) throw std::logic_error("Source spike art requires the eight-texture protocol");
+    glEnable(GL_TEXTURE_2D);
+    glColor4f(1,1,1,1);
+    for (const auto& piece : visuals.spike_pieces) {
+        const auto texture = piece.up ? VisualAssets::up_texture : VisualAssets::left_texture;
+        glBindTexture(GL_TEXTURE_2D,textures.at(texture));
+        glBegin(GL_QUADS);
+        textured_vertices(spike_quad(visuals.textures[texture],piece));
+        glEnd();
+    }
+}
+#endif
+#ifdef CELESTE_ROOM_DECALS
+void decal_layer(const DecalAssets& decals, bool background) {
+    if (!decal_uploaded) throw std::logic_error("Static decal layer requested without the bounded decal page");
+    glBindTexture(GL_TEXTURE_2D,decal_texture);
+    glColor4f(1,1,1,1);
+    glBegin(GL_QUADS);
+    for (const auto& instance : decals.instances) {
+        if (instance.background != background) continue;
+        for (const auto& vertex : decal_vertices(decals.textures.at(instance.texture),instance)) {
+            glTexCoord2f(vertex.u,vertex.v);
+            glVertex2f(vertex.x,vertex.y);
+        }
+    }
+    glEnd();
+}
+#endif
+std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
     glReadBuffer(GL_BACK);
     glFinish();
     check("frame export GPU finish");
@@ -104,6 +149,8 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
             " diagnostic_rng_seed="+std::to_string(animated->presentation.diagnostic_seed())+" rng_calls="+std::to_string(animated->presentation.random_calls())+
             " original_startup_rng_parity=false source_phase=level_after_update_then_render";
     }
+    const bool spike_art = visuals && visuals->spike_art();
+    const bool decal_art = decals != nullptr;
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
         " stage=after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap frame="+std::to_string(frame)+" x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
@@ -112,7 +159,10 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         " stamina="+std::to_string(player.state().stamina)+" grab="+std::to_string(player.grab_held())+
         " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : player.state_machine().state() == 1 ? "climb" : "wall_jump")+
         " render_style="+(animated ? "animated_player_partial" : visuals ? "textured_partial" : "debug")+" camera=0,0 bg_draws="+std::to_string(bg_count)+" fg_draws="+std::to_string(fg_count)+
-        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers=5 submitted_rgba_bytes="+std::to_string(visuals ? submitted_rgba_bytes+player_uploaded*128*64*4 : 0)+
+        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers="+(spike_art ? "0" : "5")+
+        (spike_art ? " physical_spikes=5 draw_pieces="+std::to_string(visuals->spike_pieces.size())+" diagnostic_red_markers=0 spike_art=source_static_19" : "")+
+        (decal_art ? " static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7 decal_art=source_static_decal_cut decal_page_bytes=32768" : "")+
+        " submitted_rgba_bytes="+std::to_string(visuals ? room_rgba_bytes(*visuals,decals)+player_uploaded*128*64*4 : 0)+
         " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(animated ? "source_animated_with_simulated_hair" : visuals ? "idle00_static_no_animation" : "hitboxes")+
         presentation+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
@@ -134,9 +184,11 @@ void initialize_graphics() {
 }
 void load_textures(const VisualAssets& visuals) {
     if (uploaded) throw std::logic_error("Room textures already uploaded");
-    glGenTextures(textures.size(),textures.data());
+    if (visuals.texture_count < 6 || visuals.texture_count > static_cast<int>(textures.size()))
+        throw std::logic_error("Invalid bounded room texture ownership count");
+    glGenTextures(visuals.texture_count,textures.data());
     check("texture ownership allocation");
-    for (std::size_t i=0; i<textures.size(); ++i) {
+    for (int i=0; i<visuals.texture_count; ++i) {
         const auto pixels = read_asset(("app0:assets/native-room/texture"+std::to_string(i)+".rgba").c_str(),64*128*4);
         const auto& info = visuals.textures[i];
         validate_texture_bytes(pixels,info);
@@ -158,7 +210,24 @@ void load_player_textures(const PlayerAssets& assets) {
     }
     glBindTexture(GL_TEXTURE_2D,0);
 }
-std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
+void load_decal_textures(const DecalAssets& decals) {
+#ifdef CELESTE_ROOM_DECALS
+    if (decal_uploaded || decals.texture_count != 15 || decals.page_checksum == 0)
+        throw std::logic_error("Invalid static decal texture ownership");
+    const auto pixels = read_asset("app0:assets/native-room/decal0.rgba",64*128*4);
+    if (pixels.size() != decal_rgba_bytes || checksum(pixels) != decals.page_checksum)
+        throw std::invalid_argument("Static decal page integrity mismatch");
+    glGenTextures(1,&decal_texture);
+    check("decal texture ownership allocation");
+    upload_texture(decal_texture,DecalAssets::page_width,DecalAssets::page_height,pixels);
+    decal_uploaded=true;
+    glBindTexture(GL_TEXTURE_2D,0);
+#else
+    (void)decals;
+    throw std::logic_error("Static decals require the CELESTE_ROOM_DECALS build intent");
+#endif
+}
+std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
     if(animated && !visuals) throw std::invalid_argument("Animated player requires source-baked room layers");
     glViewport(0,0,960,544);
     glClearColor(0,0,0,1);
@@ -173,19 +242,30 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     glColor3f(0.035f,0.045f,0.07f);
     rectangle(0,0,320,180);
     if (visuals) {
-        if (uploaded != textures.size()) throw std::logic_error("Textured room requested without complete texture ownership");
+        if (uploaded != static_cast<unsigned>(visuals->texture_count)) throw std::logic_error("Textured room requested without complete texture ownership");
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_TEXTURE_2D);
         glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
         glColor4f(1,1,1,1);
         tile_layer(*visuals,true);
+#ifdef CELESTE_ROOM_DECALS
+        if (decals) decal_layer(*decals,true);
+#endif
         if(animated) player_layer(*animated);
-        else textured_quad(body_quad(visuals->textures[5],player.actor().body.position,static_cast<int>(player.state().facing)),5);
+        else textured_quad(body_quad(visuals->textures[VisualAssets::body_texture],player.actor().body.position,static_cast<int>(player.state().facing)),VisualAssets::body_texture);
+#ifdef CELESTE_ROOM_SPIKE_ART
+        if (visuals->spike_art()) spike_layer(*visuals);
+        else hazard_markers(room);
+#else
         hazard_markers(room);
+#endif
         glEnable(GL_TEXTURE_2D);
         glColor4f(1,1,1,1);
         tile_layer(*visuals,false);
+#ifdef CELESTE_ROOM_DECALS
+        if (decals) decal_layer(*decals,false);
+#endif
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_BLEND);
     } else {
@@ -207,7 +287,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     rectangle(position.x+hurtbox.offset.x,position.y+hurtbox.offset.y,hurtbox.width,hurtbox.height);
     }
     check("room draw");
-    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated) : std::string{};
+    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated,decals) : std::string{};
     vglSwapBuffers(GL_FALSE);
     check("buffer swap");
     return exported;
@@ -215,12 +295,19 @@ std::string draw(const Room& room, const Player& player, const char* export_path
 void finish_graphics() {
     glFinish();
     const auto finish_error = glGetError();
-    glDeleteTextures(textures.size(),textures.data());
-    glDeleteTextures(player_textures.size(),player_textures.data());
+    glDeleteTextures(uploaded,textures.data());
+    glDeleteTextures(player_uploaded,player_textures.data());
+#ifdef CELESTE_ROOM_DECALS
+    if (decal_uploaded) glDeleteTextures(1,&decal_texture);
+#endif
     textures.fill(0);
     uploaded = 0;
     player_textures.fill(0);
     player_uploaded=0;
+#ifdef CELESTE_ROOM_DECALS
+    decal_texture=0;
+    decal_uploaded=false;
+#endif
     const auto delete_error = glGetError();
     if (finish_error != GL_NO_ERROR || delete_error != GL_NO_ERROR)
         throw std::runtime_error("Graphics finish/texture teardown GL errors "+std::to_string(finish_error)+","+std::to_string(delete_error));

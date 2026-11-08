@@ -76,8 +76,8 @@ class X11InputTests(unittest.TestCase):
                               XQueryKeymap=lambda display,data: 1, XPending=lambda display: 0,
                               XCloseDisplay=lambda display: None)
         x.xt = SimpleNamespace(XTestFakeKeyEvent=lambda display,code,pressed,delay: injections.append((code,pressed)) or 1)
-        with patch("smoke_native_room.select.select",return_value=([],[],[])), patch("smoke_native_room.time.monotonic",side_effect=[0,4,4,4,4]):
-            with self.assertRaisesRegex(RuntimeError,"within 3 seconds"):
+        with patch("smoke_native_room.select.select",return_value=([],[],[])), patch("smoke_native_room.time.monotonic",side_effect=[0,11,11,11,11]):
+            with self.assertRaisesRegex(RuntimeError,"within 10 seconds"):
                 x.key(100,53,True)
         self.assertEqual(x.keys,{53})
         x.close()

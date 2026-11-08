@@ -162,6 +162,17 @@ or repeated-cycle proof. Completion remains **0/8 lifecycle families**. The
 controlled round trip closes only the first source-level corpse/wipe/reload
 sequence; the eight family contracts remain open.
 
+## Synchronized delivery
+
+The delivery merge brings current `development` `6b29ba609a3d9ac7948615009769be1b8acde4f7`
+into the existing task branch without rebase/reset/force/cherry-pick. It retains
+development's native harness, decal, spike-art and guest-replay changes plus the
+controlled death/reload proof. The only recipe adaptation was regenerating the
+private death-source snapshot as `source-synced-6b-01` so development's added
+`Celeste.Spikes.cs` presentation pin is validated by the same source inventory;
+the frozen `5ffd` snapshot and all older proof directories remain immutable.
+The unreviewed input `921` branch and other POCs were not merged.
+
 ## Evidence and reproduction
 
 Original bodies, generated C#, compiler receipts and execution traces remain
@@ -176,9 +187,10 @@ The first successful live-tick run is retained in
 `native-guard-test-1e4a6b94beed43cbac3b46a4c0cfff84/respawn-live-tick.jsonl`
 with its compiled source manifest and source identity beside it. The accepted
 `52723db` checkpoint remains in `room-core-checkpoint-52723db/verification.json`.
-The controlled death/wipe/second-Respawn trace is retained in
-`death-probe-13/death-respawn-roundtrip.jsonl` with the generated manifest,
-source identity, GUI atlas, and both stdout/stderr files beside it. The
+The pre-sync controlled death/wipe/second-Respawn trace remains in
+`death-probe-13/death-respawn-roundtrip.jsonl`; the synchronized rerun is
+retained under `.audit/native-player-death-respawn/<delivery-commit>/` with the
+generated manifest, source identity, GUI atlas, and stdout/stderr files. The
 additional declaration source `room-core-declarations-extra-01` was generated
 with `scripts/read_frontier_declarations.py --require-type LedgeBlocker` and
 recorded in the tracked declaration pins.
@@ -197,8 +209,14 @@ and `respawn-live-tick.jsonl`. The death round-trip process writes
 `death-respawn-roundtrip.jsonl` in the same private directory.
 The current cut has 183 unchanged extraction blocks across 123 entries, with
 generated-source SHA256
-`c72ad321221541557ebb6163cdfa1aabb81b6d76f79ad7bdcf62b0946d48aded`.
-It records 3035 executable members, 13406 declaration contracts including 1094
+`9324bfb6707363a70cd68fb7456066f2b5b0b1af79fa39ff32ed8fe3ec455d07`.
+This synchronized SHA differs from the unsynced `c72ad321...` requirement only
+because the private discovery root embedded in excluded-member guard text moved
+from the frozen `5ffd.../source` snapshot to the regenerated
+`source-synced-6b-01` snapshot, which carries development 6b's added
+`Celeste.Spikes.cs` presentation pin. The selected 183 blocks / 123 entries and
+every selected source-body hash are unchanged; no executable member was added
+to this room-core source cut by the sync. It records 3035 executable members, 13406 declaration contracts including 1094
 native-ABI declarations, and zero managed platform fixture changes beyond the
 separate `SDL_GetPlatform` wrapper. The declaration count difference includes
 the declared recording `Distort` boundary; the executable count includes the
@@ -209,6 +227,7 @@ This identity does not by itself establish full runtime coverage or any of the
 eight hazard/lifecycle families.
 
 Regression checks are the full native Python suite and the task-branch Release
-CMake/CTest build. They are not development synchronization, hardware, UI,
-FullGame, CIL-equivalence, performance, or complete lifecycle evidence. Parent
-review and any later integration remain separate.
+and AddressSanitizer CMake/CTest builds. The synchronized merged counts are 344
+Python tests and 26 CTest entries. They are not hardware, UI, FullGame,
+CIL-equivalence, performance, or complete lifecycle evidence. Parent review and
+any later integration remain separate.

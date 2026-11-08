@@ -16,7 +16,8 @@ PRIVATE = ROOT / '.audit/native-player-death-respawn'
 DECLARATIONS = (46, 49, 52, 54, 56, 59, 61, 63, 65, 66, 71, 74, 75, 77, 78, 80, 81, 83, 85, 87, 89, 91)
 
 
-@unittest.skipUnless(SDK.is_file() and (PRIVATE / 'room-core-probe-91/provenance.json').is_file()
+@unittest.skipUnless(SDK.is_file() and (PRIVATE / 'source-synced-6b-01/provenance.json').is_file()
+    and (PRIVATE / 'room-core-probe-91/provenance.json').is_file()
     and (PRIVATE / 'room-core-declarations-extra-01/provenance.json').is_file() and (ROOT / 'game/celeste-linux.zip').is_file(),
     'Pinned private RoomCore declarations or game archive unavailable')
 class RoomCoreNativeGuardTests(unittest.TestCase):
@@ -27,7 +28,7 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
         if any(os.environ.get(name) not in (None, '', '0') for name in injection):
             raise RuntimeError('Native guard diagnostic requires an uninjected fresh runtime process')
         cls.output = PRIVATE / ('native-guard-test-' + uuid.uuid4().hex)
-        cls.compilation = build(PRIVATE / '5ffd25a49f1e12c6549aa34648308f41f42361e8/source',
+        cls.compilation = build(PRIVATE / 'source-synced-6b-01',
             PRIVATE / 'room-core-probe-42', cls.output,
             declarations_source=[PRIVATE / f'room-core-probe-{number}' for number in DECLARATIONS] + [PRIVATE / 'room-core-platform-declarations-01', PRIVATE / 'room-core-declarations-extra-01'])
 

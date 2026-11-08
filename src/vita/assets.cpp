@@ -1,5 +1,7 @@
 #include "assets.hpp"
+#include <algorithm>
 #include <charconv>
+#include <cstdint>
 #include <cstring>
 #include <cstdio>
 #include <limits>
@@ -106,21 +108,32 @@ std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expec
 }
 VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text,65'536,expected_checksum);
-    header(text,"CSRV1");
-    if (take(text) != "6") throw std::invalid_argument("Expected six bounded room textures");
+    const auto version = take(text);
+    if (version != "CSRV1" && version != "CSRV2")
+        throw std::invalid_argument("Wrong visual asset version");
+    if (take(text) != input_sha || take(text) != map_sha)
+        throw std::invalid_argument("Wrong asset version or pinned input hashes");
     VisualAssets result{};
-    for (std::size_t i=0; i<result.textures.size(); ++i) {
+    result.texture_count = integer(take(text));
+    if (result.texture_count != (version == "CSRV1" ? 6 : 8))
+        throw std::invalid_argument("Unexpected bounded room texture count");
+    for (int i=0; i<result.texture_count; ++i) {
         auto row = take(text);
         auto& t = result.textures[i];
         for (auto field : {&t.width,&t.height,&t.crop_width,&t.crop_height,&t.trim_x,&t.trim_y,&t.frame_width,&t.frame_height})
             *field = integer(take(row,' '));
         t.checksum=hex_value(row);
-        if (i < 5 ? (t.width != 64 || t.height != 128 || t.crop_width != 48 || t.crop_height != 120 ||
-                     t.trim_x != 0 || t.trim_y != 0 || t.frame_width != 48 || t.frame_height != 120) :
-                    (t.width != 16 || t.height != 16 || t.crop_width <= 0 || t.crop_width > 14 ||
-                     t.crop_height <= 0 || t.crop_height > 14 || t.frame_width != 32 || t.frame_height != 32 ||
-                     t.trim_x < 0 || t.trim_x > 32-t.crop_width || t.trim_y < 0 || t.trim_y > 32-t.crop_height))
-            throw std::invalid_argument("Unsupported bounded texture profile");
+        const bool valid = i < 5 ? (t.width == 64 && t.height == 128 && t.crop_width == 48 && t.crop_height == 120 &&
+                                    t.trim_x == 0 && t.trim_y == 0 && t.frame_width == 48 && t.frame_height == 120) :
+                           i == 5 ? (t.width == 16 && t.height == 16 && t.crop_width > 0 && t.crop_width <= 14 &&
+                                     t.crop_height > 0 && t.crop_height <= 14 && t.frame_width == 32 && t.frame_height == 32 &&
+                                     t.trim_x >= 0 && t.trim_x <= 32-t.crop_width && t.trim_y >= 0 && t.trim_y <= 32-t.crop_height) :
+                           i == VisualAssets::up_texture ? (t.width == 16 && t.height == 16 && t.crop_width == 7 &&
+                                                            t.crop_height == 6 && t.trim_x == 1 && t.trim_y == 1 &&
+                                                            t.frame_width == 7 && t.frame_height == 6) :
+                           (t.width == 16 && t.height == 16 && t.crop_width == 6 && t.crop_height == 7 &&
+                            t.trim_x == 1 && t.trim_y == 1 && t.frame_width == 6 && t.frame_height == 7);
+        if (!valid) throw std::invalid_argument("Unsupported bounded texture profile");
     }
     const int count = integer(take(text));
     if (count < 0 || count > 1840) throw std::invalid_argument("Excessive room commands");
@@ -145,7 +158,151 @@ VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksu
         occupied[cell] = true;
         result.commands.push_back(command);
     }
+    if (version == "CSRV2") {
+        const int families = integer(take(text));
+        if (families != 2) throw std::invalid_argument("Expected two singleton spike families");
+        bool up = false, left = false;
+        for (int i=0; i<families; ++i) {
+            auto row = take(text);
+            const auto name = take(row,' ');
+            if (integer(row) != 1 || ((name == "default_up") ? up : (name == "default_left") ? left : true))
+                throw std::invalid_argument("Spike family is not the pinned singleton");
+            (name == "default_up" ? up : left) = true;
+        }
+        if (!up || !left) throw std::invalid_argument("Missing pinned spike family");
+        const int pieces = integer(take(text));
+        if (pieces < 1 || pieces > 64) throw std::invalid_argument("Invalid spike piece count");
+        for (int i=0; i<pieces; ++i) {
+            auto row = take(text);
+            const auto direction = take(row,' ');
+            SpikePiece piece{};
+            piece.up = direction == "up";
+            piece.x = integer(take(row,' ')); piece.y = integer(take(row,' '));
+            piece.width = integer(take(row,' ')); piece.height = integer(take(row,' '));
+            piece.u = integer(take(row,' ')); piece.v = integer(row);
+            if ((direction != "up" && direction != "left") ||
+                piece.x < -1'000'000 || piece.x > 1'000'000 || piece.y < -1'000'000 || piece.y > 1'000'000 ||
+                piece.width != (piece.up ? 7 : 6) || piece.height != (piece.up ? 6 : 7) ||
+                piece.u != 1 || piece.v != 1)
+                throw std::invalid_argument("Invalid spike image piece");
+            result.spike_pieces.push_back(piece);
+        }
+    }
     if (!text.empty()) throw std::invalid_argument("Trailing room commands");
+    return result;
+}
+
+void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes) {
+    if (!visuals.spike_art()) throw std::invalid_argument("Spike art requires the optional eight-texture protocol");
+    std::vector<SpikePiece> expected;
+    for (const auto& spike : spikes) {
+        const auto& box = spike.body().collider.value();
+        const auto position = spike.body().position;
+        const int pieces = static_cast<int>(spike.direction() == SpikeDirection::up ? box.width : box.height)/8;
+        for (int i=0; i<pieces; ++i) {
+            expected.push_back(spike.direction() == SpikeDirection::up
+                ? SpikePiece{true, static_cast<int>(position.x)+8*i, static_cast<int>(position.y)-5, 7, 6, 1, 1}
+                : SpikePiece{false, static_cast<int>(position.x)-5, static_cast<int>(position.y)+1+8*i, 6, 7, 1, 1});
+        }
+    }
+    if (expected.size() != visuals.spike_pieces.size())
+        throw std::invalid_argument("Spike source image piece count differs from hazard size/8");
+    for (std::size_t i=0; i<expected.size(); ++i) {
+        const auto& want = expected[i];
+        const auto& have = visuals.spike_pieces[i];
+        if (want.up != have.up || want.x != have.x || want.y != have.y || want.width != have.width ||
+            want.height != have.height || want.u != have.u || want.v != have.v)
+            throw std::invalid_argument("Spike source image placement differs from actual hazards");
+    }
+}
+DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum) {
+    integrity(text, 65'536, expected_checksum);
+    header(text, "CSD1");
+    if (integer(take(text)) != 1) throw std::invalid_argument("Expected one bounded decal page");
+    auto dimensions = take(text);
+    if (integer(take(dimensions, ' ')) != DecalAssets::page_width || integer(take(dimensions, ' ')) != DecalAssets::page_height)
+        throw std::invalid_argument("Unexpected decal page dimensions");
+    DecalAssets result{};
+    result.page_checksum = hex_value(dimensions);
+    if (result.page_checksum == 0) throw std::invalid_argument("Invalid decal page checksum");
+    result.texture_count = integer(take(text));
+    if (result.texture_count != 15) throw std::invalid_argument("Expected fifteen static decal textures");
+    const auto valid_name = [](std::string_view name) {
+        return !name.empty() && name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/-") == std::string_view::npos;
+    };
+    for (int i=0; i<result.texture_count; ++i) {
+        auto row = take(text);
+        auto& texture = result.textures[i];
+        texture.name = std::string(take(row, ' '));
+        if (!valid_name(texture.name)) throw std::invalid_argument("Invalid decal texture identity");
+        for (int j=0; j<i; ++j)
+            if (result.textures[j].name == texture.name) throw std::invalid_argument("Duplicate decal texture identity");
+        texture.u = integer(take(row, ' ')); texture.v = integer(take(row, ' '));
+        texture.width = integer(take(row, ' ')); texture.height = integer(take(row, ' '));
+        texture.offset_x = integer(take(row, ' ')); texture.offset_y = integer(take(row, ' '));
+        texture.frame_width = integer(take(row, ' ')); texture.frame_height = integer(row);
+        const std::int64_t crop_right = std::int64_t(texture.u) + texture.width;
+        const std::int64_t crop_bottom = std::int64_t(texture.v) + texture.height;
+        if (texture.u < 1 || texture.v < 1 || texture.width <= 0 || texture.height <= 0 ||
+            crop_right >= DecalAssets::page_width || crop_bottom >= DecalAssets::page_height ||
+            texture.frame_width <= 0 || texture.frame_height <= 0 || texture.offset_x < -4096 || texture.offset_x > 4096 ||
+            texture.offset_y < -4096 || texture.offset_y > 4096)
+            throw std::invalid_argument("Invalid decal crop/page/frame geometry");
+    }
+    const int instances = integer(take(text));
+    if (instances != 22) throw std::invalid_argument("Expected twenty-two static decal instances");
+    bool foreground = false;
+    std::array<bool,32> seen_background{}, seen_foreground{};
+    for (int i=0; i<instances; ++i) {
+        auto row = take(text);
+        const auto layer = take(row, ' ');
+        DecalInstance instance{};
+        if (layer == "B") instance.background = true;
+        else if (layer == "F") instance.background = false;
+        else throw std::invalid_argument("Invalid decal layer");
+        if (instance.background && foreground) throw std::invalid_argument("Decal instances are not in BG-then-FG order");
+        if (!instance.background) foreground = true;
+        instance.source_index = integer(take(row, ' '));
+        instance.x = integer(take(row, ' ')); instance.y = integer(take(row, ' '));
+        instance.scale_x = integer(take(row, ' ')); instance.scale_y = integer(take(row, ' '));
+        instance.texture = integer(row);
+        const int limit = instance.background ? 20 : 2;
+        if (instance.source_index < 0 || instance.source_index >= limit || instance.texture < 0 ||
+            instance.texture >= result.texture_count || (instance.scale_x != 1 && instance.scale_x != -1) ||
+            (instance.scale_y != 1 && instance.scale_y != -1) || instance.x < -1'000'000 || instance.x > 1'000'000 ||
+            instance.y < -1'000'000 || instance.y > 1'000'000)
+            throw std::invalid_argument("Invalid decal instance transform/index");
+        auto& seen = instance.background ? seen_background : seen_foreground;
+        if (seen[instance.source_index]) throw std::invalid_argument("Duplicate decal source instance");
+        seen[instance.source_index] = true;
+        result.instances.push_back(instance);
+    }
+    if (!std::all_of(seen_background.begin(), seen_background.begin()+20, [](bool value) { return value; }) ||
+        !std::all_of(seen_foreground.begin(), seen_foreground.begin()+2, [](bool value) { return value; }))
+        throw std::invalid_argument("Static decal source index coverage changed");
+    const int omitted = integer(take(text));
+    if (omitted != 7) throw std::invalid_argument("Expected seven explicitly omitted Banner decals");
+    const std::array<OmittedDecal,7> expected{{
+        {true,20,"1-forsakencity/ragsB"}, {true,21,"1-forsakencity/rags"},
+        {true,22,"1-forsakencity/ragsB"}, {true,23,"1-forsakencity/rags"},
+        {true,24,"1-forsakencity/ragsB"}, {false,2,"generic/grass_a"}, {false,3,"generic/grass_d"}}};
+    for (int i=0; i<omitted; ++i) {
+        auto row = take(text);
+        const auto layer = take(row, ' ');
+        OmittedDecal entry{};
+        if (layer == "B") entry.background = true;
+        else if (layer == "F") entry.background = false;
+        else throw std::invalid_argument("Invalid omitted decal layer");
+        entry.source_index = integer(take(row, ' '));
+        entry.name = std::string(row);
+        if (!valid_name(entry.name) || entry.source_index < 0) throw std::invalid_argument("Invalid omitted decal");
+        result.omitted.push_back(entry);
+    }
+    if (!text.empty()) throw std::invalid_argument("Trailing decal data");
+    for (int i=0; i<omitted; ++i)
+        if (result.omitted[i].background != expected[i].background || result.omitted[i].source_index != expected[i].source_index ||
+            result.omitted[i].name != expected[i].name)
+            throw std::invalid_argument("Animated Banner omission set changed");
     return result;
 }
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {

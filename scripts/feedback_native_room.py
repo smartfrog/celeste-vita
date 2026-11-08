@@ -21,9 +21,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--frame-only",action="store_true",help="Stop after closed native frame feedback; do not inject input")
+    parser.add_argument("--guest-replay",action="store_true",help="Unattended bounded guest-controls smoke; never open X11, inject host input, or request desktop permissions")
     parser.add_argument("--textured",action="store_true",help="Explicit partial static source-textured presentation, not debug hitboxes")
-    parser.add_argument("--visual-dir",type=Path,help="Verified private six-texture preparation required for --textured")
+    parser.add_argument("--spike-art",action="store_true",help="Use the nineteen source spike images instead of red diagnostic markers")
+    parser.add_argument("--visual-dir",type=Path,help="Verified private six- or eight-texture preparation required for --textured")
     parser.add_argument("--player-dir",type=Path,help="Verified private animated player and simulated hair; requires --textured")
+    parser.add_argument("--decal-dir",type=Path,help="Verified private 22 static decals; requires --textured and --spike-art")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
     capture.add_argument("--after-climb",action="store_true",help="Capture once during real airborne drained Climb, then retain the normal Dash/death/reset smoke")
@@ -32,8 +35,14 @@ def main():
         parser.error("Use --textured and --visual-dir together")
     if args.player_dir is not None and not args.textured:
         parser.error("Animated player requires --textured and --visual-dir")
+    if args.spike_art and not args.textured:
+        parser.error("Source spike art requires --textured and --visual-dir")
+    if args.decal_dir is not None and (not args.textured or not args.spike_art):
+        parser.error("Static decal art requires --textured, --visual-dir and --spike-art")
     if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input; it cannot use --frame-only")
+    if args.guest_replay and (args.frame_only or not args.after_climb):
+        parser.error("Guest replay requires --after-climb and cannot use --frame-only")
     output = args.output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
         parser.error("Feedback output must remain under private diagnostic evidence")
@@ -44,9 +53,14 @@ def main():
     vpk = build / "src/vita/celeste_native_room.vpk"
     feedback_path = output / "feedback.json"
     feedback = new_feedback(revision,vpk)
-    feedback["requested_scope"] = "native_frame_only" if args.frame_only else "full_runtime_smoke"
+    feedback["requested_scope"] = "guest_replay_smoke" if args.guest_replay else "native_frame_only" if args.frame_only else "full_runtime_smoke"
+    if args.guest_replay:
+        feedback.update(input_source="scripted_guest_controls",physical_controller_verified=False,
+                        host_input_injected=False,portal_requests=0)
     feedback["capture_policy"] = "climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn"
     feedback["render_style"] = "animated_player_partial" if args.player_dir else "textured_partial" if args.textured else "debug"
+    feedback["spike_art"] = bool(args.spike_art)
+    feedback["decal_art"] = bool(args.decal_dir)
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -72,14 +86,19 @@ def main():
             raise ValueError("Current source/config is not clean: "+"; ".join(changes))
         run("stage",[sys.executable,"-B","scripts/stage_native_room.py","--output",str(staging)]+
             (["--visual-dir",str(args.visual_dir.resolve())] if args.textured else [])+
-            (["--player-dir",str(args.player_dir.resolve())] if args.player_dir else []))
+            (["--player-dir",str(args.player_dir.resolve())] if args.player_dir else [])+
+            (["--decal-dir",str(args.decal_dir.resolve())] if args.decal_dir else [])+
+            (["--guest-replay"] if args.guest_replay else []))
         run("configure",["/usr/bin/cmake","-S",".","-B",str(build),"-DCMAKE_TOOLCHAIN_FILE="+sdk+"/share/vita.toolchain.cmake",
                          "-DCMAKE_BUILD_TYPE=Release","-DBUILD_TESTING=OFF","-DCELESTE_VITA=ON",
                          "-DCELESTE_VITAGL_LIBRARY="+archive,"-DCELESTE_ROOM_STAGING="+str(staging),
                          "-DCELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP="+("ON" if args.after_wall_jump else "OFF"),
-                         "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF"),
+                          "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF"),
+                          "-DCELESTE_ROOM_GUEST_REPLAY="+("ON" if args.guest_replay else "OFF"),
                          "-DCELESTE_ROOM_TEXTURED="+("ON" if args.textured else "OFF"),
-                         "-DCELESTE_ROOM_ANIMATED_PLAYER="+("ON" if args.player_dir else "OFF")])
+                         "-DCELESTE_ROOM_SPIKE_ART="+("ON" if args.spike_art else "OFF"),
+                         "-DCELESTE_ROOM_ANIMATED_PLAYER="+("ON" if args.player_dir else "OFF"),
+                         "-DCELESTE_ROOM_DECALS="+("ON" if args.decal_dir else "OFF")])
         run("build",["/usr/bin/cmake","--build",str(build),"--verbose","-j2"])
         feedback["stages"]["build"] = True
         save_feedback(feedback_path,feedback)
@@ -92,7 +111,7 @@ def main():
         run("runtime",[sys.executable,"-B","scripts/smoke_native_room.py","--state",str(output / "vita3k-state"),
                        "--output",str(output / "runtime"),"--vpk",str(vpk),"--feedback",str(feedback_path)]+
                        (["--frame-only"] if args.frame_only else [])+(["--after-wall-jump"] if args.after_wall_jump else [])+
-                       (["--after-climb"] if args.after_climb else []))
+                        (["--after-climb"] if args.after_climb else [])+(["--guest-replay"] if args.guest_replay else []))
     except Exception as error:
         feedback = json.loads(feedback_path.read_text())
         record_failure(feedback,"toolchain",error)
