@@ -26,14 +26,14 @@ std::string export_back_buffer(const char* path, const Player& player) {
     glReadBuffer(GL_BACK);
     glFinish();
     check("frame export GPU finish");
-    std::vector<std::uint8_t> rgba(960*544*4);
-    glReadPixels(0,0,960,544,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());
-    check("frame export glReadPixels GL_BACK RGBA");
-    const auto ppm = encode_frame_ppm(960,544,rgba);
+    std::vector<std::uint8_t> rgb(960*544*3);
+    glReadPixels(0,0,960,544,GL_RGB,GL_UNSIGNED_BYTE,rgb.data());
+    check("frame export glReadPixels GL_BACK RGB transfer");
+    const auto ppm = encode_frame_ppm(960,544,rgb);
     write_guest_file(path,ppm,SCE_O_EXCL);
     const auto position = player.actor().body.position;
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
-        " stage=after_draw_glFinish_GL_BACK_before_swap frame=0 x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
+        " stage=after_draw_glFinish_GL_BACK_RGB_transfer_before_swap frame=0 x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
         " ground="+std::to_string(player.state().on_ground)+" dead="+std::to_string(player.death().dead)+
         " resets=0 format=P6_RGB_top_down\n";

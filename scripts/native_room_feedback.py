@@ -6,7 +6,7 @@ from pathlib import Path
 from convert_native_frame import ppm_to_png
 from native_room_revision import REPO_ROOT
 
-RENDER_STAGE = "after_draw_glFinish_GL_BACK_before_swap"
+RENDER_STAGE = "after_draw_glFinish_GL_BACK_RGB_transfer_before_swap"
 
 
 def save_feedback(path, feedback):
@@ -21,7 +21,7 @@ def save_feedback(path, feedback):
 def new_feedback(revision, vpk):
     return {"revision":revision,"vpk":{"path":str(vpk),"sha256":hashlib.sha256(vpk.read_bytes()).hexdigest() if vpk.is_file() else None},
             "stages":{"build":False,"package_verified":False,"startup":False,"native_image":False,
-                      "image_openable":False,"input":False,"clean_exit":False,"full_completion":False},
+                      "image_openable":False,"render_content":False,"input":False,"clean_exit":False,"full_completion":False},
             "artifacts":{},"errors":[],"visual_review":"pending_parent_not_claimed",
             "method":"OUR guest glReadPixels GL_BACK once; lossless P6-to-PNG conversion; no OS screen capture"}
 

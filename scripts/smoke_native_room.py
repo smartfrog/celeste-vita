@@ -275,6 +275,8 @@ def main():
                 print("NATIVE_FRAME_FEEDBACK "+str(feedback_path),flush=True)
                 if not frame["black_letterbox_rows"] or not frame["nonzero_rgb_bytes"]:
                     raise RuntimeError("Native frame export lacks nonzero room RGB or the full-frame black letterbox rows; inspect preserved readback")
+                feedback["stages"]["render_content"] = True
+                save_feedback(feedback_path,feedback)
 
     def wait(predicate, timeout=120):
         nonlocal last_ready

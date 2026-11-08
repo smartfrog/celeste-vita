@@ -112,13 +112,16 @@ logs, state, exact revision/VPK hash and concrete error. No required image stage
 is replaced by a `ready frame=0` marker.
 
 The first draw reads full 960×544 `GL_BACK`, after `glFinish` and before swap,
-using `glReadPixels(..., GL_RGBA, GL_UNSIGNED_BYTE, ...)`, then checks GL errors.
-Pinned vitaGL `framebuffers.c` lines 574–785 selects the current back-buffer
-address, emits bottom-up RGBA with width×4 output stride, and drains in-flight
-draws. `glReadBuffer` is implemented at 957–974; `gxm.c` 962–969 finishes GPU
+using `glReadPixels(..., GL_RGB, GL_UNSIGNED_BYTE, ...)`, then checks GL errors.
+The first RGBA CPU-memory readback returned all-zero RGB in the tested emulator;
+that preserved failed attempt is not valid room feedback. The RGB request selects
+pinned vitaGL's GPU-transfer path (`framebuffers.c` 52–193, 681–684), copies the
+selected back buffer via `sceGxmTransferCopy`, calls `sceGxmTransferFinish`, and
+reswizzles its transfer format into bottom-up RGB with width×3 output stride.
+`glReadBuffer` is implemented at 957–974; `gxm.c` 962–969 finishes GPU
 work and 928–929 advances the buffer indices only during swap. The display
-surface is A8B8G8R8 (little-endian RGBA bytes); width 960 is 64-pixel aligned.
-The tested encoder reverses rows and strips alpha into top-down P6 RGB, including
+surface is A8B8G8R8; width 960 is 64-pixel aligned, and RGB row size 2880 is
+four-byte aligned. The tested encoder reverses packed RGB rows into P6, including
 the black letterbox rows. SDK `SCE_O_EXCL` preserves existing guest outputs.
 
 Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
