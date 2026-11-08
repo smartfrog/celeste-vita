@@ -56,6 +56,9 @@ void state(const char* event, unsigned frame, const Session& session) {
 }
 void run() {
     log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle jump=Cross dash=Square aim=DPad exit=Start", revision);
+#ifndef CELESTE_ROOM_GUEST_REPLAY
+    log("input profile=standard_analog center=128 range=0..255 fixture_assumption=true hardware_calibrated=false move=LeftStick/DPad aim=LeftStick/DPad");
+#endif
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     log("guest replay fixture=%s fixture_sha256=%s input_source=scripted_guest_controls max_frames=%u physical_controller_verified=false host_input_injected=false",
         guest_replay_id,guest_replay_sha256,guest_replay_frames);
@@ -119,7 +122,7 @@ void run() {
     if (decal_assets) load_decal_textures(*decal_assets);
     if (player_assets) load_player_textures(*player_assets);
 #ifndef CELESTE_ROOM_GUEST_REPLAY
-    const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_DIGITAL);
+    const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
 #endif
     Session session(room.world,{19,144},player_assets ? &player_assets->bank : nullptr,0);
@@ -135,6 +138,8 @@ void run() {
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     GuestReplay replay;
     bool replay_jumped=false,replay_frozen=false,replay_thawed=false,replay_launched=false,replay_dash_done=false,replay_died=false,replay_reset=false;
+#else
+    unsigned previous_lx = 0, previous_ly = 0;
 #endif
     unsigned previous = 0, frame = 0;
     const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
@@ -166,18 +171,30 @@ void run() {
             bit(controls.square,SCE_CTRL_SQUARE)|bit(controls.l,SCE_CTRL_LTRIGGER);
         const auto sample = controller.sample(controls);
 #else
+        unsigned lx = 0, ly = 0;
         SceCtrlData pad{};
         const int result = sceCtrlPeekBufferPositive(0,&pad,1);
         if (result != 1) throw std::runtime_error("Controller sample failed: " + std::to_string(result));
         const auto buttons = pad.buttons;
         const auto down = [&](unsigned flag) { return (buttons & flag) != 0; };
-        const auto sample = controller.sample({down(SCE_CTRL_LEFT),down(SCE_CTRL_RIGHT),down(SCE_CTRL_UP),down(SCE_CTRL_DOWN),
-                                               down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START),down(SCE_CTRL_SQUARE),down(SCE_CTRL_LTRIGGER)});
+        const Controls held_buttons{down(SCE_CTRL_LEFT),down(SCE_CTRL_RIGHT),down(SCE_CTRL_UP),down(SCE_CTRL_DOWN),
+                                    down(SCE_CTRL_CROSS),down(SCE_CTRL_TRIANGLE),down(SCE_CTRL_START),down(SCE_CTRL_SQUARE),down(SCE_CTRL_LTRIGGER)};
+        lx = pad.lx;
+        ly = pad.ly;
+        const auto sample = controller.sample_analog({held_buttons, {lx, ly, true}});
 #endif
         const bool changed = buttons != previous;
         if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d grab=%d",frame,
                          unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit,
                           sample.player.dash_button.held,sample.player.dash_button.pressed,sample.player.grab);
+#ifndef CELESTE_ROOM_GUEST_REPLAY
+        const bool analog_changed = lx != previous_lx || ly != previous_ly;
+        if (changed || analog_changed || frame % 120 == 0)
+            log("input analog frame=%u buttons=%08x valid=1 lx=%u ly=%u move_x=%d move_y=%d aim_x=%d aim_y=%d",frame,
+                unsigned(buttons),lx,ly,sample.player.x,sample.player.y,sample.player.aim_x,sample.player.aim_y);
+        previous_lx = lx;
+        previous_ly = ly;
+#endif
         const bool dead = session.player().death().dead;
         const int old_state = session.player().state_machine().state();
         const bool frozen = session.player().clock().freeze_timer > 0.0f;

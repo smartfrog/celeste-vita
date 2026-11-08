@@ -2,7 +2,8 @@
 
 This is a partial delivery for review, not lifecycle closure or authorization for
 a native death/respawn implementation. It extends the accepted partial source
-checkpoint `5ffd25a49f1e12c6549aa34648308f41f42361e8` without synchronizing development.
+checkpoint `5ffd25a49f1e12c6549aa34648308f41f42361e8` and is synchronized with
+the accepted directional-input development tip.
 
 ## Established behavior
 
@@ -164,10 +165,12 @@ sequence; the eight family contracts remain open.
 
 ## Synchronized delivery
 
-The delivery merge brings current `development` `6b29ba609a3d9ac7948615009769be1b8acde4f7`
-into the existing task branch without rebase/reset/force/cherry-pick. It retains
-development's native harness, decal, spike-art and guest-replay changes plus the
-controlled death/reload proof. The only recipe adaptation was regenerating the
+The delivery merge brings current `development` `921a098c2ed02fee5e8c48669fde3bac45ac043d`
+(the accepted directional-input `.3`/`.7` aim and legacy-250 change) into the
+existing task branch without rebase/reset/force/cherry-pick. It retains
+development's native harness, decal, spike-art, guest-replay and directional-input
+changes plus the controlled death/reload proof without rewriting input code. The
+only recipe adaptation was regenerating the
 private death-source snapshot as `source-synced-6b-01` so development's added
 `Celeste.Spikes.cs` presentation pin is validated by the same source inventory;
 the frozen `5ffd` snapshot and all older proof directories remain immutable.
@@ -249,7 +252,7 @@ This identity does not by itself establish full runtime coverage or any of the
 eight hazard/lifecycle families.
 
 Regression checks are the full native Python suite and the task-branch Release
-and AddressSanitizer CMake/CTest builds. The synchronized merged counts are 344
-Python tests and 26 CTest entries. They are not hardware, UI, FullGame,
+and AddressSanitizer CMake/CTest builds. The synchronized merged counts are 348
+Python tests and 27 CTest entries. They are not hardware, UI, FullGame,
 CIL-equivalence, performance, or complete lifecycle evidence. Parent review and
 any later integration remain separate.

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "directional_input.hpp"
 #include "player.hpp"
 #include "presentation.hpp"
 #include <memory>
@@ -13,6 +14,11 @@ struct Controls {
     bool l = false;
 };
 
+struct AnalogControls {
+    Controls buttons;
+    StickReading stick;
+};
+
 struct Sample {
     PlayerInput player;
     bool reset = false, exit = false;
@@ -21,8 +27,11 @@ struct Sample {
 class Controller final {
 public:
     Sample sample(Controls controls);
+    Sample sample_analog(const AnalogControls& controls);
 private:
+    Sample make_sample(const Controls& controls, int x, int y, int aim_x, int aim_y);
     Controls previous_;
+    DirectionalResolver directions_;
 };
 
 struct Viewport { int x, y, width, height; };
