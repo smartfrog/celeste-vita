@@ -83,6 +83,7 @@ void hazard_markers(const Room& room) {
     glColor3f(1,0.2f,0.2f);
     for (const auto& spike : room.spikes) body(spike.body());
 }
+#ifdef CELESTE_ROOM_SPIKE_ART
 void spike_layer(const VisualAssets& visuals) {
     if (!visuals.spike_art()) throw std::logic_error("Source spike art requires the eight-texture protocol");
     glEnable(GL_TEXTURE_2D);
@@ -95,6 +96,7 @@ void spike_layer(const VisualAssets& visuals) {
         glEnd();
     }
 }
+#endif
 std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated) {
     glReadBuffer(GL_BACK);
     glFinish();
