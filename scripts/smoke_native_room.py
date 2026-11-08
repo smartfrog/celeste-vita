@@ -326,7 +326,8 @@ def main():
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
-            frame = collect_native_frame(fs,output,revision,capture="climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn")
+            frame = collect_native_frame(fs,output,revision,capture="climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn",
+                                         visual_provenance=provenance.get("visuals") if provenance.get("render_style") == "textured_partial" else None)
             if frame:
                 frame["vpk_sha256"] = feedback["vpk"]["sha256"]
                 feedback.update({"frame":frame,"artifacts":frame["artifacts"]})

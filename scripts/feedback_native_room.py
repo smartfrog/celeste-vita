@@ -20,10 +20,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--frame-only",action="store_true",help="Stop after closed native frame feedback; do not inject input")
+    parser.add_argument("--textured",action="store_true",help="Explicit partial static source-textured presentation, not debug hitboxes")
+    parser.add_argument("--visual-dir",type=Path,help="Verified private six-texture preparation required for --textured")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
     capture.add_argument("--after-climb",action="store_true",help="Capture once during real airborne drained Climb, then retain the normal Dash/death/reset smoke")
     args = parser.parse_args()
+    if args.textured != (args.visual_dir is not None):
+        parser.error("Use --textured and --visual-dir together")
     if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input; it cannot use --frame-only")
     output = args.output.resolve()
@@ -38,6 +42,7 @@ def main():
     feedback = new_feedback(revision,vpk)
     feedback["requested_scope"] = "native_frame_only" if args.frame_only else "full_runtime_smoke"
     feedback["capture_policy"] = "climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn"
+    feedback["render_style"] = "textured_partial" if args.textured else "debug"
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -61,12 +66,14 @@ def main():
     try:
         if changes:
             raise ValueError("Current source/config is not clean: "+"; ".join(changes))
-        run("stage",["python3","-B","scripts/stage_native_room.py","--output",str(staging)])
+        run("stage",["python3","-B","scripts/stage_native_room.py","--output",str(staging)]+
+            (["--visual-dir",str(args.visual_dir.resolve())] if args.textured else []))
         run("configure",["/usr/bin/cmake","-S",".","-B",str(build),"-DCMAKE_TOOLCHAIN_FILE="+sdk+"/share/vita.toolchain.cmake",
                          "-DCMAKE_BUILD_TYPE=Release","-DBUILD_TESTING=OFF","-DCELESTE_VITA=ON",
                          "-DCELESTE_VITAGL_LIBRARY="+archive,"-DCELESTE_ROOM_STAGING="+str(staging),
                          "-DCELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP="+("ON" if args.after_wall_jump else "OFF"),
-                         "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF")])
+                         "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF"),
+                         "-DCELESTE_ROOM_TEXTURED="+("ON" if args.textured else "OFF")])
         run("build",["/usr/bin/cmake","--build",str(build),"--verbose","-j2"])
         feedback["stages"]["build"] = True
         save_feedback(feedback_path,feedback)

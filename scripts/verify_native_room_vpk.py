@@ -21,8 +21,12 @@ def verify(vpk, build, staging):
     elf = (build / "celeste_native_room").read_bytes()
     if elf[:7] != b"\x7fELF\x01\x01\x01" or struct.unpack_from("<H",elf,18)[0] != 40:
         raise ValueError("Expected ELF32 little-endian ARM executable")
-    expected = {"eboot.bin","sce_sys/param.sfo","assets/native-room/global.mask",
-                "assets/native-room/hazards.txt","assets/native-room/provenance.json"}
+    asset_names = {"global.mask", "hazards.txt"}
+    if manifest.get("render_style", "debug") == "textured_partial":
+        asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(6))})
+    if set(manifest["files"]) != asset_names:
+        raise ValueError("Unexpected manifest asset set for render style")
+    expected = {"eboot.bin","sce_sys/param.sfo","assets/native-room/provenance.json", *("assets/native-room/"+name for name in asset_names)}
     with zipfile.ZipFile(vpk) as archive:
         if archive.testzip() is not None or set(archive.namelist()) != expected:
             raise ValueError("Unexpected or corrupt VPK entries")

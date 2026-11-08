@@ -5,6 +5,17 @@ if(NOT EXISTS "${CELESTE_VITAGL_LIBRARY}" OR NOT EXISTS "${CELESTE_ROOM_STAGING}
 endif()
 include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 add_executable(celeste_native_room app.cpp draw.cpp)
+option(CELESTE_ROOM_TEXTURED "Use the bounded source-baked partial textured room instead of debug hitboxes" OFF)
+if(CELESTE_ROOM_TEXTURED)
+    if(NOT EXISTS "${CELESTE_ROOM_STAGING}/assets/native-room/visuals.txt")
+        message(FATAL_ERROR "Textured mode needs verified private visual staging")
+    endif()
+    target_compile_definitions(celeste_native_room PRIVATE CELESTE_ROOM_TEXTURED)
+    set(visual_files FILE "${CELESTE_ROOM_STAGING}/assets/native-room/visuals.txt" assets/native-room/visuals.txt)
+    foreach(index RANGE 0 5)
+        list(APPEND visual_files FILE "${CELESTE_ROOM_STAGING}/assets/native-room/texture${index}.rgba" assets/native-room/texture${index}.rgba)
+    endforeach()
+endif()
 option(CELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP "Export once after an actual input-driven WallJump instead of spawn" OFF)
 option(CELESTE_ROOM_CAPTURE_AFTER_CLIMB "Export once during actual airborne drained Climb instead of spawn" OFF)
 if(CELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP AND CELESTE_ROOM_CAPTURE_AFTER_CLIMB)
@@ -28,4 +39,4 @@ vita_create_self(eboot.bin celeste_native_room)
 vita_create_vpk(celeste_native_room.vpk CELR00001 eboot.bin VERSION 00.01 NAME "Celeste Native Room Diagnostic"
     FILE "${CELESTE_ROOM_STAGING}/assets/native-room/global.mask" assets/native-room/global.mask
     FILE "${CELESTE_ROOM_STAGING}/assets/native-room/hazards.txt" assets/native-room/hazards.txt
-    FILE "${CELESTE_ROOM_STAGING}/assets/native-room/provenance.json" assets/native-room/provenance.json)
+    FILE "${CELESTE_ROOM_STAGING}/assets/native-room/provenance.json" assets/native-room/provenance.json ${visual_files})

@@ -95,6 +95,58 @@ std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expec
     if (!text.empty()) throw std::invalid_argument("Trailing spike data");
     return spikes;
 }
+VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum) {
+    integrity(text,65'536,expected_checksum);
+    header(text,"CSRV1");
+    if (take(text) != "6") throw std::invalid_argument("Expected six bounded room textures");
+    VisualAssets result{};
+    for (std::size_t i=0; i<result.textures.size(); ++i) {
+        auto row = take(text);
+        auto& t = result.textures[i];
+        for (auto field : {&t.width,&t.height,&t.crop_width,&t.crop_height,&t.trim_x,&t.trim_y,&t.frame_width,&t.frame_height})
+            *field = integer(take(row,' '));
+        if (row.size() != 8 || row.find_first_not_of("0123456789abcdef") != std::string_view::npos)
+            throw std::invalid_argument("Invalid texture checksum");
+        const auto parsed = std::from_chars(row.data(),row.data()+row.size(),t.checksum,16);
+        if (parsed.ec != std::errc{} || parsed.ptr != row.data()+row.size()) throw std::invalid_argument("Invalid texture checksum");
+        if (i < 5 ? (t.width != 64 || t.height != 128 || t.crop_width != 48 || t.crop_height != 120 ||
+                     t.trim_x != 0 || t.trim_y != 0 || t.frame_width != 48 || t.frame_height != 120) :
+                    (t.width != 16 || t.height != 16 || t.crop_width <= 0 || t.crop_width > 14 ||
+                     t.crop_height <= 0 || t.crop_height > 14 || t.frame_width != 32 || t.frame_height != 32 ||
+                     t.trim_x < 0 || t.trim_x > 32-t.crop_width || t.trim_y < 0 || t.trim_y > 32-t.crop_height))
+            throw std::invalid_argument("Unsupported bounded texture profile");
+    }
+    const int count = integer(take(text));
+    if (count < 0 || count > 1840) throw std::invalid_argument("Excessive room commands");
+    std::array<bool,1840> occupied{};
+    bool foreground = false;
+    for (int i=0; i<count; ++i) {
+        auto row = take(text);
+        const auto layer = take(row,' ');
+        TileCommand command{};
+        command.background = layer == "B";
+        command.texture = integer(take(row,' '));
+        command.x = integer(take(row,' ')); command.y = integer(take(row,' '));
+        command.u = integer(take(row,' ')); command.v = integer(row);
+        if ((layer != "B" && layer != "F") || (foreground && command.background) ||
+            command.texture < 0 || command.texture >= 5 || (command.background ? command.texture != 4 : command.texture == 4) ||
+            command.x < 0 || command.x >= 320 || command.x%8 || command.y < 0 || command.y > 176 || command.y%8 ||
+            command.u < 0 || command.u > 40 || command.u%8 || command.v < 0 || command.v > 112 || command.v%8)
+            throw std::invalid_argument("Invalid room layer/texture/command bounds");
+        foreground = !command.background;
+        const auto cell = (command.background ? 0 : 920)+command.y/8*40+command.x/8;
+        if (occupied[cell]) throw std::invalid_argument("Duplicate room layer cell");
+        occupied[cell] = true;
+        result.commands.push_back(command);
+    }
+    if (!text.empty()) throw std::invalid_argument("Trailing room commands");
+    return result;
+}
+void validate_texture_bytes(std::string_view bytes, const TextureInfo& texture) {
+    if (texture.width <= 0 || texture.height <= 0 || texture.width > 64 || texture.height > 128 ||
+        bytes.size() != std::size_t(texture.width)*texture.height*4 || checksum(bytes) != texture.checksum)
+        throw std::invalid_argument("Texture byte count or build-pinned integrity mismatch");
+}
 std::string read_asset(const char* path, std::size_t limit) {
     const auto close_file = [](FILE* file) { std::fclose(file); };
     std::unique_ptr<FILE, decltype(close_file)> file(std::fopen(path, "rb"), close_file);

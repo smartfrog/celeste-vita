@@ -62,7 +62,17 @@ void run() {
     }
     if (occupied != 26915 || visible != 363) throw std::runtime_error("Unexpected merged/visible solid counts");
     log("assets ready mask=541x440 origin=-64,-3272 occupied=%u visible=%u spikes=%u",occupied,visible,unsigned(room.spikes.size()));
+    const VisualAssets* visual_assets = nullptr;
+#ifdef CELESTE_ROOM_TEXTURED
+    const auto visuals = parse_visuals(read_asset("app0:assets/native-room/visuals.txt",65'536),visual_checksum);
+    visual_assets = &visuals;
+    log("render style=textured_partial static_BG_BODY_FG body=idle00_static_no_animation camera=0,0 diagnostic_spike_markers=5 not_faithful_spike_art no_hair_decals_backdrops_animation_audio_menu_fullgame_fidelity submitted_RGBA_bytes=164864 not_physical_GPU_allocation");
+#else
+    log("render style=debug hitboxes_and_diagnostic_spike_markers camera=0,0");
+#endif
     initialize_graphics();
+    try {
+    if (visual_assets) load_textures(*visual_assets);
     const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_DIGITAL);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
     Session session(room.world);
@@ -72,7 +82,7 @@ void run() {
     bool captured = !capture_after_wall_jump && !capture_after_climb, wall_near = false, wall_forced = false;
     bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
     float climb_entry_y = 0.0f;
-    const auto exported = draw(room,session.player(),captured ? frame_path.c_str() : nullptr);
+    const auto exported = draw(room,session.player(),captured ? frame_path.c_str() : nullptr,0,0,visual_assets);
     if (captured) log("%s",exported.c_str());
     log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
     state("frame ready",frame,session);
@@ -105,7 +115,7 @@ void run() {
         const bool capture = !captured && ((capture_after_wall_jump && wall_jumped) ||
             (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
              player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y));
-        const auto saved = draw(room,player,capture ? frame_path.c_str() : nullptr,frame,session.resets());
+        const auto saved = draw(room,player,capture ? frame_path.c_str() : nullptr,frame,session.resets(),visual_assets);
         if (capture) { captured = true; log("%s",saved.c_str()); }
         if (jumped) state("jump",frame,session);
         const int new_state = player.state_machine().state();
@@ -153,11 +163,16 @@ void run() {
         else if (old_state == 2 && new_state == 0) signal("dash_done",frame);
         previous = buttons;
     }
-    finish_graphics();
     const auto elapsed = sceKernelGetProcessTimeWide()-start_time;
     state("clean exit",frame,session);
     log("diagnostic measurement frames=%u elapsed_us=%llu observed_fps=%.3f not_a_hardware_estimate",frame,
-        static_cast<unsigned long long>(elapsed),elapsed ? frame*1e6/double(elapsed) : 0);
+         static_cast<unsigned long long>(elapsed),elapsed ? frame*1e6/double(elapsed) : 0);
+    } catch (const std::exception& error) {
+        try { finish_graphics(); }
+        catch (const std::exception& cleanup) { throw std::runtime_error(std::string(error.what())+"; graphics teardown also failed: "+cleanup.what()); }
+        throw;
+    }
+    finish_graphics();
 }
 }
 int main() {

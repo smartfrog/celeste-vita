@@ -86,14 +86,35 @@ def map_dimensions(driver):
     return tx * 8, ty * 8, columns, rows
 
 
-def build_mask(driver):
+def pad_layer(layer, reserved, bounds, tx, ty):
+    for x, y, w, h in bounds:
+        for m in range(x, x + w):
+            for edge, direction in ((y, -1), (y + h - 1, 1)):
+                char = layer[m - tx, edge - ty]
+                for distance in range(1, 4):
+                    at = (m - tx, edge - ty + direction * distance)
+                    if reserved[at]:
+                        break
+                    layer[at] = char
+        for n in range(y - 4, y + h + 4):
+            for edge, direction in ((x, -1), (x + w - 1, 1)):
+                char = layer[edge - tx, n - ty]
+                for distance in range(1, 4):
+                    at = (edge - tx + direction * distance, n - ty)
+                    if reserved[at]:
+                        break
+                    layer[at] = char
+
+
+def build_layers(driver):
     levels, filler = driver["levels"], driver["filler"]
     x, y, columns, rows = map_dimensions(driver)
     tx, ty = trunc8(x), trunc8(y)
-    solids, reserved = Layer(columns, rows, "0"), Layer(columns, rows, False)
+    solids, background, reserved = Layer(columns, rows, "0"), Layer(columns, rows, "0"), Layer(columns, rows, False)
     bounds = [tile_bounds(room) for room in levels]
     for room, (x, y, w, h) in zip(levels, bounds):
         merge_text(solids, x - tx, y - ty, room["solids"])
+        merge_text(background, x - tx, y - ty, room["bg"])
         for m in range(w):
             for n in range(h):
                 reserved[x + m - tx, y + n - ty] = True
@@ -110,30 +131,20 @@ def build_mask(driver):
                         char = solids[probe]
                 solids[m - tx, n - ty] = char if char != "0" else "1"
                 reserved[m - tx, n - ty] = True
+    pad_layer(background, reserved, bounds, tx, ty)
     for x, y, w, h in bounds:
         for m in range(x, x + w):
             for edge, direction in ((y, -1), (y + h - 1, 1)):
                 if solids[m - tx, edge - ty] == "0":
                     for distance in range(1, 8):
                         reserved[m - tx, edge - ty + direction * distance] = True
-    for x, y, w, h in bounds:
-        for m in range(x, x + w):
-            for edge, direction in ((y, -1), (y + h - 1, 1)):
-                char = solids[m - tx, edge - ty]
-                for distance in range(1, 4):
-                    at = (m - tx, edge - ty + direction * distance)
-                    if reserved[at]:
-                        break
-                    solids[at] = char
-        for n in range(y - 4, y + h + 4):
-            for edge, direction in ((x, -1), (x + w - 1, 1)):
-                char = solids[edge - tx, n - ty]
-                for distance in range(1, 4):
-                    at = (edge - tx + direction * distance, n - ty)
-                    if reserved[at]:
-                        break
-                    solids[at] = char
-    return tx * 8, ty * 8, columns, rows, "".join("1" if char != "0" else "0" for char in solids.data)
+    pad_layer(solids, reserved, bounds, tx, ty)
+    return tx * 8, ty * 8, solids, background, [(x - tx, y - ty, w, h) for x, y, w, h in bounds]
+
+
+def build_mask(driver):
+    x, y, solids, _, _ = build_layers(driver)
+    return x, y, solids.columns, solids.rows, "".join("1" if char != "0" else "0" for char in solids.data)
 
 
 def mask_text(mask):

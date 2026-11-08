@@ -27,7 +27,29 @@ def new_feedback(revision, vpk):
             "method":"OUR guest glReadPixels GL_BACK once; lossless P6-to-PNG conversion; no OS screen capture"}
 
 
-def collect_native_frame(filesystem, output, revision, capture="spawn"):
+def validate_textured_pixels(pixels, metadata, visuals, capture):
+    expected = {"render_style":"textured_partial", "camera":"0,0", "body_draws":"1", "diagnostic_spike_markers":"5",
+                "submitted_rgba_bytes":"164864", "alpha":"premultiplied_ONE_ONE_MINUS_SRC_ALPHA", "body_pose":"idle00_static_no_animation",
+                "bg_draws":str(visuals["draw_counts"]["B"]), "fg_draws":str(visuals["draw_counts"]["F"])}
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise ValueError("Textured native receipt lacks exact style/camera/layers/bytes/alpha scope")
+    colors = len({pixels[i:i+3] for i in range(0,len(pixels),3)})
+    if colors < 16:
+        raise ValueError("Textured frame lacks texture color diversity; debug palette is not textured proof")
+    probes = []
+    for probe in visuals["spawn_content_probes"]:
+        if capture != "spawn" and probe["texture"] == 5:
+            continue
+        x, y = probe["screen_pixel"]
+        actual = list(pixels[(y*960+x)*3:(y*960+x+1)*3])
+        if actual != probe["expected_rgb"]:
+            raise ValueError(f"Native source texture content/orientation probe failed for texture {probe['texture']}: {actual} != {probe['expected_rgb']}")
+        probes.append({**probe,"actual_rgb":actual})
+    return {"unique_rgb_colors":colors,"opaque_source_probes":probes,"partial_alpha_room_probe":visuals["alpha_probe"],
+            "partial_alpha_claim":"Requested six crops contain only alpha 0/255; separate GPU blend diagnostic required" if visuals["alpha_probe"] is None else "source edge present"}
+
+
+def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None):
     if capture not in {"spawn", "wall_jump", "climb"}:
         raise ValueError("Unsupported explicit native capture policy")
     guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
@@ -79,7 +101,11 @@ def collect_native_frame(filesystem, output, revision, capture="spawn"):
         artifacts[name] = {"path":str(destination),"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()}
     pixels = ppm.split(b"\n",3)[3]
     black_bars = pixels[:960*2*3] == bytes(960*2*3) and pixels[-960*2*3:] == bytes(960*2*3)
+    textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture) if visual_provenance is not None else None
+    if visual_provenance is None and metadata.get("render_style","debug") != "debug":
+        raise ValueError("Textured export requires its exact staged visual provenance, not debug intent")
     return {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,
             "render_stage":RENDER_STAGE,"dimensions":[960,544],
             "frame_state":frame_state,"jump_kind":metadata.get("jump_kind","None"),"capture":capture,
-            "black_letterbox_rows":black_bars,"nonzero_rgb_bytes":sum(value != 0 for value in pixels),"artifacts":artifacts}
+            "black_letterbox_rows":black_bars,"nonzero_rgb_bytes":sum(value != 0 for value in pixels),"artifacts":artifacts,
+            "render_style":metadata.get("render_style","debug"),"camera":metadata.get("camera","0,0"),"textured_content":textured}

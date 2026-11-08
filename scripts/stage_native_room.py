@@ -45,7 +45,7 @@ def verified_bytes(path, expected, limit=4_000_512):
     return data
 
 
-def stage(output, mask_dir, hazard_dir, archive_path):
+def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None):
     output = output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit"):
         raise ValueError("Private diagnostic assets must remain under .audit")
@@ -76,8 +76,21 @@ def stage(output, mask_dir, hazard_dir, archive_path):
     asset_dir = output / "assets/native-room"
     asset_dir.mkdir(parents=True, exist_ok=True)
     files = {"global.mask": mask, "hazards.txt": hazard_data}
+    visuals = None
+    if visual_dir is not None:
+        visuals = json.loads((visual_dir / "provenance.json").read_text())
+        if (visuals["input_sha256"], visuals["map_sha256"], visuals["selected_room"]) != (INPUT_SHA, MAP_SHA, "1"):
+            raise ValueError("Wrong visual input provenance")
+        if set(visuals["files"]) != {"visuals.txt", *(f"texture{i}.rgba" for i in range(6))} or visuals["submitted_rgba_bytes"] != 164864:
+            raise ValueError("Unexpected visual asset set or submitted byte count")
+        for name, digest in visuals["files"].items():
+            files[name] = verified_bytes(visual_dir / name,digest,65_536)
+        bake = Path(visuals["source_bake"]["path"])
+        verified_bytes(bake / "result.json",visuals["source_bake"]["result_sha256"])
+        verified_bytes(bake / "source-manifest.json",visuals["source_bake"]["source_manifest_sha256"])
     manifest = {"revision": revision, "tracked_changes": dirty, "input_sha256": INPUT_SHA,
                 "map_sha256": MAP_SHA, "selected_room": "1", "spawn": [19, 144],
+                "render_style": "textured_partial" if visuals else "debug", "visuals": visuals,
                 "mask_provenance_sha256": hashlib.sha256((mask_dir / "provenance.json").read_bytes()).hexdigest(),
                 "hazard_provenance_sha256": hashlib.sha256((hazard_dir / "provenance.json").read_bytes()).hexdigest(),
                 "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "fnv1a32": checksum(data), "bytes": len(data)}
@@ -90,6 +103,7 @@ def stage(output, mask_dir, hazard_dir, archive_path):
         '#pragma once\n#include <cstdint>\nnamespace celeste::diagnostic {\n'
         f'constexpr std::uint32_t mask_checksum = {checksum(mask)}u;\n'
         f'constexpr std::uint32_t spike_checksum = {checksum(hazard_data)}u;\n'
+        + (f'constexpr std::uint32_t visual_checksum = {checksum(files["visuals.txt"])}u;\n' if visuals else '') +
         f'constexpr const char* revision = "{revision}{"-dirty" if dirty else ""}";\n' + '}\n')
     return manifest
 
@@ -100,8 +114,9 @@ def main():
     parser.add_argument("--mask-dir", type=Path, default=Path(".audit/native-static-tilemap/prepared"))
     parser.add_argument("--hazard-dir", type=Path, default=Path(".audit/native-room-hazards/prepared"))
     parser.add_argument("--archive", type=Path, default=Path("game/celeste-linux.zip"))
+    parser.add_argument("--visual-dir", type=Path, help="Explicit source-closed private textured-room assets; absent keeps debug mode")
     args = parser.parse_args()
-    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive)
+    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir)
     print(json.dumps(manifest, indent=2))
 
 
