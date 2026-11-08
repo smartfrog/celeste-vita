@@ -151,7 +151,15 @@ is unestablished. All failed artifacts/logs remain preserved.
 work and 928–929 advances the buffer indices only during swap. The display
 surface is A8B8G8R8; width 960 is 64-pixel aligned. The tested encoder reverses
 RGBA rows and strips alpha into top-down P6 RGB, including
-the black letterbox rows. SDK `SCE_O_EXCL` preserves existing guest outputs.
+the black letterbox rows. Before an export, the guest checks both destinations with
+`sceIoGetstat`: if either the `.ppm` or its `.ppm.txt` receipt exists, it
+preserves both, logs `capture_skipped_existing ... prior_capture_preserved=ppm_and_receipt
+current_run_capture=false`, emits no `frame_saved` receipt and continues drawing,
+sampling controls and accepting Start. The resolved capture flag prevents a
+retry on every frame for both spawn and deferred policies. New outputs still use
+`SCE_O_EXCL`; unexpected stat/write errors fail fast instead of being treated as
+missing. An existing failure receipt is likewise preserved without masking the
+primary error, and stale artifacts never satisfy a current-run capture claim.
 
 Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
 completion receipt with `frame_saved`, dimensions, revision, render stage and

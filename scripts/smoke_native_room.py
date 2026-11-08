@@ -351,8 +351,12 @@ def main():
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
+            guest = fs / "ux0/data/celeste_native_room.log"
+            skipped = f"capture_skipped_existing path=ux0:data/celeste_native_room-{revision}.ppm "
+            if guest.exists() and any(line.startswith(skipped) and "current_run_capture=false" in line
+                                      for line in guest.read_text().splitlines()):
+                return
             if args.guest_replay:
-                guest = fs / "ux0/data/celeste_native_room.log"
                 marker = f"frame_saved path=ux0:data/celeste_native_room-{revision}.ppm "
                 if not guest.exists() or not any(line.startswith(marker) and line.endswith("\n") for line in guest.read_text().splitlines(keepends=True)):
                     return
@@ -467,8 +471,6 @@ def main():
                     return True
                 wait(completed,420)
                 observe_native_frame()
-                if not feedback["stages"]["native_image"]:
-                    raise RuntimeError("Completed guest replay lacks its closed native frame")
                 receipt = output / "guest-complete.txt"
                 receipt.write_bytes(complete.read_bytes())
                 events.append({"closed_guest_completion":str(receipt),"host_input_injected":False,"portal_requests":0})
@@ -588,6 +590,8 @@ def main():
             feedback["climb"] = verify_climb_guest(text)
         feedback["stages"].update({"input":True,"clean_exit":True})
         if args.guest_replay:
+            if not feedback["stages"]["native_image"]:
+                raise RuntimeError("Completed guest replay lacks its current-run closed native frame")
             if status is None:
                 raise TimeoutError("Owned emulator did not exit within 30 seconds after guest completion") from host_wait_error
             if status != 0:

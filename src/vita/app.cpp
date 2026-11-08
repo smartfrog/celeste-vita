@@ -138,11 +138,20 @@ void run() {
 #endif
     unsigned previous = 0, frame = 0;
     const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
-    bool captured = !capture_after_wall_jump && !capture_after_climb, wall_near = false, wall_forced = false;
+    bool capture_resolved = false, capture_observed = !capture_after_wall_jump && !capture_after_climb;
+    bool wall_near = false, wall_forced = false;
     bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
     float climb_entry_y = 0.0f;
-    const auto exported = render(captured ? frame_path.c_str() : nullptr,0);
-    if (captured) log("%s",exported.c_str());
+    const auto capture = [&](unsigned frame) {
+        capture_resolved = true;
+        if (guest_capture_exists(frame_path.c_str())) {
+            log("capture_skipped_existing path=%s prior_capture_preserved=ppm_and_receipt current_run_capture=false",frame_path.c_str());
+            return;
+        }
+        log("%s",render(frame_path.c_str(),frame).c_str());
+    };
+    if (capture_observed) capture(0);
+    else render(nullptr,0);
     log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
     state("frame ready",frame,session);
     signal("ready",frame);
@@ -187,11 +196,11 @@ void run() {
              presentation->pose().hair_nodes[0].x>=0 && presentation->pose().hair_nodes[0].x<320 &&
              presentation->pose().hair_nodes[0].y>=0 && presentation->pose().hair_nodes[0].y<180);
         if (capture_after_climb && !climbed && player.state_machine().state() == 1) climb_entry_y = player.actor().body.position.y;
-        const bool capture = !captured && ((capture_after_wall_jump && wall_jumped) ||
+        const bool capture_event = !capture_resolved && ((capture_after_wall_jump && wall_jumped) ||
             (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
               player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
-        const auto saved = render(capture ? frame_path.c_str() : nullptr,frame);
-        if (capture) { captured = true; log("%s",saved.c_str()); }
+        if (capture_event) { capture_observed = true; capture(frame); }
+        else render(nullptr,frame);
         if (jumped) state("jump",frame,session);
         const int new_state = player.state_machine().state();
         if (!sample.reset && old_state != new_state)
@@ -228,10 +237,10 @@ void run() {
             climbed = true;
             state("climb entered",frame,session);
             signal("climb_entered",frame);
-        } else if (capture_after_climb && capture) {
+        } else if (capture_after_climb && capture_event) {
             state("climb drained",frame,session);
             signal("climb_drained",frame);
-        } else if (capture_after_climb && captured && climbed && !climb_held && new_state == 1 && sample.player.y == 0 && player.state().speed.y == 0) {
+        } else if (capture_after_climb && capture_observed && climbed && !climb_held && new_state == 1 && sample.player.y == 0 && player.state().speed.y == 0) {
             climb_held = true;
             state("climb held",frame,session);
             signal("climb_held",frame);
@@ -248,7 +257,7 @@ void run() {
         previous = buttons;
     }
 #ifdef CELESTE_ROOM_GUEST_REPLAY
-    if(frame!=guest_replay_frames-1 || !captured || !climbed || !climb_held || !climb_released || !climb_landed ||
+    if(frame!=guest_replay_frames-1 || !capture_observed || !climbed || !climb_held || !climb_released || !climb_landed ||
        !replay_jumped || !replay_frozen || !replay_thawed || !replay_launched || !replay_dash_done || !replay_died || !replay_reset)
         throw std::runtime_error("Guest replay ended without all observed native checkpoints");
 #endif
@@ -280,7 +289,12 @@ int main() {
         if (std::fprintf(stderr,"FATAL: %s\n",error.what()) < 0 || std::fflush(stderr)) status = 2;
         try {
             const auto failure_path = std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
-            celeste::diagnostic::write_guest_file(failure_path.c_str(),std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",SCE_O_EXCL);
+            if (celeste::diagnostic::guest_file_exists(failure_path.c_str())) {
+                if (std::fprintf(stderr,"Failure receipt preserved: %s; original: %s\n",failure_path.c_str(),error.what()) < 0 || std::fflush(stderr))
+                    status = 2;
+            } else {
+                celeste::diagnostic::write_guest_file(failure_path.c_str(),std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",SCE_O_EXCL);
+            }
             signal("failed",0);
         } catch (const std::exception& diagnostic_error) {
             status = 2;

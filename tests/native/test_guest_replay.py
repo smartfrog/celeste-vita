@@ -98,7 +98,16 @@ class ReplayHostBoundaryTests(unittest.TestCase):
 
     def test_closed_completion_without_native_frame_is_partial(self):
         feedback,_=self.run_scenario("no_frame")
+        self.assertTrue(feedback["stages"]["clean_exit"])
         self.assertFalse(feedback["stages"]["full_completion"])
+
+    def test_existing_pair_skip_preserves_guest_checks_but_claims_no_current_run_capture(self):
+        feedback,_=self.run_scenario("skip_existing")
+        self.assertTrue(feedback["stages"]["input"])
+        self.assertTrue(feedback["stages"]["clean_exit"])
+        self.assertFalse(feedback["stages"]["native_image"])
+        self.assertFalse(feedback["stages"]["full_completion"])
+        self.assertIn("current-run",feedback["errors"][-1]["message"])
 
     def test_existing_frame_without_post_close_guest_log_marker_is_not_collected(self):
         feedback,_=self.run_scenario("unclosed_frame")
@@ -186,6 +195,9 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                     (data/"celeste_native_room.ready").write_text("ready frame=0\n")
                     text=completed_replay_log()
                     if mode=="unclosed_frame": text=text.replace("frame_saved path=","not a closed frame path=")
+                    if mode=="skip_existing": text=text.replace(
+                        "frame_saved path=ux0:data/celeste_native_room-synthetic.ppm width=960 height=544",
+                        "capture_skipped_existing path=ux0:data/celeste_native_room-synthetic.ppm prior_capture_preserved=ppm_and_receipt current_run_capture=false")
                     (data/"celeste_native_room.log").write_text(text.replace("death frame=242","missing events") if mode=="missing_events" else text)
                     (data/"celeste_native_room-complete-synthetic.txt").write_text("invalid\n" if mode=="bad_receipt" else completion_receipt("synthetic"))
                     (output/"host.log").write_text("[on_game_closed]: Game closed: Celeste Native Room Diagnostic\n")
@@ -205,7 +217,7 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                 else:
                     error=TimeoutError if mode in {"timeout","host_timeout"} else ValueError if mode in {"bad_receipt","missing_events"} else RuntimeError
                     with self.assertRaises(error): main()
-            self.assertEqual(order,["installer"] if mode in {"complete","host_failure","missing_events"} else ["installer","runtime"])
+            self.assertEqual(order,["installer"] if mode in {"complete","host_failure","missing_events","no_frame","unclosed_frame","skip_existing"} else ["installer","runtime"])
             feedback=json.loads((output/"feedback.json").read_text())
             self.assertFalse(feedback["physical_controller_verified"])
             self.assertFalse(feedback["host_input_injected"])
