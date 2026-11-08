@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--spike-art",action="store_true",help="Use the nineteen source spike images instead of red diagnostic markers")
     parser.add_argument("--visual-dir",type=Path,help="Verified private six- or eight-texture preparation required for --textured")
     parser.add_argument("--player-dir",type=Path,help="Verified private animated player and simulated hair; requires --textured")
+    parser.add_argument("--decal-dir",type=Path,help="Verified private 22 static decals; requires --textured and --spike-art")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true",help="Capture once after a real input-driven WallJump, then retain the normal Dash/death/reset smoke")
     capture.add_argument("--after-climb",action="store_true",help="Capture once during real airborne drained Climb, then retain the normal Dash/death/reset smoke")
@@ -35,6 +36,8 @@ def main():
         parser.error("Animated player requires --textured and --visual-dir")
     if args.spike_art and not args.textured:
         parser.error("Source spike art requires --textured and --visual-dir")
+    if args.decal_dir is not None and (not args.textured or not args.spike_art):
+        parser.error("Static decal art requires --textured, --visual-dir and --spike-art")
     if args.frame_only and (args.after_wall_jump or args.after_climb):
         parser.error("Post-WallJump capture requires input; it cannot use --frame-only")
     output = args.output.resolve()
@@ -51,6 +54,7 @@ def main():
     feedback["capture_policy"] = "climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn"
     feedback["render_style"] = "animated_player_partial" if args.player_dir else "textured_partial" if args.textured else "debug"
     feedback["spike_art"] = bool(args.spike_art)
+    feedback["decal_art"] = bool(args.decal_dir)
     feedback["commands"] = []
     save_feedback(feedback_path,feedback)
     sdk = "/home/fred/cloudpunk-vita/tools/vitasdk"
@@ -76,7 +80,8 @@ def main():
             raise ValueError("Current source/config is not clean: "+"; ".join(changes))
         run("stage",[sys.executable,"-B","scripts/stage_native_room.py","--output",str(staging)]+
             (["--visual-dir",str(args.visual_dir.resolve())] if args.textured else [])+
-            (["--player-dir",str(args.player_dir.resolve())] if args.player_dir else []))
+            (["--player-dir",str(args.player_dir.resolve())] if args.player_dir else [])+
+            (["--decal-dir",str(args.decal_dir.resolve())] if args.decal_dir else []))
         run("configure",["/usr/bin/cmake","-S",".","-B",str(build),"-DCMAKE_TOOLCHAIN_FILE="+sdk+"/share/vita.toolchain.cmake",
                          "-DCMAKE_BUILD_TYPE=Release","-DBUILD_TESTING=OFF","-DCELESTE_VITA=ON",
                          "-DCELESTE_VITAGL_LIBRARY="+archive,"-DCELESTE_ROOM_STAGING="+str(staging),
@@ -84,7 +89,8 @@ def main():
                          "-DCELESTE_ROOM_CAPTURE_AFTER_CLIMB="+("ON" if args.after_climb else "OFF"),
                          "-DCELESTE_ROOM_TEXTURED="+("ON" if args.textured else "OFF"),
                          "-DCELESTE_ROOM_SPIKE_ART="+("ON" if args.spike_art else "OFF"),
-                         "-DCELESTE_ROOM_ANIMATED_PLAYER="+("ON" if args.player_dir else "OFF")])
+                         "-DCELESTE_ROOM_ANIMATED_PLAYER="+("ON" if args.player_dir else "OFF"),
+                         "-DCELESTE_ROOM_DECALS="+("ON" if args.decal_dir else "OFF")])
         run("build",["/usr/bin/cmake","--build",str(build),"--verbose","-j2"])
         feedback["stages"]["build"] = True
         save_feedback(feedback_path,feedback)
