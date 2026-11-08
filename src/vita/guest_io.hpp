@@ -12,7 +12,8 @@ inline bool guest_file_exists(const char* path) {
     SceIoStat status{};
     const auto result = sceIoGetstat(path,&status);
     if (result >= 0) return true;
-    if ((result & 0xffff) == ENOENT) return false;
+    // SCE file-manager errors are 0x80010000|errno; other SDK domains can share the low bits.
+    if (static_cast<unsigned>(result) == (0x80010000u | static_cast<unsigned>(ENOENT))) return false;
     throw std::runtime_error(std::string("Guest output stat failed: ")+path+" code="+std::to_string(result));
 }
 inline bool guest_capture_exists(const char* path) {

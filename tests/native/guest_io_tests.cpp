@@ -100,6 +100,13 @@ void unexpected_stat_error_is_not_treated_as_missing() {
     expect(opens == 0, "Unexpected stat error must not fall through to writing");
 }
 
+void kernel_error_with_errno_low_bits_is_not_missing() {
+    reset();
+    stat_error = static_cast<int>(0x80020002u);
+    rejects([&] { guest_capture_exists("/data/frame.ppm"); },"stat failed");
+    expect(opens == 0, "Non-errno SDK error with low bits 2 must not be treated as ENOENT");
+}
+
 void oversized_output_rejected_before_open() {
     reset();
     const std::string too_large(2*1024*1024+1,'x');
@@ -161,11 +168,11 @@ int main() {
     for (auto test : {missing_pair_is_absent, complete_pair_preserves_without_opening,
          partial_pair_is_present_parameterized, fresh_pair_writes_both_closed_outputs,
          existing_output_excl_writer_fails_and_preserves, unexpected_stat_error_is_not_treated_as_missing,
-         oversized_output_rejected_before_open, partial_write_is_reported_after_close,
-         close_failure_is_reported}) {
+         kernel_error_with_errno_low_bits_is_not_missing, oversized_output_rejected_before_open,
+         partial_write_is_reported_after_close, close_failure_is_reported}) {
         try { test(); }
         catch (const std::exception& error) { std::cerr << error.what() << '\n'; ++failed; }
     }
-    std::cout << "guest io cases=9 failed=" << failed << '\n';
+    std::cout << "guest io cases=10 failed=" << failed << '\n';
     return failed ? 1 : 0;
 }
