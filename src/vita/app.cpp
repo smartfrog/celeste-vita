@@ -89,8 +89,13 @@ void run() {
     const auto player_frames=parse_player_assets(read_asset("app0:assets/native-room/player.txt",65'536),player_checksum);
     player_assets=&player_frames;
 #ifdef CELESTE_ROOM_SPIKE_ART
-    log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_source_static_spikes_FG physical_spikes=5 draw_pieces=19 diagnostic_red_markers=0 no_death_art_decals_backdrops_audio_menu_fullgame_fidelity",
-        player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4);
+#ifdef CELESTE_ROOM_DECALS
+    constexpr const char* decal_scope = "static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7";
+#else
+    constexpr const char* decal_scope = "no_death_art_decals";
+#endif
+    log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_source_static_spikes_FG physical_spikes=5 draw_pieces=19 diagnostic_red_markers=0 decal_scope=%s backdrops_audio_menu_fullgame_fidelity",
+        player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4,decal_scope);
 #else
     log("render animated_player_partial mode=Madeline bank=player source_bank_sha256=%s diagnostic_rng_seed=0 original_startup_rng_parity=false pages=%u player_RGBA_bytes=%u BG_HAIR_BODY_diagnostic_markers_FG no_death_art_decals_backdrops_audio_menu_fullgame_fidelity",
         player_bank_sha256,player_frames.bank.pages,player_frames.bank.pages*128*64*4);

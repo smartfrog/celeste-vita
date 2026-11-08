@@ -1,6 +1,7 @@
 #include "assets.hpp"
 #include <algorithm>
 #include <charconv>
+#include <cstdint>
 #include <cstring>
 #include <cstdio>
 #include <limits>
@@ -240,8 +241,10 @@ DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum)
         texture.width = integer(take(row, ' ')); texture.height = integer(take(row, ' '));
         texture.offset_x = integer(take(row, ' ')); texture.offset_y = integer(take(row, ' '));
         texture.frame_width = integer(take(row, ' ')); texture.frame_height = integer(row);
+        const std::int64_t crop_right = std::int64_t(texture.u) + texture.width;
+        const std::int64_t crop_bottom = std::int64_t(texture.v) + texture.height;
         if (texture.u < 1 || texture.v < 1 || texture.width <= 0 || texture.height <= 0 ||
-            texture.u + texture.width >= DecalAssets::page_width || texture.v + texture.height >= DecalAssets::page_height ||
+            crop_right >= DecalAssets::page_width || crop_bottom >= DecalAssets::page_height ||
             texture.frame_width <= 0 || texture.frame_height <= 0 || texture.offset_x < -4096 || texture.offset_x > 4096 ||
             texture.offset_y < -4096 || texture.offset_y > 4096)
             throw std::invalid_argument("Invalid decal crop/page/frame geometry");

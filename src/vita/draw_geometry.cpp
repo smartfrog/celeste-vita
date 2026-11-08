@@ -1,5 +1,6 @@
 #include "draw.hpp"
 #include <cmath>
+#include <cstdint>
 #include <stdexcept>
 
 namespace celeste::diagnostic {
@@ -27,8 +28,8 @@ std::array<PlayerVertex,4> decal_vertices(const DecalTexture& t, const DecalInst
     const float bottom = top + t.height * i.scale_y;
     const float u0 = float(t.u) / DecalAssets::page_width;
     const float v0 = float(t.v) / DecalAssets::page_height;
-    const float u1 = float(t.u + t.width) / DecalAssets::page_width;
-    const float v1 = float(t.v + t.height) / DecalAssets::page_height;
+    const float u1 = float(std::int64_t(t.u) + t.width) / DecalAssets::page_width;
+    const float v1 = float(std::int64_t(t.v) + t.height) / DecalAssets::page_height;
     return {{{left, top, u0, v0}, {right, top, u1, v0}, {right, bottom, u1, v1}, {left, bottom, u0, v1}}};
 }
 std::array<PlayerVertex,4> player_vertices(const PlayerFrame& f, const PlayerDraw& d) {

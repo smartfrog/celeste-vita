@@ -37,9 +37,12 @@ assets and player assets remain byte-identical.
 
 `BG tiles -> 20 static BG decals -> hair/body -> 19 source spikes -> FG tiles -> 2 static FG decals`
 
-`scripts/compare_decal_draws.py` verifies that packed draw inputs preserve every
-executed source draw's position, signed scale, depth, frame, origin, and exact crop
-bytes, while the 7 Banner rows remain explicit omissions.
+`scripts/compare_decal_draws.py` parses the actual serialized `CSD1` records and verifies
+that their positions, signed scales, depth, frame, draw offset, origin, crop bytes, render
+order, and 7 Banner omissions match the executed source draws. File hashes alone are not
+treated as semantic proof, so a refreshed-checksum protocol mutation still fails.
+Malformed crop coordinates are rejected with widened arithmetic before any `u+width`
+or `v+height` evaluation.
 
 ## Build
 

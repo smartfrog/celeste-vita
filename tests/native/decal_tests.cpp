@@ -36,6 +36,30 @@ std::string decal_fixture() {
     return text;
 }
 
+void rejects_maximum_integer_crop_coordinates_parameterized() {
+    for (const std::string values : {"2147483647 1 8 8", "1 2147483647 8 8", "1 1 2147483647 8",
+                                     "1 1 8 2147483647", "2147483640 1 20 8", "1 2147483640 8 20",
+                                     "-2147483648 1 8 8", "1 -2147483648 8 8", "1 1 -2147483648 8",
+                                     "1 1 8 -2147483648", "0 1 8 8", "1 0 8 8", "1 1 0 8", "1 1 8 0",
+                                     "1 1 -1 8", "1 1 8 -1", "1 1 63 8", "1 1 8 127"}) {
+        auto text = decal_fixture();
+        const std::string original = "decals/generic/t0 1 1 8 8";
+        const auto offset = text.find(original);
+        if (offset == std::string::npos) throw std::runtime_error("Missing first decal texture row");
+        text.replace(offset, original.size(), "decals/generic/t0 " + values);
+        rejects([&] { parse_decals(text,checksum(text)); });
+    }
+}
+void accepts_legitimate_one_pixel_padding_boundary() {
+    auto text = decal_fixture();
+    const std::string original = "decals/generic/t0 1 1 8 8";
+    text.replace(text.find(original), original.size(), "decals/generic/t0 1 1 62 126");
+    const auto data = parse_decals(text,checksum(text));
+    expect(data.texture_count == 15 && data.textures[0].u == 1 && data.textures[0].v == 1 &&
+           data.textures[0].width == 62 && data.textures[0].height == 126,
+           "Legitimate one-pixel interior padding boundary");
+}
+
 void parses_twenty_two_static_and_seven_explicit_banners() {
     const auto text = decal_fixture();
     const auto data = parse_decals(text,checksum(text));
@@ -133,11 +157,13 @@ void rejects_malformed_decal_protocol_parameterized() {
 int main() {
     int failed = 0;
     for (auto [name,test] : {std::pair{"parses_twenty_two_static_and_seven_explicit_banners",parses_twenty_two_static_and_seven_explicit_banners},
+                     std::pair{"rejects_maximum_integer_crop_coordinates_parameterized",rejects_maximum_integer_crop_coordinates_parameterized},
+                     std::pair{"accepts_legitimate_one_pixel_padding_boundary",accepts_legitimate_one_pixel_padding_boundary},
                      std::pair{"decal_geometry_uses_center_minus_draw_offset",decal_geometry_uses_center_minus_draw_offset},
                      std::pair{"decal_geometry_preserves_both_negative_scale_axes",decal_geometry_preserves_both_negative_scale_axes},
                      std::pair{"rejects_malformed_decal_protocol_parameterized",rejects_malformed_decal_protocol_parameterized}}) {
         try { test(); } catch (const std::exception& error) { std::cerr << name << ": " << error.what() << '\n'; ++failed; }
     }
-    std::cout << "decal cases=4 failed=" << failed << '\n';
+    std::cout << "decal cases=6 failed=" << failed << '\n';
     return failed ? 1 : 0;
 }
