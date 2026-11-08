@@ -563,9 +563,11 @@ def main():
                 change(55,True,"reset")
                 change(55,False)
                 x.key(wid,36,True)
+            host_wait_error = None
             try:
                 status = process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as error:
+                host_wait_error = error
                 status = None
                 events.append({"owned_host_pending_after_guest_exit":True})
             events.append({"host_exit_code":status})
@@ -584,8 +586,11 @@ def main():
         if args.after_climb:
             feedback["climb"] = verify_climb_guest(text)
         feedback["stages"].update({"input":True,"clean_exit":True})
-        if args.guest_replay and status not in (None,0):
-            raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
+        if args.guest_replay:
+            if status is None:
+                raise TimeoutError("Owned emulator did not exit within 30 seconds after guest completion") from host_wait_error
+            if status != 0:
+                raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
         feedback["stages"]["full_completion"] = True
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})

@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -93,7 +94,7 @@ class ReplayHostBoundaryTests(unittest.TestCase):
         feedback,order=self.run_scenario("complete")
         self.assertTrue(feedback["stages"]["full_completion"])
         self.assertTrue(feedback["stages"]["clean_exit"])
-        self.assertEqual(order,["installer","runtime"])
+        self.assertEqual(order,["installer"])
 
     def test_closed_completion_without_native_frame_is_partial(self):
         feedback,_=self.run_scenario("no_frame")
@@ -118,14 +119,37 @@ class ReplayHostBoundaryTests(unittest.TestCase):
         self.assertFalse(feedback["stages"]["full_completion"])
 
     def test_host_crash_after_guest_exit_keeps_proven_guest_stages_but_not_full_completion(self):
-        feedback,order=self.run_scenario("host_failure")
+        feedback,order=self.run_scenario("host_failure",host_exit_code=133)
         self.assertTrue(feedback["stages"]["input"])
         self.assertTrue(feedback["stages"]["clean_exit"])
         self.assertTrue(feedback["stages"]["native_image"])
         self.assertFalse(feedback["stages"]["full_completion"])
         self.assertEqual(order,["installer"])
+        self.assertIn("133",feedback["errors"][0]["message"])
 
-    def run_scenario(self,mode):
+    def test_host_wait_timeout_cleanup_crash_keeps_verified_guest_but_is_partial(self):
+        feedback,order=self.run_scenario("host_timeout",host_exit_code=None,cleanup_exit_code=133)
+        self.assertTrue(feedback["stages"]["input"])
+        self.assertTrue(feedback["stages"]["clean_exit"])
+        self.assertTrue(feedback["stages"]["native_image"])
+        self.assertFalse(feedback["stages"]["full_completion"])
+        self.assertEqual(feedback["errors"][0]["type"],"TimeoutError")
+        self.assertIn("30 seconds",feedback["errors"][0]["message"])
+        self.assertEqual(feedback["host_events"][-1]["host_exit_code"],133)
+        self.assertEqual(order,["installer","runtime"])
+
+    def test_host_wait_timeout_cleanup_never_promotes_completion_parameterized(self):
+        for cleanup_exit_code in (-15,0):
+            with self.subTest(cleanup_exit_code=cleanup_exit_code):
+                feedback,_=self.run_scenario("host_timeout",host_exit_code=None,cleanup_exit_code=cleanup_exit_code)
+                self.assertTrue(feedback["stages"]["input"])
+                self.assertTrue(feedback["stages"]["clean_exit"])
+                self.assertTrue(feedback["stages"]["native_image"])
+                self.assertFalse(feedback["stages"]["full_completion"])
+                self.assertEqual(feedback["errors"][0]["type"],"TimeoutError")
+                self.assertEqual(feedback["host_events"][-1]["host_exit_code"],cleanup_exit_code)
+
+    def run_scenario(self,mode,host_exit_code=0,cleanup_exit_code=-15):
         directory = ROOT / ".audit/native-room-vita/replay-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -143,7 +167,11 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                 def __init__(self,label,pid): self.label,self.pid,self.returncode=label,pid,None
                 def terminate(self): order.append(self.label); self.returncode=-15
                 def wait(self,timeout=None):
-                    if self.label=="runtime" and mode=="host_failure": self.returncode=133
+                    if self.label=="runtime":
+                        if timeout==30:
+                            if host_exit_code is None: raise subprocess.TimeoutExpired("synthetic-owned-runtime",timeout)
+                            self.returncode=host_exit_code
+                        elif timeout==15: self.returncode=cleanup_exit_code
                     return self.returncode
             installer,runtime=Process("installer",101),Process("runtime",102)
             def launch(*args,**kwargs):
@@ -175,15 +203,16 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                  patch("smoke_native_room.select.select",side_effect=TimeoutError("synthetic unattended timeout")):
                 if mode=="complete": main()
                 else:
-                    error=TimeoutError if mode=="timeout" else ValueError if mode in {"bad_receipt","missing_events"} else RuntimeError
+                    error=TimeoutError if mode in {"timeout","host_timeout"} else ValueError if mode in {"bad_receipt","missing_events"} else RuntimeError
                     with self.assertRaises(error): main()
-            self.assertEqual(order,["installer"] if mode=="host_failure" else ["installer","runtime"])
+            self.assertEqual(order,["installer"] if mode in {"complete","host_failure","missing_events"} else ["installer","runtime"])
             feedback=json.loads((output/"feedback.json").read_text())
             self.assertFalse(feedback["physical_controller_verified"])
             self.assertFalse(feedback["host_input_injected"])
             self.assertEqual(feedback["portal_requests"],0)
             self.assertEqual(feedback["input_source"],"scripted_guest_controls")
             self.assertEqual(json.loads((output/"x11-input.json").read_text()),[])
+            feedback["host_events"]=json.loads((output/"events.json").read_text())
             return feedback,order
 
 

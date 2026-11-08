@@ -289,3 +289,9 @@ A nonzero emulator exit after the observed clean guest shutdown remains an
 overall partial result: already verified guest input/exit and native-frame
 stages survive, but `full_completion` stays false and the host error is retained.
 Do not turn an emulator post-game crash into a successful host exit.
+Replay completion requires an observed host exit status 0 within the 30-second
+post-guest wait. A timeout is partial even if subsequent owned-process cleanup
+returns 0; cleanup status 133 or termination likewise cannot promote completion.
+The verified guest/frame stages and explicit timeout error survive cleanup.
+This host-exit requirement is replay-specific; the default manual smoke policy
+is unchanged and is not a new host-health validation.
