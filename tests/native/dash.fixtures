@@ -11,7 +11,7 @@ case update_before_launch 0 0 0 0 -10000 10000
 solid 1 -100 0 200 8 1
 tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
 tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
-tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => !dash
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
 case direction_left 0 -100 0 0 -10000 10000
 tick 0 0 0 0 0 0 0 0 0 -1 0 1 1 0
 tick .05 0 0 0 0 0 0 0 0 -1 0 1 0 0 => freeze
@@ -102,12 +102,12 @@ solid 1 -100 0 200 8 1
 tick 0 0 0 0 0 0 0 0 0 1 1 1 1 0
 tick .05 0 0 0 0 0 0 0 0 1 1 0 0 1 => freeze
 tick .1 0 0 0 0 0 0 0 0 1 1 0 0 0 => dash v:1
-case upward_walljump_five_rejected 0 -100 0 0 -10000 10000
+case upward_walljump_five 0 -100 0 0 -10000 10000
 solid 1 8 -200 8 200 1
 tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
 tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
 tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
-tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => !dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
 case upward_walljump_spike_shortens_reach 0 -100 0 0 -10000 10000
 solid 1 8 -200 8 200 1
 spike 2 10 -110 8 left 1
@@ -196,12 +196,12 @@ tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
 tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick .1 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
-case horizontal_walljump_rejected 0 -100 0 0 -10000 10000
+case horizontal_walljump 0 -100 0 0 -10000 10000
 solid 1 6 -200 8 200 1
 tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
 tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
 tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
-tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0 => !dash
+tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0 => dash
 case diagonal_h_then_v 0 -10 0 0 -10000 10000
 solid 1 4 -200 8 200 1
 solid 2 -100 0 200 8 1
@@ -227,3 +227,5 @@ tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick .15 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
 tick 0 0 0 1 1 0 0 0 0 1 0 0 0 0
+case unsupported_grab 0 -100 0 0 -10000 10000
+tick 0 0 0 0 0 0 0 1 0 0 0 0 0 0 => !input

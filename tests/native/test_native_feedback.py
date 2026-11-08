@@ -14,6 +14,21 @@ from smoke_native_room import main as smoke_main, KEYBOARD_MAPPING
 
 
 class NativeFeedbackTests(unittest.TestCase):
+    def test_post_wall_jump_receipt_records_actual_frame_and_kind(self):
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as temporary:
+            root = Path(temporary)
+            source = root / "ux0/data/celeste_native_room-synthetic.ppm"
+            source.parent.mkdir(parents=True)
+            output = root / "output"
+            output.mkdir()
+            source.write_bytes(b"P6\n960 544\n255\n" + bytes(960*544*3))
+            Path(str(source)+".txt").write_text(
+                f"frame_saved path=ux0:data/celeste_native_room-synthetic.ppm width=960 height=544 revision=synthetic stage={RENDER_STAGE} "
+                "frame=6 x=15 y=134 vx=130 vy=-105 ground=0 dead=0 resets=0 state=0 jump_kind=WallJump capture=wall_jump format=P6_RGB_top_down\n")
+            frame = collect_native_frame(root,output,"synthetic",capture="wall_jump")
+            self.assertEqual(frame["frame_state"]["frame"],6)
+            self.assertEqual(frame["jump_kind"],"WallJump")
+
     def test_private_config_is_prepared_before_it_is_frozen(self):
         directory = ROOT / ".audit/native-room-vita/correction-tests"
         directory.mkdir(parents=True,exist_ok=True)

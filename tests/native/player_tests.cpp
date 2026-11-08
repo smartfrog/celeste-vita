@@ -226,11 +226,13 @@ void wall_retention_cancels() {
     expect(p.state().speed.x < 0.0f && p.state().wall_speed_retention_timer == 0.0f, "Opposing prior speed cancels retention");
 }
 
-void eligible_walljump_rejected() {
+void eligible_walljump_launches() {
     Body wall{{4.0f, -100.0f}, Hitbox{8.0f, 200.0f, {}}, true};
     PlayerWorld w{{{&wall}, {}}, {&wall}};
     Player p(w);
-    invalid([&] { p.frame(1.0f / 60.0f, press()); });
+    p.frame(0.0f, press());
+    expect(p.state().speed.x == -130.0f && p.state().speed.y == -105.0f, "Neutral wall jump launch");
+    expect(p.state().var_jump_timer == 0.2f && p.jump_button().buffer_counter() == 0.0f, "Wall jump consumes buffer");
 }
 
 void airborne_jump_buffers_without_wall() {
@@ -318,7 +320,7 @@ int main() {
         {"duck_jump_keeps_duck_colliders", duck_jump_keeps_duck_colliders}, {"blocked_stand_assist_parameterized", blocked_stand_assist_parameterized},
         {"ceiling_correction_priority_parameterized", ceiling_correction_priority_parameterized}, {"headbump_strict_timer_parameterized", headbump_strict_timer_parameterized},
         {"wall_slide_timer", wall_slide_timer}, {"wall_retention_restores", wall_retention_restores}, {"wall_retention_cancels", wall_retention_cancels},
-        {"eligible_walljump_rejected", eligible_walljump_rejected}, {"airborne_jump_buffers_without_wall", airborne_jump_buffers_without_wall},
+        {"eligible_walljump_launches", eligible_walljump_launches}, {"airborne_jump_buffers_without_wall", airborne_jump_buffers_without_wall},
         {"unsupported_actions_parameterized", unsupported_actions_parameterized}, {"unsupported_profile", unsupported_profile},
         {"unsupported_states_parameterized", unsupported_states_parameterized}, {"nonfinite_inputs_parameterized", nonfinite_inputs_parameterized},
         {"invalid_axes_parameterized", invalid_axes_parameterized}, {"nonfinite_world_validated_before_input", nonfinite_world_validated_before_input},

@@ -103,7 +103,7 @@ namespace Celeste
     {
         public static readonly SaveData Instance = new();
         public readonly Assists Assists = new();
-        public ulong TotalJumps;
+        public ulong TotalJumps, TotalWallJumps;
 #if HAZARD_ORACLE
         public int DeathCalls;
         public void AddDeath(object area) { DeathCalls++; }
@@ -152,10 +152,12 @@ namespace Celeste
         public Func<Player, Vector2, DashCollisionResults> OnDashCollide;
         public Action<Vector2> OnCollide;
         public int GetLandSoundIndex(Player player) => -1;
+        public int GetWallSoundIndex(Player player, int direction) => -1;
+        public Vector2 LiftSpeed { get => Vector2.Zero; set { if (value != Vector2.Zero) throw new NotSupportedException("Platform lift excluded"); } }
     }
     public partial class Actor
     {
-        public Vector2 LiftSpeed => Vector2.Zero;
+        public Vector2 LiftSpeed { get => Vector2.Zero; set { if (value != Vector2.Zero) throw new NotSupportedException("Actor lift excluded"); } }
     }
     public class Holdable
     {
@@ -327,20 +329,20 @@ namespace Celeste
 #else
                 StateMachine.State != 0 ||
                 AutoJump || AutoJumpTimer != 0f || wallBoostTimer != 0f || dashAttackTimer != 0f || gliderBoostTimer != 0f ||
-                dashCooldownTimer != 0f || dashRefillCooldownTimer != 0f || forceMoveXTimer != 0f || lowFrictionStopTimer != 0f ||
+                dashCooldownTimer != 0f || dashRefillCooldownTimer != 0f ||
                 climbHopSolid != null || minHoldTimer != 0f || launched || dreamJump || DashDir != Vector2.Zero || Dead ||
                 holdCannotDuck || windMovedUp || dashStartedOnGround || hopWaitX != 0 || noWindTimer != 0f ||
                 starFlyTimer != 0f || Stamina != 110f || Dashes != 1 || LastBooster != null || dreamBlock != null ||
 #endif
-                wallBoostDir != 0 || forceMoveX != 0 || lastClimbMove != 0)
+                wallBoostDir != 0 || lastClimbMove != 0)
                 throw new NotSupportedException("Unsupported Player profile/invariant");
 #if DASH_ORACLE
             if (a.DashAssist || a.SuperDashing || a.ThreeSixtyDashing || Engine.TimeRate != 1f || Engine.TimeRateB != 1f ||
                 Engine.DashAssistFreeze || OverrideDashDirection.HasValue || CurrentBooster != null || LastBooster != null ||
-                Holding != null || Dead || Dashes < 0 || Dashes > 1 || wallBoostTimer != 0f || forceMoveXTimer != 0f ||
-                climbHopSolid != null || minHoldTimer != 0f || launched || dreamJump || holdCannotDuck || windMovedUp ||
-                hopWaitX != 0 || noWindTimer != 0f || starFlyTimer != 0f || Stamina != 110f || dreamBlock != null ||
-                lowFrictionStopTimer != 0f) throw new NotSupportedException("Unsupported Dash profile/invariant");
+                Holding != null || Dead || Dashes < 0 || Dashes > 1 || wallBoostTimer != 0f ||
+                climbHopSolid != null || minHoldTimer != 0f || dreamJump || holdCannotDuck || windMovedUp ||
+                hopWaitX != 0 || noWindTimer != 0f || starFlyTimer != 0f || Stamina != 110f || dreamBlock != null)
+                throw new NotSupportedException("Unsupported Dash profile/invariant");
 #endif
             foreach (var pair in level.Tracker.Entities)
                 foreach (var entity in pair.Value)
@@ -368,8 +370,9 @@ namespace Celeste
 #endif
         private void ClimbTrigger(int dir) => throw new NotSupportedException("Grab excluded");
         private void ClimbJump() => throw new NotSupportedException("Climb jump excluded");
-        private void WallJump(int dir) => throw new NotSupportedException("Wall jump excluded");
+#if !DASH_ORACLE
         private void SuperWallJump(int dir) => throw new NotSupportedException("Super wall jump excluded");
+#endif
         private void Rebound(int dir = 0) => throw new NotSupportedException("Rebound excluded");
         private void ReflectBounce(Vector2 direction) => throw new NotSupportedException("Bounce excluded");
 #if !DASH_ORACLE

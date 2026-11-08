@@ -1,15 +1,35 @@
 #include "assets.hpp"
 #include "diagnostic.hpp"
 #include <iostream>
+#include <string>
 
 using namespace celeste::diagnostic;
 int main(int argc, char** argv) {
     try {
-        if (argc != 3) throw std::invalid_argument("Expected mask and hazards paths");
+        if (argc != 3 && argc != 4) throw std::invalid_argument("Expected mask and hazards paths, optional --wall-jump");
         const auto mask = read_asset(argv[1],4'000'512), spikes = read_asset(argv[2],8192);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(spikes,checksum(spikes)));
         Session session(room.world);
         Controller controller;
+        if (argc == 4) {
+            if (std::string(argv[3]) != "--wall-jump") throw std::invalid_argument("Unknown replay mode");
+            bool jumped = false;
+            for (unsigned frame = 0; frame < 14; ++frame) {
+                Controls controls;
+                controls.left = true;
+                controls.cross = frame < 4 || frame >= 5;
+                session.step(controller.sample(controls));
+                const auto& player = session.player();
+                const auto& s = player.state();
+                const auto pos = player.actor().body.position;
+                std::cout << frame << " x=" << pos.x << " y=" << pos.y << " vx=" << s.speed.x << " vy=" << s.speed.y
+                          << " move=" << s.move_x << " force=" << s.force_move_x << " force_timer=" << s.force_move_x_timer
+                          << " var_timer=" << s.var_jump_timer << " buffer=" << player.jump_button().buffer_counter() << '\n';
+                jumped = jumped || (s.speed.x == 130.0f && s.speed.y == -105.0f && s.force_move_x == 1 && s.force_move_x_timer == .16f);
+            }
+            if (!jumped) throw std::runtime_error("First-room sequence did not wall jump");
+            return 0;
+        }
         bool dashed = false, freeze_crossed = false, dash_exited = false;
         for (unsigned frame=0; frame<360; ++frame) {
             Controls controls;

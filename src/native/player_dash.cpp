@@ -87,11 +87,19 @@ int Player::dash_update() {
             if (bottom - top <= 6.0f && !dash_correct_check({0.0f, top - bottom}))
                 actor_.move_v_exact(static_cast<std::int32_t>(top - bottom));
         }
-        if (can_unduck(actor_.body.position) && jump_.pressed() && s.jump_grace_timer > 0.0f)
-            throw std::invalid_argument("Eligible SuperJump is outside the Dash profile");
+        if (can_unduck(actor_.body.position) && jump_.pressed() && s.jump_grace_timer > 0.0f) {
+            super_jump();
+            return 0;
+        }
     }
-    if (jump_.pressed() && can_unduck(actor_.body.position) && (wall_jump_check(1) || wall_jump_check(-1)))
-        throw std::invalid_argument("Eligible WallJump/SuperWallJump is outside the Dash profile");
+    if (jump_.pressed() && can_unduck(actor_.body.position)) {
+        for (int dir : {1, -1}) {
+            if (!wall_jump_check(dir)) continue;
+            if (super_wall_jump_angle_check()) super_wall_jump(-dir);
+            else wall_jump(-dir);
+            return 0;
+        }
+    }
     return 2;
 }
 

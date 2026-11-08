@@ -105,6 +105,13 @@ python3 -B scripts/feedback_native_room.py \
   --output .audit/native-room-vita/feedback-unique-run
 ```
 
+For the [jump-family](NATIVE_WALL_JUMPS.md) checkpoint, add `--after-wall-jump`.
+It exports once after an actual input-driven WallJump instead of frame zero,
+logs the launch and following forced-right movement, then manually resets before
+the retained Jump/Dash/death/reset/exit smoke. Startup readiness is independent
+of image completion. `--frame-only` is incompatible with this input-driven mode.
+The receipt records actual frame/state/jump kind; feedback joins the VPK hash.
+
 This stages verified private assets, builds the exact revision/VPK with the
 existing no-splash archive, verifies the current-clean package, installs/runs it
 in isolated Vita3K state, and preserves `feedback.json`. The app exports **one

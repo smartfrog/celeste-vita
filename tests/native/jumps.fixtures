@@ -1,0 +1,138 @@
+# Existing Dash fixture protocol, with explicit independent phase/callback coverage.
+case super_right 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0 1 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .01 0 0 1 0 0 0 0 0 0 0 0 0 0
+case super_left 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0 -1 0 0 0 0 0 0 0 -1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+case hyper_right 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0 1 1 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+case hyper_left 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+tick 0 -1 1 0 0 0 0 0 0 -1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 => dash
+case wall_right_neutral 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .01 1 0 1 0 0 0 0 0 0 0 0 0 0
+case wall_left_neutral 0 -100 0 0 -10000 10000
+solid 1 -14 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+case wall_right_priority 0 -100 0 0 -10000 10000
+solid 1 -14 -1000 8 2000 1
+solid 2 6 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+case wall_forced_crossing 0 -100 0 0 -10000 10000
+solid 1 -14 -1000 8 2000 1
+tick 0 -1 0 1 1 0 0 0 0 0 0 0 0 0
+tick .16 -1 0 1 0 0 0 0 0 0 0 0 0 0
+tick 0 -1 0 1 0 0 0 0 0 0 0 0 0 0
+case dash_horizontal_wall 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 0 0 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 1 0 0 0 0 => dash
+tick 0 1 0 1 1 0 0 0 0 1 0 0 0 0 => dash
+tick .01 1 0 1 0 0 0 0 0 0 0 0 0 0
+case dash_diagonal_wall 0 -100 0 0 -10000 10000
+solid 1 -14 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 -1 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 -1 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 -1 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 -1 -1 0 0 0 => dash
+case bounce_five 0 -100 0 0 -10000 10000
+solid 1 8 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case bounce_left_five 0 -100 0 0 -10000 10000
+solid 1 -16 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case spike_shortens_five 0 -100 0 0 -10000 10000
+solid 1 8 -1000 8 2000 1
+spike 2 10 -110 8 left 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case spike_allows_three 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+spike 2 10 -110 8 left 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case postdash_attack 0 -100 0 0 -10000 10000
+solid 1 8 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .15 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0
+case postdash_expired 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 0 0 0 0 0 0 0 0 0 -1 1 1 0
+tick .05 0 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick .31 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 0 0 1 1 0 0 0 0 0 -1 0 0 0
+case inherited_force 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 1 0 1 1 0 0 0 0 0 0 0 0 0
+tick 0 1 0 0 0 1 0 0 0 0 -1 1 1 0
+tick .05 1 0 0 0 0 0 0 0 0 -1 0 0 1 => freeze
+tick 0 1 0 0 0 0 0 0 0 0 -1 0 0 0 => dash
+tick 0 1 0 1 1 0 0 0 0 0 -1 0 0 0 => dash
+case wall_hold 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .1 0 0 1 0 0 0 0 0 0 0 0 0 0
+case wall_release 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .1 0 0 0 0 1 0 0 0 0 0 0 0 0
+case ceiling_early 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+solid 2 -1000 -113 2000 2 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .04 0 0 1 0 0 0 0 0 0 0 0 0 0 => v:2
+case ceiling_late 0 -100 0 0 -10000 10000
+solid 1 6 -1000 8 2000 1
+solid 2 -1000 -113 2000 2 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .06 0 0 1 0 0 0 0 0 0 0 0 0 0 => v:2
+case bounds_guard 0 -100 0 0 -6 6
+solid 1 4 -1000 8 2000 1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+case blocked_unduck 0 0 0 0 -10000 10000
+solid 1 -1000 0 2000 8 1
+solid 2 -1000 -11 2000 5 1
+tick 0 1 1 0 0 0 0 0 0 1 0 1 1 0
+tick .05 0 0 1 1 0 0 0 0 1 0 0 0 1 => freeze
+tick 0 0 0 1 0 0 0 0 0 1 0 0 0 0 => dash
+case retention_then_jump 0 -100 90 100 -10000 10000
+solid 1 4 -1000 8 2000 1
+tick .016666668 1 0 0 0 0 0 0 0 0 0 0 0 0 => h:1
+tick 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+tick .01 0 0 1 0 0 0 0 0 0 0 0 0 0
+case horizontal_vertical_hazard 0 -100 0 0 -10000 10000
+solid 1 -12 -1000 8 2000 1
+solid 2 8 -1000 8 2000 1
+solid 3 -1000 -113 2000 2 1
+spike 4 0 -100 8 up 1
+tick .1 0 0 1 1 0 0 0 0 0 0 0 0 0 => h:2 v:3 dead

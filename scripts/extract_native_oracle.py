@@ -33,6 +33,7 @@ SOURCE_HASHES = {
     "Monocle.Engine.cs": "ee6c3a4d8f6ff9fb6fcf5e45cc9710b0f038023ee9484ec1837f619ffe385f45",
     "Monocle.MInput.cs": "66607163228c899c9a15591753aae31192b4e761fdc84af4069b52d56f997183",
     "Celeste.Celeste.cs": "9d7da1708373642d89ead7bbdf3f3bc97e52242c11ba08e3fe640c4665351b32",
+    "Monocle.Calc.cs": "53ba72dc68ea5f6fed05e5394dc2fa0e867ea9317cb1f3271bd0c9c6fec38669",
 }
 
 
@@ -57,6 +58,8 @@ def main():
 
     def extract(filename, ranges):
         source_path = args.source / "cs" / filename
+        if filename == "Monocle.Calc.cs":
+            source_path = ROOT / ".audit/native-wall-jumps/closure" / filename
         if filename in {"Monocle.Engine.cs", "Monocle.MInput.cs", "Celeste.Celeste.cs"}:
             source_path = ROOT / ".audit/native-dash/closure" / filename
         if filename in {"Celeste.LevelLoader.cs", "Celeste.MapData.cs"}:
@@ -123,14 +126,16 @@ def main():
                                                      *([(2824, 2832)] if not hazard_domain else []),
                                                      (2910, 2929), (3135, 3473), (3531, 3550),
                                                      (3557, 3843), (4179, 4189)])
+            content += extract("Celeste.Player.cs", [(2548, 2605)])
             if args.domain == "dash":
                 content += extract("Celeste.Player.cs", [(1090, 1090), (4191, 4567), (4569, 4576)])
+                content += extract("Celeste.Player.cs", [(2480, 2519), (2607, 2642)])
             if hazard_domain:
                 content += extract("Celeste.Player.cs", [(2855, 2908), (2997, 3005)])
                 content += "\npublic int RefillCalls; public bool RefillDash() { RefillCalls++;\n"
                 content += extract("Celeste.Player.cs", [(2826, 2831)]) + "\n}\n"
             content += "\npublic void SourceGround() {\n"
-            content += extract("Celeste.Player.cs", [(1431, 1431), (1437, 1437), *([(1457, 1460)] if args.domain == "dash" else []), (1499, 1541)]) + "\n}\n"
+            content += extract("Celeste.Player.cs", [(1431, 1431), (1437, 1437), *([(1457, 1460)] if args.domain == "dash" else []), (1461, 1464), (1499, 1541)]) + "\n}\n"
             content += "public void SourcePreamble() {\n"
             content += extract("Celeste.Player.cs", [(1542, 1550), (1555, 1682)]) + "\n}\n"
             for method, ranges in [("SourceBoost", [(1787, 1790)]), ("SourceUnduck", [(1795, 1798)]),
@@ -163,6 +168,7 @@ def main():
         content = "using Microsoft.Xna.Framework.Input;\nnamespace Monocle {\n"
         content += extract("Monocle.VirtualButton.cs", [(5, 163)]) + "\n}\n"
     if args.domain == "dash":
+        content += "namespace Monocle { public static partial class Calc {\n" + extract("Monocle.Calc.cs", [(854, 857)]) + "\n} }\n"
         content += "namespace Celeste { public static partial class Input {\n"
         content += extract("Celeste.Input.cs", [(103, 135), (331, 373)]) + "\n}\npublic static class Celeste {\n"
         content += extract("Celeste.Celeste.cs", [(152, 162)]) + "\n} }\n"
@@ -200,11 +206,11 @@ def main():
     elif player_domain:
         manifest["stub_boundaries"] = [
             "Linked accepted Actor/Hitbox, scheduling and sampled-button shims; explicit scalar Vector2/MathHelper/Calc operations",
-            "Unchanged full NormalUpdate, Jump, collisions, guards/properties and source frame blocks; synthetic driver calls preamble, scheduler, postamble, validated-empty hazards",
+            "Unchanged full NormalUpdate, Jump/WallJump, collisions, guards/properties and source frame blocks; synthetic driver calls preamble, scheduler, postamble, validated-empty hazards",
             "Default inventory, ordinary gravity/core, zero LiftSpeed; no other-state entry or arbitrary timer snapshots",
             "Static ordered Solid/JumpThru only, explicit Safe; no platform gameplay callbacks, movers, blockers, water, hazards, triggers, carry or assists",
             "Unsupported shells throw; validated-absent collections empty; presentation shells inert",
-            "Bounds enforcement disabled, bounds retained for ClimbBoundsCheck; stats/replay services excluded, source TotalJumps increments an isolated counter",
+            "Bounds enforcement disabled, bounds retained for ClimbBoundsCheck; stats/replay services excluded, source TotalJumps/TotalWallJumps increment isolated counters",
         ]
         if hazard_domain:
             manifest["stub_boundaries"] = [
@@ -233,7 +239,7 @@ def main():
             "Canonical rates 1, no dash assist/super dashing; absent water, DreamBlock, SwapBlock, Holdable, booster, listeners, cassette manager and other states validated by driver",
             "Scalar Vector2/Calc/geometry shells and existing Actor/Grid/scheduling/button machinery; static Hitbox/Grid/Up/Left spikes only",
             "Presentation-only trails, rumble, displacement, shake, slash and interval particles inert; isolated dash/death counters, no persistence/cosmetics/full runtime",
-            "Unsupported SuperJump/WallJump/SuperWallJump throw at selected source call sites; no rewritten C# Dash algorithm",
+            "Unchanged SuperJump/WallJump/SuperWallJump and Calc.AngleToVector; zero-only Actor/Platform LiftSpeed assignment, wall sound presentation shell, isolated TotalWallJumps counter",
         ]
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     maintained = ROOT / "tests/native/oracle"

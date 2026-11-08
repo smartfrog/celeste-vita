@@ -56,7 +56,9 @@ internal static class Runner
             Bits(Private<float>(p,"wallSpeedRetentionTimer")), Bits(Private<float>(p,"wallSpeedRetained")), Flag(p.Dead), d.Hit == null ? -1 : ids[d.Hit],
             Bits(d.Direction.X), Bits(d.Direction.Y), Bits(d.Moved.X), Bits(d.Moved.Y), Bits(d.TargetPosition.X), Bits(d.TargetPosition.Y),
             Flag(co.Active), Bits(Private<float>(co,"waitTimer")), Flag(Private<bool>(co,"ended")), Private<Stack<System.Collections.IEnumerator>>(co,"enumerators").Count,
-            Flag(p.RefillCalls > 0), Identities(world.Tracker.Checks), Identities(world.Tracker.Overlaps)));
+            Flag(p.RefillCalls > 0), Identities(world.Tracker.Checks), Identities(world.Tracker.Overlaps),
+            Private<int>(p,"forceMoveX"), Bits(Private<float>(p,"forceMoveXTimer")), Bits(Private<float>(p,"lowFrictionStopTimer")),
+            Flag(Private<bool>(p,"launched")), Bits(Private<Vector2>(p,"gliderBoostDir").X), Bits(Private<Vector2>(p,"gliderBoostDir").Y), Bits(p.Stamina)));
 #elif HAZARD_ORACLE
         string collider = ReferenceEquals(p.Collider, Private<Hitbox>(p, "normalHitbox")) ? "normal" : ReferenceEquals(p.Collider, Private<Hitbox>(p, "duckHitbox")) ? "duck" : "hurt";
         if (world.Session.Deaths != Flag(p.Dead) || world.Session.DeathsInCurrentLevel != Flag(p.Dead) || SaveData.Instance.DeathCalls != Flag(p.Dead))

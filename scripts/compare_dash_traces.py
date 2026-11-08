@@ -9,9 +9,11 @@ from fixture_protocol import float_bits, integer, IDENTIFIER
 from compare_grid_traces import grid_fields
 
 
-FIELDS = tuple("case frame phase raw delta freeze clock_frame x y remainder_x remainder_y previous_x previous_y speed_x speed_y facing move_x ground was_ground safe duck dashes state previous_state changed jump_buffer jump_pressed jump_held dash_buffer dash_pressed dash_held started dash_ground called events before_x before_y dir_x dir_y aim_x aim_y attack cooldown refill glider trail trail_count auto auto_timer grace var_timer var_speed max_fall retention retained dead hit direction_x direction_y moved_x moved_y target_x target_y coroutine_active wait ended stack refill_called checked overlaps".split())
+FIELDS = tuple("case frame phase raw delta freeze clock_frame x y remainder_x remainder_y previous_x previous_y speed_x speed_y facing move_x ground was_ground safe duck dashes state previous_state changed jump_buffer jump_pressed jump_held dash_buffer dash_pressed dash_held started dash_ground called events before_x before_y dir_x dir_y aim_x aim_y attack cooldown refill glider trail trail_count auto auto_timer grace var_timer var_speed max_fall retention retained dead hit direction_x direction_y moved_x moved_y target_x target_y coroutine_active wait ended stack refill_called checked overlaps force_x force_timer low_friction launched glider_x glider_y stamina".split())
 FLOATS = set("raw delta freeze x y remainder_x remainder_y previous_x previous_y speed_x speed_y jump_buffer dash_buffer before_x before_y dir_x dir_y aim_x aim_y attack cooldown refill glider trail auto_timer grace var_timer var_speed max_fall retention retained direction_x direction_y moved_x moved_y target_x target_y wait".split())
+FLOATS.update(("force_timer", "low_friction", "glider_x", "glider_y", "stamina"))
 BOOLS = set("ground was_ground safe duck changed jump_pressed jump_held dash_pressed dash_held started dash_ground called auto dead coroutine_active ended refill_called".split())
+BOOLS.add("launched")
 DEFAULT_FIXTURES = Path(__file__).resolve().parents[1] / "tests/native/dash.fixtures"
 
 
@@ -118,10 +120,14 @@ def validate_trace(rows, expected, name):
                 integer(value, 0, 1)
         if f[FIELDS.index("state")] not in {"0", "2"} or f[FIELDS.index("dashes")] not in {"0", "1"}:
             raise ValueError(f"{name} Row {number}: Unsupported state/inventory")
+        integer(f[FIELDS.index("force_x")], -1, 1)
 
 
-def compare(reference, native, fixtures=DEFAULT_FIXTURES):
+def compare(reference, native, fixtures=DEFAULT_FIXTURES, coverage=None):
     expected = fixture_operations(fixtures)
     validate_trace(reference, expected, "reference")
     validate_trace(native, expected, "native")
+    if coverage is not None:
+        coverage(reference, "reference")
+        coverage(native, "native")
     return compare_rows(reference, native, FIELDS)

@@ -15,6 +15,12 @@ from smoke_native_room import X11, main, KEYBOARD_MAPPING
 
 class SmokeCleanupTests(unittest.TestCase):
     def test_guest_phase_timeout_releases_owned_key_before_runtime_termination(self):
+        self.check_timeout_cleanup(False)
+
+    def test_post_jump_startup_allows_input_before_image_and_preserves_cleanup(self):
+        self.check_timeout_cleanup(True)
+
+    def check_timeout_cleanup(self, after_wall_jump):
         directory = ROOT / ".audit/native-room-vita/wrapper-correction-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -67,17 +73,24 @@ class SmokeCleanupTests(unittest.TestCase):
                 if str(path)=="/proc/424242/cmdline": return str(config.parent).encode()
                 return original_read(path)
             libc = SimpleNamespace(inotify_init1=Mock(return_value=55),inotify_add_watch=Mock(return_value=1))
-            with patch("sys.argv",["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]), \
+            arguments = ["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]
+            if after_wall_jump:
+                arguments.append("--after-wall-jump")
+            with patch("sys.argv",arguments), \
                  patch("smoke_native_room.prepare",return_value=(fs,config)), patch("smoke_native_room.X11",return_value=x), \
                  patch("smoke_native_room.C.CDLL",return_value=libc), patch("smoke_native_room.subprocess.Popen",side_effect=start), \
                  patch("smoke_native_room.os.pidfd_open",side_effect=[201,202]), patch("smoke_native_room.os.close"), \
                  patch("smoke_native_room.os.read",side_effect=notify_read), patch.object(Path,"read_bytes",read_bytes), \
-                 patch("smoke_native_room.collect_native_frame",return_value={"artifacts":{},"black_letterbox_rows":True,"nonzero_rgb_bytes":1}), \
+                 patch("smoke_native_room.collect_native_frame",return_value=None if after_wall_jump else {"artifacts":{},"black_letterbox_rows":True,"nonzero_rgb_bytes":1}), \
                  patch("smoke_native_room.select.select",side_effect=[([55],[],[]),TimeoutError("synthetic guest phase timeout")]):
                 with self.assertRaisesRegex(TimeoutError,"synthetic guest phase timeout"):
                     main()
-            self.assertEqual([item for item in order if item[0]=="inject"],[("inject",53,True),("inject",53,False)])
-            self.assertLess(order.index(("inject",53,False)),order.index(("display-close",)))
+            code = 113 if after_wall_jump else 53
+            self.assertEqual([item for item in order if item[0]=="inject"],[("inject",code,True),("inject",code,False)])
+            self.assertLess(order.index(("inject",code,False)),order.index(("display-close",)))
             self.assertLess(order.index(("display-close",)),order.index(("terminate","runtime")))
             self.assertEqual(x.keys,set())
             self.assertEqual(held,set())
+            feedback = json.loads((output / "feedback.json").read_text())
+            self.assertTrue(feedback["stages"]["startup"])
+            self.assertEqual(feedback["stages"]["native_image"],not after_wall_jump)

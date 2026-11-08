@@ -157,29 +157,11 @@ bool Player::climb_bounds_check(int dir) const {
 void Player::normal_begin() { state_.max_fall = 160.0f; }
 void Player::normal_end() { state_.wall_speed_retention_timer = 0.0f; }
 
-void Player::jump() {
-    jump_.consume_buffer();
-    state_.jump_grace_timer = 0.0f;
-    state_.var_jump_timer = 0.2f;
-    state_.auto_jump = false;
-    state_.dash_attack_timer = 0.0f;
-    state_.glider_boost_timer = 0.0f;
-    state_.wall_slide_timer = 1.2f;
-    state_.speed.x += 40.0f * static_cast<float>(state_.move_x);
-    state_.speed.y = -105.0f;
-    // Preserve zero LiftBoost addition (including signed-zero behavior) and its launched reset.
-    state_.speed.x += 0.0f;
-    state_.speed.y += 0.0f;
-    state_.var_jump_speed = state_.speed.y;
-    state_.launched = false;
-}
-
 int Player::normal_update() {
     auto& s = state_;
     auto& pos = actor_.body.position;
     if (dash_.pressed() && s.dash_cooldown_timer <= 0.0f && s.dashes > 0) {
-        s.speed.x += 0.0f;
-        s.speed.y += 0.0f;
+        add_static_lift_boost();
         s.dashes = std::max(0, s.dashes - 1);
         dash_.consume_buffer();
         return 2;
@@ -231,8 +213,11 @@ int Player::normal_update() {
         if (s.jump_grace_timer > 0.0f) jump();
         else if (can_unduck(pos)) {
             for (int dir : {1, -1}) {
-                if (wall_jump_check(dir))
-                    throw std::invalid_argument("Eligible WallJump is outside the Normal ground/coyote profile");
+                if (wall_jump_check(dir)) {
+                    if (dash_attacking() && super_wall_jump_angle_check()) super_wall_jump(-dir);
+                    else wall_jump(-dir);
+                    break;
+                }
             }
         }
     }
@@ -369,6 +354,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
         }
         s.previous_position = pos;
         if (s.glider_boost_timer > 0.0f) s.glider_boost_timer -= delta_;
+        if (s.low_friction_stop_timer > 0.0f) s.low_friction_stop_timer -= delta_;
         Body* ground = nullptr;
         if (s.speed.y >= 0.0f) {
             ground = world_.collision.first_solid(actor_.body, {pos.x, pos.y + 1.0f});
@@ -400,7 +386,10 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer)
             }
         }
         if (s.var_jump_timer > 0.0f) s.var_jump_timer -= delta_;
-        s.move_x = input.x;
+        if (s.force_move_x_timer > 0.0f) {
+            s.force_move_x_timer -= delta_;
+            s.move_x = s.force_move_x;
+        } else s.move_x = input.x;
         if (s.move_x != 0) s.facing = s.move_x;
         if (input.aim_x == 0 && input.aim_y == 0) s.last_aim = {1.0f * static_cast<float>(s.facing), 0.0f * static_cast<float>(s.facing)};
         else {

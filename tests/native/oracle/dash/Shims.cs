@@ -137,7 +137,6 @@ namespace Celeste
         public Vector2? OverrideDashDirection;
         public Booster CurrentBooster;
         public static ParticleType P_DashA, P_DashB, P_DashBadB;
-        private void SuperJump() => throw new NotSupportedException("Super jump excluded");
         private void CreateTrail() { }
         public void Sampled() => Observe?.Invoke("input", null);
         public void Frozen() => Observe?.Invoke("freeze", null);

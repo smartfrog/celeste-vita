@@ -163,7 +163,9 @@ private:
             << '\t' << s.auto_jump << '\t' << bits(s.auto_jump_timer) << '\t' << bits(s.jump_grace_timer) << '\t' << bits(s.var_jump_timer) << '\t' << bits(s.var_jump_speed) << '\t' << bits(s.max_fall)
             << '\t' << bits(s.wall_speed_retention_timer) << '\t' << bits(s.wall_speed_retained) << '\t' << p.death().dead << '\t' << (d.hit ? ids_.at(d.hit) : -1)
             << '\t' << bits(d.direction.x) << '\t' << bits(d.direction.y) << '\t' << bits(d.moved.x) << '\t' << bits(d.moved.y) << '\t' << bits(d.target_position.x) << '\t' << bits(d.target_position.y)
-            << '\t' << co.active << '\t' << bits(co.wait_timer()) << '\t' << co.ended() << '\t' << co.stack_depth() << '\t' << h.refill_called << '\t' << identities(h.checked) << '\t' << identities(h.overlaps) << '\n';
+            << '\t' << co.active << '\t' << bits(co.wait_timer()) << '\t' << co.ended() << '\t' << co.stack_depth() << '\t' << h.refill_called << '\t' << identities(h.checked) << '\t' << identities(h.overlaps)
+            << '\t' << s.force_move_x << '\t' << bits(s.force_move_x_timer) << '\t' << bits(s.low_friction_stop_timer) << '\t' << s.launched
+            << '\t' << bits(s.glider_boost_dir.x) << '\t' << bits(s.glider_boost_dir.y) << '\t' << bits(s.stamina) << '\n';
 #elif defined(HAZARD_TRACE)
         (void)phase;
         (void)data;

@@ -56,8 +56,9 @@ oracle executes its unchanged real guard/body with an explicitly validated-empty
 DreamBlock collection. Native `StaticWorld` cannot represent DreamBlocks, water,
 SwapBlocks, movers, holding, booster/listener hooks or other gameplay services;
 these absent branches are reduced by representation, not by disabling inventory.
-Only selected eligible SuperJump/WallJump/SuperWallJump calls reject. An ordinary
-buffered Jump without that eligibility is retained, including across freeze/exit.
+The [jump-family extension](NATIVE_WALL_JUMPS.md) supports selected eligible
+SuperJump/WallJump/SuperWallJump calls. An ordinary buffered Jump without that
+eligibility is retained, including across freeze/exit. Climb remains excluded.
 
 ## Source oracle and verification
 
@@ -98,8 +99,12 @@ paths preserve prior oracle evidence. Compile-only proves closure, not behavior.
 Differential traces expose phases, raw/scaled/freeze clocks, both buffers,
 state/coroutine scheduling, timers, motion, inventory, collisions and hazards;
 comparison is exact float32 bits, not epsilon. Fixture-declared phase/callback
-coverage is checked independently before equality. Old six-domain fixtures and
-actual room/mask tests remain separate and unchanged.
+coverage is checked independently before equality. Other-domain and actual
+room/mask tests remain separate; only the eligible Normal WallJump rejection
+changes to a supported outcome.
+The extended Dash trace adds force/low-friction timers, launched state, glider
+direction and stamina (77 fields); the original selected-jump rejections now
+assert supported outcomes, while Grab still rejects before mutation.
 
 See [diagnostic feedback](NATIVE_VITA_DIAGNOSTIC.md) for Square Dash, safe isolated
 input, the single direct native-frame export, provenance and guest logs. Parent

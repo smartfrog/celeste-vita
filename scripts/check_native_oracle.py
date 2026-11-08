@@ -51,12 +51,15 @@ def main():
     parser.add_argument("--native", type=Path, help="Host native_trace_runner executable")
     parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
+    parser.add_argument("--jump-family", action="store_true", help="Require nine-family behavioral coverage using the Dash source closure")
     parser.add_argument("--output", type=Path, help="Fresh private extraction/build/evidence directory; never overwrite existing evidence")
     args = parser.parse_args()
+    if args.jump_family and args.domain != "dash":
+        parser.error("--jump-family requires --domain dash")
     if not args.compile_only and args.native is None:
         parser.error("--native is required unless --compile-only is selected")
     if args.fixtures is None:
-        args.fixtures = ROOT / f"tests/native/{args.domain}.fixtures"
+        args.fixtures = ROOT / f"tests/native/{'jumps' if args.jump_family else args.domain}.fixtures"
     private = PRIVATE if args.domain == "movement" else PRIVATE / args.domain
     if args.output is not None:
         private = args.output.resolve()
@@ -80,7 +83,10 @@ def main():
         from compare_hazard_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     elif args.domain == "dash":
-        from compare_dash_traces import compare as compare_domain, FIELDS
+        if args.jump_family:
+            from compare_jump_traces import compare as compare_domain, FIELDS
+        else:
+            from compare_dash_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
@@ -128,6 +134,7 @@ def main():
     native = (evidence / "native.tsv").read_text().splitlines()
     rows = compare_domain(reference, native, fixtures=args.fixtures)
     report = {"rows": rows, "scenarios": len({line.split('\t')[0] for line in reference}),
+               "family": "jumps" if args.jump_family else args.domain,
               "fields_per_row": field_count, "comparison": "exact text and float32 bits; no epsilon",
               "fixture_sha256": hashlib.sha256(args.fixtures.read_bytes()).hexdigest(),
               "source_manifest": "../source-manifest.json", "commands": commands,

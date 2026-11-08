@@ -8,6 +8,7 @@
 namespace celeste {
 
 enum class PlayerProfile { default_static };
+enum class JumpKind { none, jump, super_jump, wall_jump, super_wall_jump };
 
 struct PlayerWorld {
     StaticWorld collision;
@@ -33,6 +34,8 @@ struct PlayerState {
     Vec2 previous_position{};
     int facing = 1;
     int move_x = 0;
+    int force_move_x = 0;
+    float force_move_x_timer = 0.0f, low_friction_stop_timer = 0.0f;
     bool on_ground = false;
     bool was_on_ground = false;
     bool on_safe_ground = false;
@@ -76,6 +79,8 @@ public:
     Hitbox hurtbox() const;
     const PlayerDeath& death() const { return death_; }
     const HazardFrame& hazard_frame() const { return hazard_frame_; }
+    JumpKind jump_kind() const { return jump_kind_; }
+    unsigned jump_count() const { return jump_count_; }
     bool die(Vec2 direction);
     void request_state(int state);
     void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {});
@@ -94,6 +99,8 @@ private:
     bool updating_ = false;
     PlayerDeath death_;
     HazardFrame hazard_frame_;
+    JumpKind jump_kind_ = JumpKind::none;
+    unsigned jump_count_ = 0;
 
     void validate_world() const;
     void emit(const char* phase, const CollisionData* collision = nullptr) const;
@@ -104,6 +111,12 @@ private:
     void normal_end();
     int normal_update();
     void jump();
+    void begin_jump(JumpKind kind, float var_time);
+    void add_static_lift_boost();
+    void super_jump();
+    void wall_jump(int dir);
+    void super_wall_jump(int dir);
+    bool super_wall_jump_angle_check() const;
     void dash_begin();
     void dash_end();
     int dash_update();

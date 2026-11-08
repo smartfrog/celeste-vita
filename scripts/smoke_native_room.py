@@ -17,7 +17,7 @@ from vita_room_emulator import TITLE, prepare, launch_command
 from native_room_feedback import collect_native_frame, new_feedback, save_feedback
 from native_room_revision import REPO_ROOT
 
-KEYBOARD_MAPPING = {"up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter"}
+KEYBOARD_MAPPING = {"left":"ArrowLeft", "up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter"}
 
 
 def verify_keyboard_mapping(text):
@@ -27,7 +27,7 @@ def verify_keyboard_mapping(text):
             raise ValueError("Isolated keyboard mapping differs for "+button)
 
 
-def verify_guest(text, revision):
+def verify_guest(text, revision, initial_resets=0):
     markers = [f"DIAGNOSTIC boot revision={revision} fixed_step=1/60", "assets ready", "frame ready",
                "cross_held=1 cross_pressed=1", "cross_held=0 cross_pressed=0", "square_held=1 square_pressed=1",
                "from=0 to=2 freeze=0.050000001 dashes=0", "from=1 to=0 state=2",
@@ -38,14 +38,23 @@ def verify_guest(text, revision):
         offset = text.index(marker,offset)+len(marker)
     if "FATAL" in text or " x=1 y=0 " not in text:
         raise ValueError("Completed guest log lacks right input or reports an error")
-    jump = re.search(r"frame frame=\d+ x=19 y=(\d+) vx=0\.000 vy=(-[\d.]+) ground=\d dead=0 resets=0",text)
-    death = re.search(r"death frame=\d+ x=(\d+) y=\d+ .* dead=1 resets=0",text)
+    jump = re.search(r"frame frame=\d+ x=19 y=(\d+) vx=0\.000 vy=(-[\d.]+) ground=\d dead=0 resets="+str(initial_resets),text)
+    death = re.search(r"death frame=\d+ x=(\d+) y=\d+ .* dead=1 resets="+str(initial_resets),text)
     if not jump or int(jump[1]) >= 144 or not death or int(death[1]) <= 19:
         raise ValueError("Completed log does not prove jump/right movement/actual death")
     for marker in ("manual reset", "clean exit"):
-        if not re.search(marker+r" frame=\d+ x=19 y=144 .* dead=0 resets=1",text):
+        if not re.search(marker+r" frame=\d+ x=19 y=144 .* dead=0 resets="+str(initial_resets+1),text):
             raise ValueError("Completed guest reset/exit state is not fresh")
     return markers
+
+
+def verify_wall_jump_guest(text):
+    jump = re.search(r"jump frame=(\d+) x=([\d.]+) y=([\d.]+) vx=130\.000 vy=-105\.000 ground=0 dead=0 resets=0 .* "
+                     r"move_x=-1 force_x=1 force_timer=0\.159999996 var_timer=0\.200000003 jump_buffer=0\.000000000 jump_kind=WallJump",text)
+    forced = re.search(r"wall forced frame=(\d+) x=([\d.]+) .* move_x=1 force_x=1 .* jump_kind=WallJump",text)
+    if not jump or not forced or int(forced[1]) <= int(jump[1]) or float(forced[2]) <= float(jump[2]):
+        raise ValueError("Completed log lacks actual WallJump launch/buffer/timers and forced-right movement")
+    return {"jump_frame":int(jump[1]),"forced_frame":int(forced[1]),"x":float(jump[2]),"y":float(jump[3])}
 
 
 class XError(C.Structure):
@@ -249,7 +258,10 @@ def main():
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
     parser.add_argument("--feedback",type=Path)
     parser.add_argument("--frame-only",action="store_true")
+    parser.add_argument("--after-wall-jump",action="store_true")
     args = parser.parse_args()
+    if args.frame_only and args.after_wall_jump:
+        parser.error("Post-WallJump capture requires input")
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
         parser.error("Evidence must remain beneath .audit/native-room-vita")
@@ -290,8 +302,9 @@ def main():
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
-            frame = collect_native_frame(fs,output,revision)
+            frame = collect_native_frame(fs,output,revision,capture="wall_jump" if args.after_wall_jump else "spawn")
             if frame:
+                frame["vpk_sha256"] = feedback["vpk"]["sha256"]
                 feedback.update({"frame":frame,"artifacts":frame["artifacts"]})
                 feedback["stages"].update({"native_image":True,"image_openable":True})
                 save_feedback(feedback_path,feedback)
@@ -384,7 +397,7 @@ def main():
             wid = window["id"]
             wait(lambda: last_ready.startswith("ready "))
             observe_native_frame()
-            if not feedback["stages"]["native_image"]:
+            if not args.after_wall_jump and not feedback["stages"]["native_image"]:
                 raise RuntimeError("Guest startup ready without its required closed native frame export")
             feedback["stages"]["startup"] = True
             save_feedback(feedback_path,feedback)
@@ -396,11 +409,26 @@ def main():
             x.activate(wid)
             wait(lambda: x.focused(wid),10)
 
-            def change(code,pressed,expected="sampled"):
-                before = last_ready
+            def inject(code,pressed):
                 x.key(wid,code,pressed)
                 events.append({"injected_keycode":code,"pressed":pressed,"focus_and_server_key_state_verified":True})
+
+            def change(code,pressed,expected="sampled"):
+                before = last_ready
+                inject(code,pressed)
                 wait(lambda: last_ready != before and last_ready.startswith(expected+" "),30)
+
+            if args.after_wall_jump:
+                change(113,True)
+                inject(53,True)
+                wait(lambda: last_ready.startswith("wall_near "),30)
+                change(53,False)
+                inject(53,True)
+                wait(lambda: last_ready.startswith("wall_forced ") and feedback["stages"]["native_image"],30)
+                change(53,False)
+                change(113,False)
+                change(55,True,"reset")
+                change(55,False)
 
             change(53,True)
             delay(0.25)
@@ -420,15 +448,16 @@ def main():
             try:
                 status = process.wait(timeout=30)
             except subprocess.TimeoutExpired:
-                process.terminate()
-                status = process.wait(timeout=15)
-                events.append({"stopped_owned_host_after_guest_exit":True})
+                status = None
+                events.append({"owned_host_pending_after_guest_exit":True})
             events.append({"host_exit_code":status})
         guest = fs / "ux0/data/celeste_native_room.log"
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
         text = data.decode()
-        markers = verify_guest(text,revision)
+        markers = verify_guest(text,revision,initial_resets=1 if args.after_wall_jump else 0)
+        if args.after_wall_jump:
+            feedback["wall_jump"] = verify_wall_jump_guest(text)
         feedback["stages"].update({"input":True,"clean_exit":True,"full_completion":True})
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
@@ -439,23 +468,35 @@ def main():
     finally:
         try:
             x.close()
+        except Exception as error:
+            feedback["errors"].append({"stage":"owned_input_cleanup","type":type(error).__name__,"message":str(error)})
+            feedback["stages"]["full_completion"] = False
+            raise
         finally:
             os.close(notify)
             if process_fd is not None:
                 os.close(process_fd)
-            if process is not None and process.returncode is None:
-                process.terminate()
-                process.wait(timeout=15)
-                events.append({"stopped_owned_host_after_frame_checkpoint" if frame_only_complete else "stopped_owned_host_on_failure":True})
-            guest = fs / "ux0/data/celeste_native_room.log"
-            if guest.is_file():
-                (output / "guest.log").write_bytes(guest.read_bytes())
-            (output / "x11-input.json").write_text(json.dumps(x.trace,indent=2)+"\n")
-            (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
-            feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
-                                            "host":str(output / "host.log"),"guest":str(output / "guest.log")}
-            feedback["emulator_config"]["sha256_after"] = hashlib.sha256(config.read_bytes()).hexdigest()
-            save_feedback(feedback_path,feedback)
+            try:
+                if process is not None and process.returncode is None:
+                    process.terminate()
+                    process.wait(timeout=15)
+                    events.append({"stopped_owned_host_after_frame_checkpoint" if frame_only_complete else
+                                   "stopped_owned_host_after_guest_exit" if feedback["stages"]["clean_exit"] else "stopped_owned_host_on_failure":True,
+                                   "host_exit_code":process.returncode})
+            except Exception as error:
+                feedback["errors"].append({"stage":"owned_process_cleanup","type":type(error).__name__,"message":str(error)})
+                feedback["stages"]["full_completion"] = False
+                raise
+            finally:
+                guest = fs / "ux0/data/celeste_native_room.log"
+                if guest.is_file():
+                    (output / "guest.log").write_bytes(guest.read_bytes())
+                (output / "x11-input.json").write_text(json.dumps(x.trace,indent=2)+"\n")
+                (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
+                feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
+                                                "host":str(output / "host.log"),"guest":str(output / "guest.log")}
+                feedback["emulator_config"]["sha256_after"] = hashlib.sha256(config.read_bytes()).hexdigest()
+                save_feedback(feedback_path,feedback)
 
 
 if __name__ == "__main__":

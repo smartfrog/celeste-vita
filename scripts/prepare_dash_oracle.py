@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare only the missing private clock/Freeze sources with the existing offline ILSpy."""
+"""Prepare missing private Dash/jump helper sources with the existing offline ILSpy."""
 
 import hashlib
 import json
@@ -21,11 +21,13 @@ def main():
         raise ValueError("Unexpected private reference executable")
     output.mkdir(parents=True, exist_ok=True)
     rows = []
-    for name in ("Monocle.Engine", "Monocle.MInput", "Celeste.Celeste"):
-        destination = output / (name + ".cs")
+    for name in ("Monocle.Engine", "Monocle.MInput", "Celeste.Celeste", "Monocle.Calc"):
+        directory = ROOT / ".audit/native-wall-jumps/closure" if name == "Monocle.Calc" else output
+        directory.mkdir(parents=True, exist_ok=True)
+        destination = directory / (name + ".cs")
         if not destination.exists():
             command = [str(sdk), str(tool), "--disable-updatecheck", "-r", str(source / "inputs"), "-t", name, str(executable)]
-            with destination.open("xb") as stdout, (output / (name + ".stderr")).open("xb") as stderr:
+            with destination.open("xb") as stdout, (directory / (name + ".stderr")).open("xb") as stderr:
                 subprocess.run(command, env=oracle_environment(sdk), stdout=stdout, stderr=stderr, check=True, timeout=180)
             rows.append({"type": name, "command": command})
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()

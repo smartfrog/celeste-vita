@@ -3,6 +3,16 @@
 #include <stdexcept>
 
 namespace celeste::diagnostic {
+const char* jump_kind_name(JumpKind kind) {
+    switch (kind) {
+    case JumpKind::none: return "None";
+    case JumpKind::jump: return "Jump";
+    case JumpKind::super_jump: return "SuperJump";
+    case JumpKind::wall_jump: return "WallJump";
+    case JumpKind::super_wall_jump: return "SuperWallJump";
+    }
+    throw std::invalid_argument("Unknown jump kind");
+}
 Sample Controller::sample(Controls controls) {
     Sample result;
     result.player.x = int(controls.right) - int(controls.left);

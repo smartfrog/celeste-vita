@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 from pathlib import Path
 from convert_native_frame import ppm_to_png
 from native_room_revision import REPO_ROOT
@@ -26,7 +27,9 @@ def new_feedback(revision, vpk):
             "method":"OUR guest glReadPixels GL_BACK once; lossless P6-to-PNG conversion; no OS screen capture"}
 
 
-def collect_native_frame(filesystem, output, revision):
+def collect_native_frame(filesystem, output, revision, capture="spawn"):
+    if capture not in {"spawn", "wall_jump"}:
+        raise ValueError("Unsupported explicit native capture policy")
     guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
     source = filesystem / "ux0/data" / guest_path.split(":data/",1)[1]
     receipt_path = Path(str(source)+".txt")
@@ -39,9 +42,21 @@ def collect_native_frame(filesystem, output, revision):
         raise ValueError("Native export has no complete frame_saved receipt")
     metadata = dict(field.split("=",1) for field in receipt.split()[1:])
     expected = {"path":guest_path,"revision":revision,"width":"960","height":"544","stage":RENDER_STAGE,
-                "frame":"0","format":"P6_RGB_top_down"}
+                "format":"P6_RGB_top_down"}
+    if capture == "spawn":
+        expected["frame"] = "0"
+    else:
+        expected.update(capture="wall_jump", jump_kind="WallJump", state="0", dead="0", resets="0")
+        frame = metadata.get("frame", "")
+        if not frame.isascii() or not frame.isdecimal() or str(int(frame)) != frame or int(frame) <= 0:
+            raise ValueError("Post-WallJump export must record an actual positive frame")
     if any(metadata.get(key) != value for key,value in expected.items()):
         raise ValueError("Native export receipt does not match revision/path/stage/dimensions")
+    frame_state = {key:float(metadata[key]) for key in ("frame","x","y","vx","vy","ground","dead","resets")}
+    if not all(math.isfinite(value) for value in frame_state.values()):
+        raise ValueError("Nonfinite native frame state")
+    if "state" in metadata:
+        frame_state["state"] = int(metadata["state"])
     ppm = source.read_bytes()
     if not ppm.startswith(b"P6\n960 544\n255\n"):
         raise ValueError("Native export dimensions are not the full framebuffer")
@@ -57,5 +72,5 @@ def collect_native_frame(filesystem, output, revision):
     black_bars = pixels[:960*2*3] == bytes(960*2*3) and pixels[-960*2*3:] == bytes(960*2*3)
     return {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,
             "render_stage":RENDER_STAGE,"dimensions":[960,544],
-            "frame_state":{key:float(metadata[key]) for key in ("frame","x","y","vx","vy","ground","dead","resets")},
+            "frame_state":frame_state,"jump_kind":metadata.get("jump_kind","None"),"capture":capture,
             "black_letterbox_rows":black_bars,"nonzero_rgb_bytes":sum(value != 0 for value in pixels),"artifacts":artifacts}

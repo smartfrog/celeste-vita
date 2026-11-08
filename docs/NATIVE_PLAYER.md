@@ -10,6 +10,9 @@ The subsequent [bounded Dash extension](NATIVE_DASH.md) adds sampled Dash,
 independent digital aim, freeze/input clock and Normal↔Dash transitions. The
 Normal-only oracle/profile invariants described below remain its historical
 regression boundary; they do not describe the extended native default API.
+The [jump-family extension](NATIVE_WALL_JUMPS.md) also enables eligible WallJump
+in the Normal regression oracle; its force/low-friction timers are no longer
+zero invariants. Climb remains excluded.
 
 ## Supported profile and API
 
@@ -61,7 +64,7 @@ Standing movement/hurt boxes are respectively 8x11 at (-4,-11) and 8x9 at
 (-4,-11); duck boxes are 8x6 at (-4,-6) and 8x4 at (-4,-6). Jump consumes the
 **buffer**, not the raw press, and does not itself unduck. An airborne press
 without ground grace still buffers. Real WallJumpCheck eligibility is preserved;
-selecting an eligible unsupported WallJump throws. Grab is rejected up front,
+eligible WallJump is now supported by the jump-family extension. Grab is rejected up front,
 so ClimbJump cannot be selected through an accepted input.
 
 ## Frame and source boundary

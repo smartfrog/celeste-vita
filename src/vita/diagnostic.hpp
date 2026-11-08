@@ -25,6 +25,7 @@ private:
 
 struct Viewport { int x, y, width, height; };
 Viewport letterbox(int width, int height);
+const char* jump_kind_name(JumpKind kind);
 
 class Session final {
 public:

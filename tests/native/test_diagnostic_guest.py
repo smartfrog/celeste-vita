@@ -4,7 +4,7 @@ import unittest
 
 sys.dont_write_bytecode = True
 sys.path.insert(0,str(Path(__file__).resolve().parents[2] / "scripts"))
-from smoke_native_room import verify_guest, verify_keyboard_mapping, KEYBOARD_MAPPING
+from smoke_native_room import verify_guest, verify_wall_jump_guest, verify_keyboard_mapping, KEYBOARD_MAPPING
 
 
 def completed_log():
@@ -26,7 +26,24 @@ clean exit frame=130 x=19 y=144 vx=0.000 vy=0.000 ground=1 dead=0 resets=1
 """
 
 
+def wall_jump_log():
+    return ("jump frame=6 x=15 y=134 vx=130.000 vy=-105.000 ground=0 dead=0 resets=0 state=0 "
+            "move_x=-1 force_x=1 force_timer=0.159999996 var_timer=0.200000003 jump_buffer=0.000000000 jump_kind=WallJump\n"
+            "wall forced frame=7 x=17 y=132 move_x=1 force_x=1 force_timer=0.143333331 jump_kind=WallJump\n")
+
+
 class CompletedGuestTests(unittest.TestCase):
+    def test_actual_wall_jump_and_subsequent_forced_motion_are_required(self):
+        self.assertEqual(verify_wall_jump_guest(wall_jump_log())["jump_frame"],6)
+
+    def test_false_wall_jump_proof_is_rejected_parameterized(self):
+        for old,new in (("vx=130.000","vx=90.000"),("var_timer=0.200000003","var_timer=0.000000000"),
+                        ("jump_buffer=0.000000000","jump_buffer=0.080000000"),("move_x=1","move_x=-1"),
+                        ("wall forced frame=7 x=17","wall forced frame=7 x=15"),("jump_kind=WallJump","jump_kind=Jump")):
+            with self.subTest(old=old):
+                with self.assertRaises(ValueError):
+                    verify_wall_jump_guest(wall_jump_log().replace(old,new))
+
     def test_changed_square_mapping_is_rejected(self):
         text = "".join(f"keyboard-button-{button}: {key}\n" for button, key in KEYBOARD_MAPPING.items())
         with self.assertRaisesRegex(ValueError, "square"):
