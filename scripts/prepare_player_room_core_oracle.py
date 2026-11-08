@@ -22,7 +22,7 @@ GUI_META = "Content/Graphics/Atlases/Gui.meta"
 GUI_META_SHA = "884ea39e604e34e3a45b005d164a5249de9a985e58fde7ef730193c47363525b"
 
 
-def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
+def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
     referenced = '' if reference is None else f'<Reference Include="PrivateCheckpoint"><HintPath>{reference}</HintPath></Reference>'
     assembly = '' if reference is None else '<AssemblyName>RoomCoreHelpers</AssemblyName>'
     return ('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>'
@@ -53,6 +53,23 @@ def compile_project(output, identity, before, execution=None):
                 'source_identity': identity, 'source_revision': before[0], 'source_changes': before[1], 'log': log,
                 'claim': 'No room-core lifecycle execution; six baseline diagnostics are not room-core coverage'}, indent=2) + '\n')
             raise RuntimeError(f'Room-core dependency probe failed with {len(errors)} unique errors: {output / log}')
+
+
+def native_abi_audit(output):
+    sdk = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+    generated = output / 'bin/Release/net8.0/Oracle.dll'
+    report = output / 'native-abi-identity.json'
+    command = [str(sdk), str(generated), 'native-abi-metadata-audit', str(generated), str(report),
+        str(ROOT / '.audit/ilspy/inputs/Celeste.exe'), str(ROOT / '.audit/ilspy/inputs/FNA.dll'), '1094']
+    with (output / 'native-abi-audit.log').open('x') as log:
+        result = subprocess.run(command, cwd=ROOT, env=oracle_environment(sdk), stdout=log, stderr=subprocess.STDOUT)
+    if not report.is_file():
+        raise RuntimeError(f'Native ABI metadata audit produced no report: {output / "native-abi-audit.log"}')
+    data = json.loads(report.read_text())
+    if result.returncode or data['failures'] or not all(contract['ok'] for contract in data['rootContracts']):
+        raise RuntimeError(f'Native ABI metadata identity failed: {len(data["failures"])} signature mismatches, '
+            f'{sum(not contract["ok"] for contract in data["rootContracts"])} root contract mismatches: {report}')
+    return data
 
 
 def helper_probe(extract, manifest, baseline, room_source, output, before):
@@ -379,6 +396,9 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     manifest['executable_members'] = inventory['Executable']
     manifest['declaration_contracts'] = inventory['Declarations']
     manifest['native_abi_declarations'] = [entry for entry in inventory['Declarations'] if entry['Kind'] == 'native-abi']
+    root_contract_files = ('FMOD.ADVANCEDSETTINGS.cs', 'FMOD.SYSTEM_CALLBACK.cs', 'FMOD.SYSTEM_CALLBACK_TYPE.cs', 'FMOD.DSP_RESAMPLER.cs')
+    manifest['native_abi_root_contracts'] = [{'file': name, **declarations[name]} for name in root_contract_files if name in declarations]
+    manifest['native_abi_root_contract_policy'] = 'Original root FMOD types are pinned declaration contracts beside FMOD.System so unqualified parameter types bind to FMOD, not FMOD.Studio. No native bodies or Studio/root normalization.'
     manifest['managed_platform_fixtures'] = inventory['ManagedPlatformFixtures']
     manifest['frontier_output_sha256'] = inventory['OutputSha256']
     manifest['recording_gpu_boundary'] = {
@@ -427,13 +447,13 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     (output / 'Services.cs').write_text(services)
     (output / 'RoomCoreProbe.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreProbe.cs').read_bytes())
     (output / 'RoomCoreGpu.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreGpu.cs').read_bytes())
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         (output / name).write_bytes((ROOT / 'tests/native/oracle/death' / name).read_bytes())
     manifest['room_core_support_sha256'] = {'tests/native/oracle/death/RoomCoreProbe.cs': hashlib.sha256((output / 'RoomCoreProbe.cs').read_bytes()).hexdigest(),
         'Services.cs_after_fixture_removal': hashlib.sha256(services.encode()).hexdigest(),
         'scripts/read_player_room_core_sources.py': hashlib.sha256((ROOT / 'scripts/read_player_room_core_sources.py').read_bytes()).hexdigest()}
     manifest['room_core_support_sha256']['tests/native/oracle/death/RoomCoreGpu.cs'] = hashlib.sha256((output / 'RoomCoreGpu.cs').read_bytes()).hexdigest()
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         manifest['room_core_support_sha256']['tests/native/oracle/death/' + name] = hashlib.sha256((output / name).read_bytes()).hexdigest()
     for fixture in manifest['managed_platform_fixtures']:
         fixture['ReferencePlatform'] = 'Linux'
@@ -452,8 +472,22 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     (output / 'Oracle.csproj').write_text(project_text())
     (output / 'NuGet.Config').write_bytes((baseline / 'NuGet.Config').read_bytes())
     compile_project(output, identity, before)
+    audit = native_abi_audit(output)
+    manifest['native_abi_identity'] = {
+        'generatedNativeImports': audit['generatedNativeImports'],
+        'originalNativeImports': audit['originalNativeImports'],
+        'allGeneratedNativeBodiesNull': audit['allGeneratedNativeBodiesNull'],
+        'failures': len(audit['failures']),
+        'rootContracts': [{'name': contract['name'], 'ok': contract['ok']} for contract in audit['rootContracts']],
+        'expectedRootTypes': audit['expectedRootTypes'],
+        'wrongStudioTypes': audit['wrongStudioTypes'],
+        'nativeCalls': audit['nativeCalls'],
+        'normalization': audit['normalization']}
+    manifest['native_abi_identity_report_sha256'] = hashlib.sha256((output / 'native-abi-identity.json').read_bytes()).hexdigest()
+    (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     result = {'status': 'compiled-bounded-respawn-and-death-roundtrip-not-family-closure', 'source_identity': identity,
         'source_revision': before[0], 'source_changes': before[1], 'native_abi_declarations': len(manifest['native_abi_declarations']),
+        'native_abi_identity_failures': len(audit['failures']), 'native_abi_root_contract_failures': sum(not contract['ok'] for contract in audit['rootContracts']),
         'claim': 'Compilation only in this recipe; separate fresh-process executions establish one bounded Respawn14->Normal0 live tick and one caller-stimulated Die/corpse/wipe/Reload/second-Respawn round trip; zero of eight families closed'}
     (output / 'probe-result.json').write_text(json.dumps(result, indent=2) + '\n')
     return result

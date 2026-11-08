@@ -10,10 +10,14 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from check_native_oracle import ROOT, oracle_environment
 from prepare_player_room_core_oracle import build
+from prepare_room_visuals import MEMBERS
 from room_core_frontier import SDK
 
 PRIVATE = ROOT / '.audit/native-player-death-respawn'
 DECLARATIONS = (46, 49, 52, 54, 56, 59, 61, 63, 65, 66, 71, 74, 75, 77, 78, 80, 81, 83, 85, 87, 89, 91)
+PRE_FIX_ORACLE = PRIVATE / '54581b570fbf67c11f6662d31364ef535dba2916/review/oracle/bin/Release/net8.0/Oracle.dll'
+CELESTE_EXE = ROOT / '.audit/ilspy/inputs/Celeste.exe'
+FNA_DLL = ROOT / '.audit/ilspy/inputs/FNA.dll'
 
 
 @unittest.skipUnless(SDK.is_file() and (PRIVATE / 'source-synced-6b-01/provenance.json').is_file()
@@ -30,7 +34,7 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
         cls.output = PRIVATE / ('native-guard-test-' + uuid.uuid4().hex)
         cls.compilation = build(PRIVATE / 'source-synced-6b-01',
             PRIVATE / 'room-core-probe-42', cls.output,
-            declarations_source=[PRIVATE / f'room-core-probe-{number}' for number in DECLARATIONS] + [PRIVATE / 'room-core-platform-declarations-01', PRIVATE / 'room-core-declarations-extra-01'])
+            declarations_source=[PRIVATE / f'room-core-probe-{number}' for number in DECLARATIONS] + [PRIVATE / 'room-core-platform-declarations-01', PRIVATE / 'room-core-declarations-extra-01', PRIVATE / 'room-core-root-fmod-02'])
 
     def execute_case(self, name):
         result = subprocess.run([str(SDK), str(self.output / 'bin/Release/net8.0/Oracle.dll'), name,
@@ -39,6 +43,15 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
         (self.output / (name + '.stderr')).write_text(result.stderr)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return json.loads(result.stdout)
+
+    def audit_native_abi(self, generated, name):
+        report = self.output / (name + '.json')
+        result = subprocess.run([str(SDK), str(self.output / 'bin/Release/net8.0/Oracle.dll'),
+            'native-abi-metadata-audit', str(generated), str(report), str(CELESTE_EXE), str(FNA_DLL), '1094'],
+            cwd=ROOT, env=oracle_environment(SDK), text=True, capture_output=True)
+        (self.output / (name + '.log')).write_text(result.stdout + result.stderr)
+        self.assertTrue(report.is_file(), result.stdout + result.stderr)
+        return result, json.loads(report.read_text())
 
     def test_pinned_native_import_retains_original_metadata_and_no_managed_body(self):
         result = self.execute_case('native-abi-identity')
@@ -140,6 +153,46 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
         self.assertIn({'event': 'return', 'member': 'Celeste.Level.LoadLevel(Respawn)'}, rows)
         self.assertEqual(rows[-1]['normalTick'], normal['tick'])
         self.assertEqual(rows[-1]['liveTick'], live['tick'])
+
+    def test_compiled_native_abi_identity_reproduces_red_then_green(self):
+        if not PRE_FIX_ORACLE.is_file():
+            self.skipTest('Pinned pre-fix Oracle assembly unavailable')
+        red_result, red = self.audit_native_abi(PRE_FIX_ORACLE, 'native-abi-red-545')
+        self.assertNotEqual(red_result.returncode, 0)
+        self.assertEqual(red['generatedNativeImports'], 1094)
+        self.assertEqual(red['originalNativeImports'], 1349)
+        self.assertTrue(red['allGeneratedNativeBodiesNull'])
+        self.assertEqual(len(red['failures']), 3)
+        self.assertEqual({failure['key'] for failure in red['failures']}, {
+            'FMOD.System::FMOD_System_SetAdvancedSettings:0:0:2:FMOD.RESULT(IntPtr,FMOD.Studio.ADVANCEDSETTINGS&)',
+            'FMOD.System::FMOD_System_GetAdvancedSettings:0:0:2:FMOD.RESULT(IntPtr,FMOD.Studio.ADVANCEDSETTINGS&)',
+            'FMOD.System::FMOD_System_SetCallback:0:0:3:FMOD.RESULT(IntPtr,FMOD.Studio.SYSTEM_CALLBACK,FMOD.Studio.SYSTEM_CALLBACK_TYPE)'})
+        self.assertEqual({contract['name'] for contract in red['rootContracts'] if not contract['ok']}, {
+            'FMOD.ADVANCEDSETTINGS', 'FMOD.SYSTEM_CALLBACK', 'FMOD.SYSTEM_CALLBACK_TYPE', 'FMOD.DSP_RESAMPLER'})
+
+        green_result, green = self.audit_native_abi(self.output / 'bin/Release/net8.0/Oracle.dll', 'native-abi-green')
+        self.assertEqual(green_result.returncode, 0, green_result.stdout + green_result.stderr)
+        self.assertEqual(green['generatedNativeImports'], 1094)
+        self.assertEqual(green['originalNativeImports'], 1349)
+        self.assertEqual(green['failures'], [])
+        self.assertTrue(green['allGeneratedNativeBodiesNull'])
+        self.assertTrue(all(contract['ok'] for contract in green['rootContracts']))
+        self.assertEqual({contract['name'] for contract in green['rootContracts']}, {
+            'FMOD.ADVANCEDSETTINGS', 'FMOD.SYSTEM_CALLBACK', 'FMOD.SYSTEM_CALLBACK_TYPE', 'FMOD.DSP_RESAMPLER'})
+        self.assertEqual(set(green['expectedRootTypes']), {
+            'FMOD.ADVANCEDSETTINGS', 'FMOD.SYSTEM_CALLBACK', 'FMOD.SYSTEM_CALLBACK_TYPE'})
+        self.assertEqual(len(green['nativeCalls']), 3)
+        self.assertEqual(len(green['expectedRootTypes']) + len(green['nativeCalls']), 6)
+        for call in green['nativeCallEvidence']:
+            self.assertEqual(len(call['generated']), 1)
+            self.assertNotIn('FMOD.Studio', call['generated'][0])
+        self.assertEqual(green['originals'][0]['sha256'], MEMBERS['Celeste.exe'])
+        self.assertEqual(green['originals'][1]['sha256'], MEMBERS['FNA.dll'])
+        manifest = json.loads((self.output / 'source-manifest.json').read_text())
+        self.assertEqual(manifest['native_abi_identity']['failures'], 0)
+        self.assertTrue(all(contract['ok'] for contract in manifest['native_abi_identity']['rootContracts']))
+        self.assertEqual({entry['file'] for entry in manifest['native_abi_root_contracts']}, {
+            'FMOD.ADVANCEDSETTINGS.cs', 'FMOD.SYSTEM_CALLBACK.cs', 'FMOD.SYSTEM_CALLBACK_TYPE.cs', 'FMOD.DSP_RESAMPLER.cs'})
 
     def test_manifest_records_audio_boundary_and_no_lifecycle_family_closure(self):
         manifest = json.loads((self.output / 'source-manifest.json').read_text())

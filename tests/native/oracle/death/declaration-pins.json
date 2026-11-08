@@ -1464,6 +1464,11 @@
     "sha256": "fe719edbae354ba79439b31abd64783eb937387a8455ceab875da109edfbfdd0",
     "type": "Celeste._3dSoundTest"
   },
+  "FMOD.ADVANCEDSETTINGS.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "39951b6456f4caf7f3734086da1b970cd52888656bc7f4f7619a303d2ab382c4",
+    "type": "FMOD.ADVANCEDSETTINGS"
+  },
   "FMOD.CB_3D_ROLLOFFCALLBACK.cs": {
     "assembly": "Celeste.exe",
     "sha256": "417c743ca41f1ec56a5b8d7681286398f1128622acad44e4419c41d9548d699c",
@@ -1644,6 +1649,11 @@
     "sha256": "d436bc6f590bb3597a9e2e4c0fc8eded142dcff27dadf2d23fa38489a9b56407",
     "type": "FMOD.DSP_RELEASECALLBACK"
   },
+  "FMOD.DSP_RESAMPLER.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "6ac884dafb8344d52c4eb45ff87238f96810770b788ed0942408f3ae44e167ce",
+    "type": "FMOD.DSP_RESAMPLER"
+  },
   "FMOD.DSP_RESETCALLBACK.cs": {
     "assembly": "Celeste.exe",
     "sha256": "e9fa289ef5084ba4f8dd7c10ee7bf9d7c44eafc6a4977acd536a6abd1f6b8703",
@@ -1823,6 +1833,16 @@
     "assembly": "Celeste.exe",
     "sha256": "72184f71ad2afa330dbffb8a7f3886b7f5f40d33ab5335a6e41277eb4169cd50",
     "type": "FMOD.SPEAKERMODE"
+  },
+  "FMOD.SYSTEM_CALLBACK.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ab63bb2e7b54883e35c880333f3fb976d679cc7496e60e2c27caea44a8a55b48",
+    "type": "FMOD.SYSTEM_CALLBACK"
+  },
+  "FMOD.SYSTEM_CALLBACK_TYPE.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "ad81c09f2d9cc8ffca7cb1e08bd9a6e5b9608e1d06b8178ae41c12e5172ac123",
+    "type": "FMOD.SYSTEM_CALLBACK_TYPE"
   },
   "FMOD.Sound.cs": {
     "assembly": "Celeste.exe",

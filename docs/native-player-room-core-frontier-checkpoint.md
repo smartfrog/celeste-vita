@@ -173,6 +173,31 @@ private death-source snapshot as `source-synced-6b-01` so development's added
 the frozen `5ffd` snapshot and all older proof directories remain immutable.
 The unreviewed input `921` branch and other POCs were not merged.
 
+## Compiled native ABI identity correction
+
+The first synchronized review found three compiled P/Invoke signatures in
+`FMOD.System` bound to `FMOD.Studio.ADVANCEDSETTINGS`,
+`FMOD.Studio.SYSTEM_CALLBACK` and `FMOD.Studio.SYSTEM_CALLBACK_TYPE` because
+the generator injected a global `using FMOD.Studio;` while the original root
+`FMOD` contracts were absent. The fix pins four original root declaration
+contracts beside `FMOD.System`: `FMOD.ADVANCEDSETTINGS`,
+`FMOD.SYSTEM_CALLBACK`, `FMOD.SYSTEM_CALLBACK_TYPE` and the dependent
+`FMOD.DSP_RESAMPLER`. Their kind, layout, fields, delegate signature, enum
+values, attributes and original source hashes are recorded in
+`declaration-pins.json` and the generated manifest.
+
+`tests/native/oracle/death/NativeAbiMetadataAudit.cs` now compares the fresh
+compiled assembly against the pinned `Celeste.exe`/`FNA.dll` original metadata
+for **all 1094** P/Invoke signatures, including their qualified parameter/return
+types, refs, import attributes, library/entrypoint and null-body contract. It
+also checks the three expected root types, the three affected native calls, and
+the four root type contracts. The regression runs the same audit against the
+pinned pre-fix `54581b5` assembly: RED is exactly 3 signature mismatches; GREEN
+on the fresh build is 0 mismatches and 0 root-contract mismatches. The
+transformation compares identities only; the assembly name is ignored and there
+is no `FMOD.Studio`/root collapse. Negative FMOD/SDL resolver tests remain in the
+same focused suite.
+
 ## Evidence and reproduction
 
 Original bodies, generated C#, compiler receipts and execution traces remain
@@ -209,14 +234,11 @@ and `respawn-live-tick.jsonl`. The death round-trip process writes
 `death-respawn-roundtrip.jsonl` in the same private directory.
 The current cut has 183 unchanged extraction blocks across 123 entries, with
 generated-source SHA256
-`9324bfb6707363a70cd68fb7456066f2b5b0b1af79fa39ff32ed8fe3ec455d07`.
-This synchronized SHA differs from the unsynced `c72ad321...` requirement only
-because the private discovery root embedded in excluded-member guard text moved
-from the frozen `5ffd.../source` snapshot to the regenerated
-`source-synced-6b-01` snapshot, which carries development 6b's added
-`Celeste.Spikes.cs` presentation pin. The selected 183 blocks / 123 entries and
-every selected source-body hash are unchanged; no executable member was added
-to this room-core source cut by the sync. It records 3035 executable members, 13406 declaration contracts including 1094
+`20ab627ccce726df08153dd18a53cca817514b184b735211e45796bf36708a07`.
+The generated-source SHA has moved across sync/correction because private
+discovery-path labels and pinned declaration contracts changed; the selected
+183 blocks / 123 entries and every selected executable-source body hash remain
+unchanged. It records 3035 executable members, 13437 declaration contracts including 1094
 native-ABI declarations, and zero managed platform fixture changes beyond the
 separate `SDL_GetPlatform` wrapper. The declaration count difference includes
 the declared recording `Distort` boundary; the executable count includes the
