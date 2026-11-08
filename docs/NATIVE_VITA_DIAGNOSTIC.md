@@ -132,6 +132,7 @@ actual death, manual reset counter, clean exit and measured elapsed time.
 Linux screenshot commands/APIs are not used: visual verification requires the
 user-requested built-in screen-view tool. If that tool is unavailable, visual
 verification is explicitly blocked, not inferred from window titles/logs.
+The visual step is deferred to the parent; this smoke harness has no capture path.
 Preserve guest/host logs and state; distinguish guest clean exit from an emulator
 shutdown fault. Historical exploratory captures created before that constraint
 are retained privately, not a substitute for a new built-in visual check.

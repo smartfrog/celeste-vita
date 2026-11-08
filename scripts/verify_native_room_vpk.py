@@ -8,21 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import zipfile
-
-
-def sfo_strings(data):
-    magic, version, keys, values, count = struct.unpack_from("<5I", data)
-    if magic != 0x46535000 or version != 0x101 or count > 64:
-        raise ValueError("Unexpected SFO header")
-    result = {}
-    for index in range(count):
-        key_offset, kind, length, maximum, value_offset = struct.unpack_from("<HHIII",data,20+index*16)
-        key = data[keys+key_offset:data.index(b"\0",keys+key_offset)].decode("ascii")
-        if length > maximum or values+value_offset+length > len(data):
-            raise ValueError("Malformed SFO value")
-        if kind == 0x204:
-            result[key] = data[values+value_offset:values+value_offset+length].rstrip(b"\0").decode()
-    return result
+from sfo import parse_sfo
 
 
 def verify(vpk, build, staging):
@@ -38,7 +24,7 @@ def verify(vpk, build, staging):
     with zipfile.ZipFile(vpk) as archive:
         if archive.testzip() is not None or set(archive.namelist()) != expected:
             raise ValueError("Unexpected or corrupt VPK entries")
-        sfo = sfo_strings(archive.read("sce_sys/param.sfo"))
+        sfo = parse_sfo(archive.read("sce_sys/param.sfo"))
         if sfo.get("TITLE_ID") != "CELR00001" or sfo.get("TITLE") != "Celeste Native Room Diagnostic" or sfo.get("APP_VER") != "00.01":
             raise ValueError("Unexpected diagnostic SFO identity")
         eboot = archive.read("eboot.bin")
