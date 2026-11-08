@@ -18,6 +18,19 @@ TexturedQuad spike_quad(const TextureInfo& t, const SpikePiece& p) {
     return {float(p.x),float(p.y),float(p.width),float(p.height),float(p.u)/t.width,float(p.v)/t.height,
             float(p.u+p.width)/t.width,float(p.v+p.height)/t.height};
 }
+std::array<PlayerVertex,4> decal_vertices(const DecalTexture& t, const DecalInstance& i) {
+    const float origin_x = t.frame_width * 0.5f - t.offset_x;
+    const float origin_y = t.frame_height * 0.5f - t.offset_y;
+    const float left = i.x - origin_x * i.scale_x;
+    const float top = i.y - origin_y * i.scale_y;
+    const float right = left + t.width * i.scale_x;
+    const float bottom = top + t.height * i.scale_y;
+    const float u0 = float(t.u) / DecalAssets::page_width;
+    const float v0 = float(t.v) / DecalAssets::page_height;
+    const float u1 = float(t.u + t.width) / DecalAssets::page_width;
+    const float v1 = float(t.v + t.height) / DecalAssets::page_height;
+    return {{{left, top, u0, v0}, {right, top, u1, v0}, {right, bottom, u1, v1}, {left, bottom, u0, v1}}};
+}
 std::array<PlayerVertex,4> player_vertices(const PlayerFrame& f, const PlayerDraw& d) {
     const float source_width=float(f.width)/4096.f, source_height=float(f.height)/4096.f;
     const float origin_x=(d.origin.x-f.trim_x)/source_width/4096.f;

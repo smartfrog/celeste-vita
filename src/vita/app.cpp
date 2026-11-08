@@ -63,6 +63,7 @@ void run() {
     if (occupied != 26915 || visible != 363) throw std::runtime_error("Unexpected merged/visible solid counts");
     log("assets ready mask=541x440 origin=-64,-3272 occupied=%u visible=%u spikes=%u",occupied,visible,unsigned(room.spikes.size()));
     const VisualAssets* visual_assets = nullptr;
+    const DecalAssets* decal_assets = nullptr;
 #ifdef CELESTE_ROOM_TEXTURED
     const auto visuals = parse_visuals(read_asset("app0:assets/native-room/visuals.txt",65'536),visual_checksum);
     visual_assets = &visuals;
@@ -74,6 +75,11 @@ void run() {
 #ifndef CELESTE_ROOM_ANIMATED_PLAYER
     log("render style=textured_partial static_BG_BODY_FG body=idle00_static_no_animation camera=0,0 diagnostic_spike_markers=5 not_faithful_spike_art no_hair_decals_backdrops_animation_audio_menu_fullgame_fidelity submitted_RGBA_bytes=164864 not_physical_GPU_allocation");
 #endif
+#endif
+#ifdef CELESTE_ROOM_DECALS
+    const auto decals = parse_decals(read_asset("app0:assets/native-room/decals.txt",65'536),decal_checksum);
+    decal_assets = &decals;
+    log("render static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7 source_static_decal_cut render_order=BG_tiles_20BG_player_19spikes_FGtiles_2FG page=64x128 RGBA_bytes=32768");
 #endif
 #else
     log("render style=debug hitboxes_and_diagnostic_spike_markers camera=0,0");
@@ -93,6 +99,7 @@ void run() {
     initialize_graphics();
     try {
     if (visual_assets) load_textures(*visual_assets);
+    if (decal_assets) load_decal_textures(*decal_assets);
     if (player_assets) load_player_textures(*player_assets);
     const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_DIGITAL);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
@@ -101,9 +108,9 @@ void run() {
         const auto projection=session.projection();
         if(player_assets) {
             PlayerRender animated{*player_assets,*session.presentation(),projection};
-            return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated);
+            return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated,decal_assets);
         }
-        return draw(room,session.player(),path,frame,session.resets(),visual_assets);
+        return draw(room,session.player(),path,frame,session.resets(),visual_assets,nullptr,decal_assets);
     };
     Controller controller;
     unsigned previous = 0, frame = 0;

@@ -25,6 +25,29 @@ struct SpikePiece {
     bool up;
     int x, y, width, height, u, v;
 };
+struct DecalTexture {
+    std::string name;
+    int u, v, width, height, offset_x, offset_y, frame_width, frame_height;
+};
+struct DecalInstance {
+    bool background;
+    int source_index, texture, x, y, scale_x, scale_y;
+    int depth() const { return background ? 9000 : -10500; }
+};
+struct OmittedDecal {
+    bool background;
+    int source_index;
+    std::string name;
+};
+struct DecalAssets {
+    static constexpr int page_width = 64;
+    static constexpr int page_height = 128;
+    std::array<DecalTexture,15> textures;
+    int texture_count = 0;
+    std::vector<DecalInstance> instances;
+    std::vector<OmittedDecal> omitted;
+    std::uint32_t page_checksum = 0;
+};
 struct VisualAssets {
     static constexpr int body_texture = 5;
     static constexpr int up_texture = 6;
@@ -44,6 +67,7 @@ std::uint32_t checksum(std::string_view text);
 MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum);
 std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expected_checksum);
 VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum);
+DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum);
 void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes);
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum);
 void validate_texture_bytes(std::string_view bytes, const TextureInfo& texture);

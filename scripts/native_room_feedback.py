@@ -27,15 +27,20 @@ def new_feedback(revision, vpk):
             "method":"OUR guest glReadPixels GL_BACK once; lossless P6-to-PNG conversion; no OS screen capture"}
 
 
-def validate_textured_pixels(pixels, metadata, visuals, capture, player=None):
+def validate_textured_pixels(pixels, metadata, visuals, capture, player=None, decals=None):
     spike_art = visuals.get("spike_textures") is not None
     room_bytes = 166912 if spike_art else 164864
+    if decals is not None:
+        room_bytes += 32768
     expected = {"render_style":"textured_partial", "camera":"0,0", "body_draws":"1",
-                "diagnostic_spike_markers":"0" if spike_art else "5",
+                "diagnostic_spike_markers":"0" if spike_art or decals is not None else "5",
                 "submitted_rgba_bytes":str(room_bytes), "alpha":"premultiplied_ONE_ONE_MINUS_SRC_ALPHA", "body_pose":"idle00_static_no_animation",
                  "bg_draws":str(visuals["draw_counts"]["B"]), "fg_draws":str(visuals["draw_counts"]["F"])}
     if spike_art:
         expected.update(physical_spikes="5", draw_pieces="19", diagnostic_red_markers="0", spike_art="source_static_19")
+    if decals is not None:
+        expected.update(static_decals="22", bg_decals="20", fg_decals="2", animated_omitted="7",
+                        decal_art="source_static_decal_cut", decal_page_bytes="32768")
     if player is not None:
         expected.update(render_style="animated_player_partial", body_pose="source_animated_with_simulated_hair",
                         submitted_rgba_bytes=str(room_bytes + player["submitted_player_rgba_bytes"]))
@@ -55,9 +60,32 @@ def validate_textured_pixels(pixels, metadata, visuals, capture, player=None):
         probes.append({**probe,"actual_rgb":actual})
     animated = validate_animated_pixels(pixels, metadata, player, capture) if player is not None else None
     spike_probes = validate_spike_art_pixels(pixels, visuals) if spike_art else None
+    decal_probes = validate_decal_pixels(pixels, decals) if decals is not None else None
     return {"unique_rgb_colors":colors,"opaque_source_probes":probes,"animated_player":animated,"partial_alpha_room_probe":visuals["alpha_probe"],
-            "spike_art":spike_art,"spike_probes":spike_probes,
+            "spike_art":spike_art,"spike_probes":spike_probes,"decal_art":decals is not None,"decal_probes":decal_probes,
             "partial_alpha_claim":"Requested six crops contain only alpha 0/255; separate GPU blend diagnostic required" if visuals["alpha_probe"] is None else "source edge present"}
+
+
+def validate_decal_pixels(pixels, decals):
+    probes = decals["content_probes"]
+    kinds = {probe["kind"] for probe in probes}
+    if kinds != {"visible_static_bg_positive", "visible_static_bg_flip_horizontal",
+                 "visible_static_bg_flip_vertical", "visible_static_fg"}:
+        raise ValueError("Static decal probes do not cover both signed axes, BG and FG depth")
+    checked = []
+    for probe in probes:
+        x, y = probe["screen_pixel"]
+        actual = list(pixels[(y * 960 + x) * 3:(y * 960 + x + 1) * 3])
+        if actual != probe["expected_rgb"]:
+            raise ValueError(f"Native static decal probe failed for {probe['kind']}: {actual} != {probe['expected_rgb']}")
+        checked.append({**probe, "actual_rgb": actual})
+    diagnostic_red = bytes((255, 51, 51))
+    if any(pixels[index:index + 3] == diagnostic_red for index in range(0, len(pixels), 3)):
+        raise ValueError("Native decal frame still contains diagnostic red spike markers")
+    if decals["classification"]["static"] != 22 or decals["classification"]["banner_omitted"] != 7:
+        raise ValueError("Static decal provenance is not the 22/7 source cut")
+    return {"probes": checked, "static": 22, "bg": 20, "fg": 2, "animated_omitted": 7,
+            "claim": "Native framebuffer proves visible source decal colors under both signed axes and FG depth, and absence of diagnostic red markers; not a full compositing reference"}
 
 
 def validate_spike_art_pixels(pixels, visuals):
@@ -115,7 +143,7 @@ def validate_animated_pixels(pixels, metadata, player, capture):
             "claim":"Bounded native color/location evidence plus source-bank identity; not a full compositing reference or semialpha proof"}
 
 
-def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None, player_provenance=None):
+def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None, player_provenance=None, decal_provenance=None):
     if capture not in {"spawn", "wall_jump", "climb"}:
         raise ValueError("Unsupported explicit native capture policy")
     guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
@@ -167,7 +195,7 @@ def collect_native_frame(filesystem, output, revision, capture="spawn", visual_p
         artifacts[name] = {"path":str(destination),"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()}
     pixels = ppm.split(b"\n",3)[3]
     black_bars = pixels[:960*2*3] == bytes(960*2*3) and pixels[-960*2*3:] == bytes(960*2*3)
-    textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture,player_provenance) if visual_provenance is not None else None
+    textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture,player_provenance,decal_provenance) if visual_provenance is not None else None
     if visual_provenance is None and metadata.get("render_style","debug") != "debug":
         raise ValueError("Textured export requires its exact staged visual provenance, not debug intent")
     return {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,

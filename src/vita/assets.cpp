@@ -1,4 +1,5 @@
 #include "assets.hpp"
+#include <algorithm>
 #include <charconv>
 #include <cstring>
 #include <cstdio>
@@ -212,6 +213,94 @@ void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpi
             want.height != have.height || want.u != have.u || want.v != have.v)
             throw std::invalid_argument("Spike source image placement differs from actual hazards");
     }
+}
+DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum) {
+    integrity(text, 65'536, expected_checksum);
+    header(text, "CSD1");
+    if (integer(take(text)) != 1) throw std::invalid_argument("Expected one bounded decal page");
+    auto dimensions = take(text);
+    if (integer(take(dimensions, ' ')) != DecalAssets::page_width || integer(take(dimensions, ' ')) != DecalAssets::page_height)
+        throw std::invalid_argument("Unexpected decal page dimensions");
+    DecalAssets result{};
+    result.page_checksum = hex_value(dimensions);
+    if (result.page_checksum == 0) throw std::invalid_argument("Invalid decal page checksum");
+    result.texture_count = integer(take(text));
+    if (result.texture_count != 15) throw std::invalid_argument("Expected fifteen static decal textures");
+    const auto valid_name = [](std::string_view name) {
+        return !name.empty() && name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/-") == std::string_view::npos;
+    };
+    for (int i=0; i<result.texture_count; ++i) {
+        auto row = take(text);
+        auto& texture = result.textures[i];
+        texture.name = std::string(take(row, ' '));
+        if (!valid_name(texture.name)) throw std::invalid_argument("Invalid decal texture identity");
+        for (int j=0; j<i; ++j)
+            if (result.textures[j].name == texture.name) throw std::invalid_argument("Duplicate decal texture identity");
+        texture.u = integer(take(row, ' ')); texture.v = integer(take(row, ' '));
+        texture.width = integer(take(row, ' ')); texture.height = integer(take(row, ' '));
+        texture.offset_x = integer(take(row, ' ')); texture.offset_y = integer(take(row, ' '));
+        texture.frame_width = integer(take(row, ' ')); texture.frame_height = integer(row);
+        if (texture.u < 1 || texture.v < 1 || texture.width <= 0 || texture.height <= 0 ||
+            texture.u + texture.width >= DecalAssets::page_width || texture.v + texture.height >= DecalAssets::page_height ||
+            texture.frame_width <= 0 || texture.frame_height <= 0 || texture.offset_x < -4096 || texture.offset_x > 4096 ||
+            texture.offset_y < -4096 || texture.offset_y > 4096)
+            throw std::invalid_argument("Invalid decal crop/page/frame geometry");
+    }
+    const int instances = integer(take(text));
+    if (instances != 22) throw std::invalid_argument("Expected twenty-two static decal instances");
+    bool foreground = false;
+    std::array<bool,32> seen_background{}, seen_foreground{};
+    for (int i=0; i<instances; ++i) {
+        auto row = take(text);
+        const auto layer = take(row, ' ');
+        DecalInstance instance{};
+        if (layer == "B") instance.background = true;
+        else if (layer == "F") instance.background = false;
+        else throw std::invalid_argument("Invalid decal layer");
+        if (instance.background && foreground) throw std::invalid_argument("Decal instances are not in BG-then-FG order");
+        if (!instance.background) foreground = true;
+        instance.source_index = integer(take(row, ' '));
+        instance.x = integer(take(row, ' ')); instance.y = integer(take(row, ' '));
+        instance.scale_x = integer(take(row, ' ')); instance.scale_y = integer(take(row, ' '));
+        instance.texture = integer(row);
+        const int limit = instance.background ? 20 : 2;
+        if (instance.source_index < 0 || instance.source_index >= limit || instance.texture < 0 ||
+            instance.texture >= result.texture_count || (instance.scale_x != 1 && instance.scale_x != -1) ||
+            (instance.scale_y != 1 && instance.scale_y != -1) || instance.x < -1'000'000 || instance.x > 1'000'000 ||
+            instance.y < -1'000'000 || instance.y > 1'000'000)
+            throw std::invalid_argument("Invalid decal instance transform/index");
+        auto& seen = instance.background ? seen_background : seen_foreground;
+        if (seen[instance.source_index]) throw std::invalid_argument("Duplicate decal source instance");
+        seen[instance.source_index] = true;
+        result.instances.push_back(instance);
+    }
+    if (!std::all_of(seen_background.begin(), seen_background.begin()+20, [](bool value) { return value; }) ||
+        !std::all_of(seen_foreground.begin(), seen_foreground.begin()+2, [](bool value) { return value; }))
+        throw std::invalid_argument("Static decal source index coverage changed");
+    const int omitted = integer(take(text));
+    if (omitted != 7) throw std::invalid_argument("Expected seven explicitly omitted Banner decals");
+    const std::array<OmittedDecal,7> expected{{
+        {true,20,"1-forsakencity/ragsB"}, {true,21,"1-forsakencity/rags"},
+        {true,22,"1-forsakencity/ragsB"}, {true,23,"1-forsakencity/rags"},
+        {true,24,"1-forsakencity/ragsB"}, {false,2,"generic/grass_a"}, {false,3,"generic/grass_d"}}};
+    for (int i=0; i<omitted; ++i) {
+        auto row = take(text);
+        const auto layer = take(row, ' ');
+        OmittedDecal entry{};
+        if (layer == "B") entry.background = true;
+        else if (layer == "F") entry.background = false;
+        else throw std::invalid_argument("Invalid omitted decal layer");
+        entry.source_index = integer(take(row, ' '));
+        entry.name = std::string(row);
+        if (!valid_name(entry.name) || entry.source_index < 0) throw std::invalid_argument("Invalid omitted decal");
+        result.omitted.push_back(entry);
+    }
+    if (!text.empty()) throw std::invalid_argument("Trailing decal data");
+    for (int i=0; i<omitted; ++i)
+        if (result.omitted[i].background != expected[i].background || result.omitted[i].source_index != expected[i].source_index ||
+            result.omitted[i].name != expected[i].name)
+            throw std::invalid_argument("Animated Banner omission set changed");
+    return result;
 }
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text,65'536,expected_checksum);

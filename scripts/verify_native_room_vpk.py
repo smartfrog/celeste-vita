@@ -27,6 +27,8 @@ def verify(vpk, build, staging):
         asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(texture_count))})
     if manifest.get("render_style") == "animated_player_partial":
         asset_names.update({"player.txt", *(f"player{i}.rgba" for i in range(manifest["player"]["pages"]))})
+    if manifest.get("decal_art"):
+        asset_names.update({"decals.txt", "decal0.rgba"})
     if set(manifest["files"]) != asset_names:
         raise ValueError("Unexpected manifest asset set for render style")
     expected = {"eboot.bin","sce_sys/param.sfo","assets/native-room/provenance.json", *("assets/native-room/"+name for name in asset_names)}

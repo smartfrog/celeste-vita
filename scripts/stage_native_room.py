@@ -45,7 +45,7 @@ def verified_bytes(path, expected, limit=4_000_512):
     return data
 
 
-def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_dir=None):
+def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_dir=None, decal_dir=None):
     output = output.resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit"):
         raise ValueError("Private diagnostic assets must remain under .audit")
@@ -115,10 +115,32 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_di
         source = Path(player["source_oracle"])
         verified_bytes(source / "source-manifest.json", player["source_manifest_sha256"])
         verified_bytes(source / "bank.json", player["bank_sha256"])
+    decals = None
+    if decal_dir is not None:
+        if visuals is None:
+            raise ValueError("Static decals require unchanged source-baked room visuals")
+        decals = json.loads((decal_dir / "provenance.json").read_text())
+        classification = decals.get("classification", {})
+        if ((decals["input_sha256"], decals["map_sha256"], decals["selected_room"]) != (INPUT_SHA, MAP_SHA, "1") or
+                (classification.get("static"), classification.get("bg"), classification.get("fg"),
+                 classification.get("banner_omitted"), classification.get("unique_static_textures")) != (22, 20, 2, 7, 15)):
+            raise ValueError("Wrong bounded static decal provenance")
+        if set(decals["files"]) != {"decals.txt", "decal0.rgba"} or decals["submitted_decal_rgba_bytes"] != 32768 or \
+                decals["max_temporary_cpu_upload_bytes"] > 32768:
+            raise ValueError("Unexpected bounded static decal asset set/bytes")
+        if Path(decals["visuals"]["path"]).resolve() != Path(visual_dir).resolve():
+            raise ValueError("Static decals were prepared against different room visuals")
+        for name, digest in decals["files"].items():
+            files[name] = verified_bytes(decal_dir / name, digest, 32_768)
+        oracle = decals["oracle"]
+        verified_bytes(Path(oracle["path"]) / "result.json", oracle["result_sha256"], 16*1024*1024)
+        verified_bytes(Path(oracle["path"]) / "source-manifest.json", oracle["source_manifest_sha256"], 16*1024*1024)
     manifest = {"revision": revision, "tracked_changes": dirty, "input_sha256": INPUT_SHA,
                 "map_sha256": MAP_SHA, "selected_room": "1", "spawn": [19, 144],
                 "render_style": "animated_player_partial" if player else "textured_partial" if visuals else "debug",
-                "spike_art": bool(visuals and visuals.get("spike_textures") is not None), "visuals": visuals, "player": player,
+                "spike_art": bool(visuals and visuals.get("spike_textures") is not None),
+                "decal_art": bool(decals is not None), "visuals": visuals, "player": player,
+                "decals": decals,
                 "mask_provenance_sha256": hashlib.sha256((mask_dir / "provenance.json").read_bytes()).hexdigest(),
                 "hazard_provenance_sha256": hashlib.sha256((hazard_dir / "provenance.json").read_bytes()).hexdigest(),
                 "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "fnv1a32": checksum(data), "bytes": len(data)}
@@ -132,6 +154,7 @@ def stage(output, mask_dir, hazard_dir, archive_path, visual_dir=None, player_di
         f'constexpr std::uint32_t mask_checksum = {checksum(mask)}u;\n'
         f'constexpr std::uint32_t spike_checksum = {checksum(hazard_data)}u;\n'
         + (f'constexpr std::uint32_t visual_checksum = {checksum(files["visuals.txt"])}u;\n' if visuals else '') +
+        (f'constexpr std::uint32_t decal_checksum = {checksum(files["decals.txt"])}u;\n' if decals else '') +
         (f'constexpr std::uint32_t player_checksum = {checksum(files["player.txt"])}u;\nconstexpr const char* player_bank_sha256 = "{player["bank_sha256"]}";\n' if player else '') +
         f'constexpr const char* revision = "{revision}{"-dirty" if dirty else ""}";\n' + '}\n')
     return manifest
@@ -145,8 +168,9 @@ def main():
     parser.add_argument("--archive", type=Path, default=Path("game/celeste-linux.zip"))
     parser.add_argument("--visual-dir", type=Path, help="Explicit source-closed private textured-room assets; absent keeps debug mode")
     parser.add_argument("--player-dir", type=Path, help="Explicit source-closed animated player and simulated hair; requires visual-dir")
+    parser.add_argument("--decal-dir", type=Path, help="Explicit source-closed 22 static decals; requires visual-dir")
     args = parser.parse_args()
-    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir, args.player_dir)
+    manifest = stage(args.output, args.mask_dir, args.hazard_dir, args.archive, args.visual_dir, args.player_dir, args.decal_dir)
     print(json.dumps(manifest, indent=2))
 
 
