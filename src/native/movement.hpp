@@ -18,10 +18,31 @@ struct Hitbox {
     Vec2 offset{};
 };
 
+class TileGrid final {
+public:
+    TileGrid(std::int32_t columns, std::int32_t rows, std::vector<std::uint8_t> cells,
+             float cell_width = 8.0f, float cell_height = 8.0f, Vec2 offset = {});
+    std::int32_t columns() const { return columns_; }
+    std::int32_t rows() const { return rows_; }
+    float cell_width() const { return cell_width_; }
+    float cell_height() const { return cell_height_; }
+    float width() const { return cell_width_ * static_cast<float>(columns_); }
+    float height() const { return cell_height_ * static_cast<float>(rows_); }
+    Vec2 offset() const { return offset_; }
+    bool at(std::int32_t x, std::int32_t y) const;
+
+private:
+    const std::int32_t columns_, rows_;
+    const std::vector<std::uint8_t> cells_;
+    const float cell_width_, cell_height_;
+    const Vec2 offset_;
+};
+
 struct Body {
     Vec2 position{};
     std::optional<Hitbox> collider;
     bool collidable = true;
+    const TileGrid* grid = nullptr;
 };
 
 std::int32_t round_to_even(float value);

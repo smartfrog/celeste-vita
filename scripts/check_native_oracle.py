@@ -17,9 +17,17 @@ ROOT = Path(__file__).resolve().parents[1]
 PRIVATE = ROOT / ".audit/native-oracle"
 
 
+def oracle_environment(sdk):
+    return os.environ | {
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1", "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1", "DOTNET_NOLOGO": "1",
+        "DOTNET_CLI_HOME": str(PRIVATE / "tools/cli"), "NUGET_PACKAGES": str(PRIVATE / "tools/packages"),
+        "DOTNET_ROOT": str(sdk.parent), "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE": "1", "MSBUILDDISABLENODEREUSE": "1",
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid"), default="movement")
     parser.add_argument("--native", type=Path, help="Host native_trace_runner executable")
     parser.add_argument("--compile-only", action="store_true", help="Prove extracted dependency closure only; no behavioral comparison")
     parser.add_argument("--fixtures", type=Path)
@@ -40,6 +48,9 @@ def main():
     elif args.domain == "player":
         from compare_player_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
+    elif args.domain == "grid":
+        from compare_grid_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
     sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
@@ -50,12 +61,7 @@ def main():
     (evidence / "result.json").unlink(missing_ok=True)
     if args.compile_only:
         (evidence / "compile-result.json").unlink(missing_ok=True)
-    environment = os.environ | {
-        "DOTNET_CLI_TELEMETRY_OPTOUT": "1", "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1", "DOTNET_NOLOGO": "1",
-        "DOTNET_CLI_HOME": str(PRIVATE / "tools/cli"), "NUGET_PACKAGES": str(PRIVATE / "tools/packages"),
-        "DOTNET_ROOT": str(sdk.parent), "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE": "1",
-        "MSBUILDDISABLENODEREUSE": "1",
-    }
+    environment = oracle_environment(sdk)
     commands = []
 
     def run(command, filename):

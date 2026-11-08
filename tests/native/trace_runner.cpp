@@ -20,12 +20,22 @@ public:
             name_ = fields.at(1);
             step_ = 0;
             targets_.clear();
+            grids_.clear();
             solid_ids_.clear();
             world_ = {};
             actor_ = std::make_unique<Actor>(world_);
         } else if (operation == "actor") {
             configure(actor_->body, fields, 1);
             actor_->ignore_jump_thrus = fields.at(9) == "1";
+        } else if (operation == "grid") {
+            const int id = std::stoi(fields.at(1));
+            if (id <= 0 || targets_.count(id)) throw std::invalid_argument("Duplicate/invalid Grid ID");
+            auto grid = parse_grid(fields);
+            auto body = std::make_unique<Body>(Body{{parse_float(fields.at(2)), parse_float(fields.at(3))}, {}, fields.at(11) == "1", grid.get()});
+            world_.solids.push_back(body.get());
+            solid_ids_.insert(id);
+            grids_.emplace(id, std::move(grid));
+            targets_.emplace(id, std::move(body));
         } else if (operation == "solid" || operation == "jump") {
             auto body = std::make_unique<Body>();
             configure(*body, fields, 2);
@@ -64,6 +74,7 @@ private:
     StaticWorld world_;
     std::unique_ptr<Actor> actor_;
     std::map<int, std::unique_ptr<Body>> targets_;
+    std::map<int, std::unique_ptr<TileGrid>> grids_;
     std::set<int> solid_ids_;
     std::string name_;
     int step_ = 0;

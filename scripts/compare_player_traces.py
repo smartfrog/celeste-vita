@@ -8,6 +8,7 @@ import struct
 
 from compare_native_traces import compare_rows
 from fixture_protocol import IDENTIFIER, integer, float_bits
+from compare_grid_traces import grid_fields
 
 FIELDS = ("case", "frame", "phase", "delta", "input_x", "input_y", "held", "raw_pressed", "released", "disabled", "grab", "dash",
           "x", "y", "remainder_x", "remainder_y", "previous_x", "previous_y", "speed_x", "speed_y", "facing", "move_x", "on_ground",
@@ -50,14 +51,17 @@ def fixture_operations(path):
                 cases.add(case)
             elif case is None:
                 raise ValueError("Operation before case")
-            elif op in {"solid", "jump"}:
-                if len(f) != 7 or frame:
+            elif op in {"solid", "jump", "grid"}:
+                if len(f) != (12 if op == "grid" else 7) or frame:
                     raise ValueError("Static platforms must precede frames")
                 identity = f[1]
                 integer(identity, 1, 2147483647)
                 if identity in bodies:
                     raise ValueError("Duplicate platform identity")
                 bodies.add(identity)
+                if op == "grid":
+                    grid_fields(f)
+                    continue
                 for i, value in enumerate(f[2:6], 2):
                     bits = float_bits(value)
                     if i >= 4 and struct.unpack(">f", bytes.fromhex(bits))[0] < 0:

@@ -1,10 +1,12 @@
 #pragma once
 
+#include "movement.hpp"
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -31,6 +33,16 @@ inline std::string bits(float value) {
     std::ostringstream output;
     output << std::hex << std::setfill('0') << std::setw(8) << raw;
     return output.str();
+}
+
+inline std::unique_ptr<celeste::TileGrid> parse_grid(const std::vector<std::string>& f) {
+    std::vector<std::uint8_t> cells;
+    if (f.at(10) != "-") for (char cell : f.at(10)) {
+        if (cell != '0' && cell != '1') throw std::invalid_argument("Invalid grid cell");
+        cells.push_back(static_cast<std::uint8_t>(cell - '0'));
+    }
+    return std::make_unique<celeste::TileGrid>(std::stoi(f.at(8)), std::stoi(f.at(9)), std::move(cells),
+        parse_float(f.at(6)), parse_float(f.at(7)), celeste::Vec2{parse_float(f.at(4)), parse_float(f.at(5))});
 }
 
 template<typename Runner>

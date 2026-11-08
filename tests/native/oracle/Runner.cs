@@ -69,6 +69,10 @@ internal static class Runner
     {
         try
         {
+#if GRID_ORACLE
+            if (args.Length == 3 && args[0] == "--mask") return GridOracle.Mask(args[1], args[2]);
+            if (args.Length == 3 && args[0] == "--mask-cases") return GridOracle.MaskCases(args[1], args[2]);
+#endif
             if (args.Length != 1) throw new ArgumentException("Expected fixture path");
             foreach (string line in File.ReadLines(args[0]))
             {
@@ -81,6 +85,12 @@ internal static class Runner
                         bodies = new Dictionary<int, Entity> { [0] = actor }; break;
                     case "actor":
                         Configure(actor, f, 1); actor.IgnoreJumpThrus = f[9] == "1"; break;
+#if GRID_ORACLE
+                    case "grid":
+                        var tiled = new Solid { Position = new Vector2(Float(f[2]), Float(f[3])), Collider = GridFixture.Parse(f), Scene = scene, Collidable = f[11] == "1" };
+                        bodies.Add(int.Parse(f[1]), tiled);
+                        scene.Tracker.Entities[typeof(Solid)].Add(tiled); break;
+#endif
                     case "solid":
                     case "jump":
                         Entity body = f[0] == "solid" ? new Solid() : new JumpThru();

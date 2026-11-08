@@ -1,0 +1,93 @@
+# grid id body_x body_y offset_x offset_y cell_width cell_height columns rows row_major_bits collidable
+case strict_edges
+actor 0 0 1 1 0 0 1 1 0
+grid 1 0 0 0 0 8 8 1 1 1 1
+Q -1 0
+Q 0 -1
+Q 8 0
+Q 0 8
+Q -1 -1
+Q 7 7
+Q 0 0
+case negative_fraction
+actor 0 0 1 1 0 0 1 1 0
+grid 1 -8 0 0 0 8 8 1 1 1 1
+Q -0.5 0
+Q -1 0
+case offset_composition
+actor 0 0 2 2 -1 -1 1 1 0
+grid 1 10 -10 -3 2 4 6 1 1 1 1
+Q 8 -7
+Q 12 -7
+Q 8 -2
+case sparse_51_columns
+actor 0 0 8 1 0 0 1 1 0
+grid 1 0 0 0 0 8 8 51 1 000000000000000000000000000000000000000000000000001 1
+Q 392 0
+Q 400 0
+Q 407 0
+Q 408 0
+Q -8 0
+case fractional_shape
+actor 0 0 1.9 2.9 -0.4 -0.6 1 1 0
+grid 1 -8 -8 0.5 0.5 4.5 6.5 3 3 100010001 1
+Q -8 -8
+Q -4 -3
+Q 5 5
+Q -0.5 -0.5
+case zero_width
+actor 0 0 0 1 0 0 1 1 0
+grid 1 0 0 0 0 8 8 2 2 1111 1
+Q 4.5 4.5
+Q 0 0
+Q 8 0
+case zero_height
+actor 0 0 1 0 0 0 1 1 0
+grid 1 0 0 0 0 8 8 2 2 1111 1
+Q 4.5 4.5
+Q 0 0
+Q 0 8
+case zero_columns
+actor 0 0 2 2 0 0 1 1 0
+grid 1 0 0 0 0 8 8 0 1 - 1
+Q -1 -1
+case zero_rows
+actor 0 0 2 2 0 0 1 1 0
+grid 1 0 0 0 0 8 8 1 0 - 1
+Q -1 -1
+case disabled_target
+actor 0 0 1 1 0 0 1 1 0
+grid 1 0 0 0 0 8 8 1 1 1 0
+Q 0 0
+case noncollidable_query
+actor 0 0 1 1 0 0 0 1 0
+grid 1 0 0 0 0 8 8 1 1 1 1
+Q 0 0
+case ordered_grid_first
+actor 0 0 1 1 0 0 1 1 0
+grid 1 0 0 0 0 8 8 1 1 1 1
+solid 2 0 0 8 8 0 0 1 1
+Q 0 0
+case ordered_hitbox_first
+actor 0 0 1 1 0 0 1 1 0
+solid 2 0 0 8 8 0 0 1 1
+grid 1 0 0 0 0 8 8 1 1 1 1
+Q 0 0
+case actor_horizontal
+actor 0 2 1 1 0 0 1 1 0
+grid 1 2 2 0 0 8 8 1 1 1 1
+H 0.25 record -1
+H 3 record 1
+case actor_vertical
+actor 2 0 1 1 0 0 1 1 0
+grid 1 2 2 0 0 8 8 1 1 1 1
+V 0.25 record -1
+V 3 record 1
+case int32_lower_bound
+actor 0 0 1 1 0 0 1 1 0
+grid 1 -2147483648 0 0 0 8 8 1 1 1 1
+Q -2147483648 0
+case int32_upper_safe
+actor 0 0 1 1 0 0 1 1 0
+grid 1 2147483520 0 0 0 8 8 1 1 1 1
+Q 2147483520 0

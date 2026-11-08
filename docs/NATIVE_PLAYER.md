@@ -2,8 +2,9 @@
 
 `src/native/player.hpp` composes the accepted Actor, StateMachine and
 VirtualButton. This is Normal locomotion plus ground/coyote Jump on synthetic
-ordered static Hitboxes, **not a first room, tilemap, full Player.Update, game
-runtime, or playable port**. It has no external native dependencies.
+ordered static Hitboxes, now also immutable target Grids (see
+[native static tilemap](NATIVE_TILEMAP.md)). It is **not full Player.Update,
+game runtime or a playable port**. It has no external native dependencies.
 
 ## Supported profile and API
 
@@ -141,4 +142,5 @@ Private compile/red-green/final exact-commit evidence lives under
 `.audit/native-oracle/player` can be refreshed by later checks. Source, SDK,
 game files and build artifacts stay uncommitted. The existing VitaSDK static
 build with `BUILD_TESTING=OFF` establishes compilation only, **not Vita execution,
-performance, original CIL equivalence, real Grid/tilemap or full-game fidelity**.
+performance, original CIL equivalence or full-game fidelity**. The subsequent
+bounded Grid/global-mask and actual-room headless checks are documented separately.

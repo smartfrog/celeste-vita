@@ -55,13 +55,13 @@ internal static class Runner
             MInput.Disabled = false;
             return;
         }
-        if (op == "solid" || op == "jump")
+        if (op == "solid" || op == "jump" || op == "grid")
         {
             if (player != null) throw new ArgumentException("Platforms must precede frames");
-            Platform p = op == "solid" ? new Solid() : new JumpThru();
+            Platform p = op == "jump" ? new JumpThru() : new Solid();
             p.Position = new(Float(f[2]), Float(f[3]));
-            p.Collider = new Hitbox(Float(f[4]), Float(f[5]));
-            p.Safe = Flag(f[6]);
+            p.Collider = op == "grid" ? GridFixture.Parse(f) : new Hitbox(Float(f[4]), Float(f[5]));
+            p.Safe = Flag(f[op == "grid" ? 11 : 6]);
             world.Tracker.Entities[p.GetType()].Add(p);
             world.Tracker.Entities[typeof(Platform)].Add(p);
             ids[p] = int.Parse(f[1]);

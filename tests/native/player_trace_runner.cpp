@@ -18,6 +18,7 @@ public:
             player_.reset();
             world_ = {};
             bodies_.clear();
+            grids_.clear();
             ids_.clear();
             name_ = f.at(1);
             frame_ = 0;
@@ -25,6 +26,16 @@ public:
             speed_ = {parse_float(f.at(4)), parse_float(f.at(5))};
             world_.bounds_left = std::stoi(f.at(6));
             world_.bounds_right = std::stoi(f.at(7));
+            return;
+        }
+        if (op == "grid") {
+            if (player_) throw std::invalid_argument("Grid must precede frames");
+            grids_.push_back(parse_grid(f));
+            bodies_.push_back({{parse_float(f.at(2)), parse_float(f.at(3))}, {}, true, grids_.back().get()});
+            Body* body = &bodies_.back();
+            ids_[body] = std::stoi(f.at(1));
+            world_.collision.solids.push_back(body);
+            if (flag(f.at(11))) world_.safe_ground.push_back(body);
             return;
         }
         if (op == "solid" || op == "jump") {
@@ -50,6 +61,7 @@ public:
 private:
     PlayerWorld world_;
     std::deque<Body> bodies_;
+    std::vector<std::unique_ptr<TileGrid>> grids_;
     std::map<const Body*, int> ids_;
     std::unique_ptr<Player> player_;
     std::string name_;

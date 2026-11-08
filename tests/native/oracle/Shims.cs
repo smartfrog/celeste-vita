@@ -50,9 +50,17 @@ namespace Monocle
         {
             if (this is Hitbox own && other.Collider is Hitbox target)
                 return own.Collide(target);
+#if GRID_ORACLE
+            if (this is Hitbox box && other.Collider is Grid grid)
+                return box.Collide(grid);
+#endif
             throw new NotSupportedException("Only Hitbox is supported by this oracle");
         }
         public abstract bool Collide(Hitbox other);
+#if GRID_ORACLE
+        public virtual bool Collide(Grid other) => throw new NotSupportedException("Grid query excluded");
+        public virtual bool Collide(Rectangle other) => throw new NotSupportedException("Rectangle query excluded");
+#endif
     }
 }
 

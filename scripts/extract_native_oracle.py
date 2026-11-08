@@ -21,13 +21,18 @@ SOURCE_HASHES = {
     "Monocle.VirtualButton.cs": "ae7c19ab7a08ddf2c2f5e8e31e2305ba9334f149573f9b01d78cac16291e8cbb",
     "Celeste.Player.cs": "47413e0a774802c6dac9baff96aca6f6fda01edd8f28b1dd9bb86e0075cd4d9a",
     "Celeste.PlayerInventory.cs": "fca9bed434019cba9bbe937e18e5d170c420cbbe51740926a4e9d70aeac7ec5f",
+    "Monocle.Grid.cs": "3bc25f4b4abea06d93297abb74a4907b4a9eccab8fad212bd997e3922191263e",
+    "Celeste.LevelData.cs": "ad1957dcd4f3919396e6db60095f1da7ab767d0c37e51bad90fbd9603809b239",
+    "Celeste.SolidTiles.cs": "6deb8cd77d6b6ffdd28dccb637ce73530f453da315f70947480a19c139598735",
+    "Celeste.LevelLoader.cs": "b35b6f5c0479b0eccaf5d5a1c6affaca388c6733a585248b910208a354c6af7f",
+    "Celeste.MapData.cs": "e820408a848bfee05aba0d98cf698cf5061438ac3cf1f6640f44cf7db1d8a898",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/ilspy")
-    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input", "player", "grid"), default="movement")
     args = parser.parse_args()
     actual = hashlib.sha256((args.source / "inputs/Celeste.exe").read_bytes()).hexdigest()
     if actual != INPUT_SHA:
@@ -39,7 +44,10 @@ def main():
     manifest = {"input_sha256": actual, "version": "PC 1.4.0.0", "extractions": []}
 
     def extract(filename, ranges):
-        source = (args.source / "cs" / filename).read_bytes()
+        source_path = args.source / "cs" / filename
+        if filename in {"Celeste.LevelLoader.cs", "Celeste.MapData.cs"}:
+            source_path = ROOT / ".audit/native-static-tilemap" / filename
+        source = source_path.read_bytes()
         if hashlib.sha256(source).hexdigest() != SOURCE_HASHES[filename]:
             raise RuntimeError(f"Changed decompilation input: {filename}")
         lines = source.decode().splitlines(keepends=True)
@@ -49,7 +57,7 @@ def main():
                                          "blocks_sha256": [hashlib.sha256(b.encode()).hexdigest() for b in blocks]})
         return "\n".join(blocks)
 
-    if args.domain in {"movement", "player"}:
+    if args.domain in {"movement", "player", "grid"}:
         header = "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nusing Microsoft.Xna.Framework;\nusing Monocle;\n"
         if args.domain == "player":
             header += "using Microsoft.Xna.Framework.Input;\n"
@@ -61,9 +69,24 @@ def main():
         content += "namespace Monocle { public partial class Entity {\n"
         content += extract("Monocle.Entity.cs", [(682, 690), (728, 738)]) + "\n} }\n"
         content += "namespace Monocle { public abstract partial class Collider {\n"
-        content += extract("Monocle.Collider.cs", [(8, 22), (205, 251), (255, 258)]) + "\n} }\n"
+        collider_ranges = [(8, 22), (205, 253 if args.domain in {"grid", "player"} else 251), (255, 258)]
+        content += extract("Monocle.Collider.cs", collider_ranges) + "\n} }\n"
         content += "namespace Monocle { public class Hitbox : Collider {\n"
-        content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 183)]) + "\n} }\n"
+        content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 188 if args.domain in {"grid", "player"} else 183)]) + "\n} }\n"
+        if args.domain in {"grid", "player"}:
+            content += "namespace Monocle { public class Grid : Collider {\n"
+            content += extract("Monocle.Grid.cs", [(8, 56), (76, 129), (315, 346), (418, 429), (481, 484)]) + "\n} }\n"
+        if args.domain == "grid":
+            content += "namespace Celeste { public partial class LevelData {\n"
+            content += extract("Celeste.LevelData.cs", [(76, 76), (113, 138)]) + "\n} } } } }\n"
+            content += "namespace Celeste { public partial class MapData {\n"
+            content += extract("Celeste.MapData.cs", [(47, 47)]) + "\npublic void ComputeBounds() {\n"
+            content += extract("Celeste.MapData.cs", [(192, 235)]) + "\n} }\n"
+            content += "public class MaskLoader { public VirtualMap<char> Build(MapData mapData) {\n"
+            content += extract("Celeste.LevelLoader.cs", [(95, 266)]) + "\nreturn virtualMap2; } }\n"
+            content += "public class SolidTiles : Solid { public Grid Grid; public SolidTiles(VirtualMap<char> data) {\n"
+            content += extract("Celeste.SolidTiles.cs", [(26, 48)]) + "\n} } }\n"
+            content = "using System.Text.RegularExpressions;\n" + content
         if args.domain == "player":
             content += "namespace Monocle { public partial class Entity {\n"
             content += extract("Monocle.Entity.cs", [(531, 540), (551, 581), (648, 658), (762, 776)]) + "\n} }\n"
@@ -129,6 +152,14 @@ def main():
             "Unsupported shells throw; validated-absent collections empty; presentation shells inert",
             "Bounds enforcement disabled, bounds retained for ClimbBoundsCheck; stats/replay services excluded, source TotalJumps increments an isolated counter",
         ]
+    elif args.domain == "grid":
+        manifest["stub_boundaries"] = [
+            "Accepted Actor/Hitbox shells with target Grid dispatch; other shape combinations throw",
+            "Rectangle uses strict integer overlap; dense checked VirtualMap storage throws outside valid cells",
+            "Raw map scalars/text supplied by a synthetic JSON driver; relevant LevelData constructor cases unchanged",
+            "MapData bounds, complete LevelLoader 95-266 and SolidTiles 26-48 unchanged; no runtime loading, rendering or autotiling",
+            "Dense AnyInSegmentAtTile always scans valid segments; default char zero makes omitted empty segments collision-equivalent",
+        ]
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     maintained = ROOT / "tests/native/oracle"
     if args.domain != "movement":
@@ -138,13 +169,17 @@ def main():
         extra = "\n".join(f'    <Compile Include="{ROOT / "tests/native/oracle" / name / "Shims.cs"}" />'
                           for name in ("scheduling", "input"))
         extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/Shims.cs"}" />'
+        extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/grid/Shims.cs"}" />'
+    elif args.domain == "grid":
+        extra = f'    <Compile Include="{ROOT / "tests/native/oracle/Shims.cs"}" />'
+        extra += f'\n    <Compile Include="{ROOT / "tests/native/oracle/Runner.cs"}" />'
     (output / "Oracle.csproj").write_text(f'''<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <UseAppHost>false</UseAppHost><CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
     <NuGetAudit>false</NuGetAudit>
-    <DefineConstants>{"PLAYER_ORACLE" if args.domain == "player" else ""}</DefineConstants>
+    <DefineConstants>{"PLAYER_ORACLE;GRID_ORACLE" if args.domain == "player" else "GRID_ORACLE" if args.domain == "grid" else ""}</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extracted.cs" />

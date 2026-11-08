@@ -40,14 +40,62 @@ Edges edges(const Hitbox& hitbox, Vec2 position) {
     return result;
 }
 
+std::int32_t checked_integer(std::int64_t value) {
+    if (value < INT32_MIN || value > INT32_MAX) throw std::invalid_argument("Grid rectangle arithmetic exceeds int32");
+    return static_cast<std::int32_t>(value);
+}
+
+std::int32_t truncate_integer(float value) {
+    if (!std::isfinite(value) || static_cast<double>(value) < INT32_MIN || static_cast<double>(value) > INT32_MAX)
+        throw std::invalid_argument("Grid rectangle conversion exceeds int32");
+    return static_cast<std::int32_t>(value);
+}
+
+struct Rectangle {
+    std::int32_t left, top, right, bottom;
+};
+
+Rectangle bounds(const Hitbox& box, Vec2 position) {
+    const Edges e = edges(box, position);
+    const auto left = truncate_integer(e.left), top = truncate_integer(e.top);
+    const auto width = truncate_integer(box.width), height = truncate_integer(box.height);
+    return {left, top, checked_integer(static_cast<std::int64_t>(left) + width),
+                       checked_integer(static_cast<std::int64_t>(top) + height)};
+}
+
+Hitbox grid_box(const TileGrid& grid) { return {grid.width(), grid.height(), grid.offset()}; }
+
+bool grid_collision(const Hitbox& box, Vec2 at, const TileGrid& grid, Vec2 position) {
+    const Rectangle a = bounds(box, at), b = bounds(grid_box(grid), position);
+    if (!(a.left < b.right && a.right > b.left && a.bottom > b.top && a.top < b.bottom)) return false;
+    const float left = grid.offset().x + position.x, top = grid.offset().y + position.y;
+    auto x = truncate_integer((static_cast<float>(a.left) - left) / grid.cell_width());
+    auto y = truncate_integer((static_cast<float>(a.top) - top) / grid.cell_height());
+    const auto right = truncate_integer((static_cast<float>(a.right) - left - 1.0f) / grid.cell_width());
+    const auto bottom = truncate_integer((static_cast<float>(a.bottom) - top - 1.0f) / grid.cell_height());
+    auto width = checked_integer(static_cast<std::int64_t>(right) - x + 1);
+    auto height = checked_integer(static_cast<std::int64_t>(bottom) - y + 1);
+    if (x < 0) { width = checked_integer(static_cast<std::int64_t>(width) + x); x = 0; }
+    if (y < 0) { height = checked_integer(static_cast<std::int64_t>(height) + y); y = 0; }
+    if (checked_integer(static_cast<std::int64_t>(x) + width) > grid.columns()) width = grid.columns() - x;
+    if (checked_integer(static_cast<std::int64_t>(y) + height) > grid.rows()) height = grid.rows() - y;
+    for (std::int32_t i = 0; i < width; ++i)
+        for (std::int32_t j = 0; j < height; ++j)
+            if (grid.at(x + i, y + j)) return true;
+    return false;
+}
+
 void validate_body(const Body& body) {
     require_finite(body.position);
+    if (body.collider && body.grid) throw std::invalid_argument("Body cannot have both Hitbox and Grid");
     if (body.collider) edges(*body.collider, body.position);
+    if (body.grid) bounds(grid_box(*body.grid), body.position);
 }
 
 void validate_at(const Body& body, Vec2 at) {
     validate_body(body);
     require_finite(at);
+    if (body.grid) throw std::invalid_argument("Only Hitbox queries are supported");
     if (body.collider) edges(*body.collider, at);
 }
 
@@ -80,7 +128,8 @@ std::int32_t round_to_even(float value) {
 bool collide_check(const Body& query, const Body& target, Vec2 at) {
     validate_at(query, at);
     validate_body(target);
-    if (!query.collider || !target.collider || &query == &target || !target.collidable) return false;
+    if (!query.collider || (!target.collider && !target.grid) || &query == &target || !target.collidable) return false;
+    if (target.grid) return grid_collision(*query.collider, at, *target.grid, target.position);
     const Edges a = edges(*query.collider, at);
     const Edges b = edges(*target.collider, target.position);
     return a.left < b.right && a.right > b.left && a.bottom > b.top && a.top < b.bottom;
@@ -118,7 +167,7 @@ bool Actor::move_v_exact(std::int32_t amount, Collision callback, Body* pusher) 
 }
 
 bool Actor::move(float amount, bool horizontal, Collision callback, Body* pusher) {
-    validate_body(body);
+    validate_at(body, body.position);
     if (!std::isfinite(amount)) throw std::invalid_argument("Movement must be finite");
     float& counter = horizontal ? remainder_.x : remainder_.y;
     const float accumulated = counter + amount;
@@ -130,7 +179,7 @@ bool Actor::move(float amount, bool horizontal, Collision callback, Body* pusher
 }
 
 bool Actor::move_exact(std::int32_t amount, bool horizontal, Collision callback, Body* pusher) {
-    validate_body(body);
+    validate_at(body, body.position);
     const Vec2 unit = horizontal ? Vec2{1.0f, 0.0f} : Vec2{0.0f, 1.0f};
     const Vec2 target = add(body.position, scale(unit, static_cast<float>(amount)));
     validate_at(body, target);

@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {"case": "single_extrusion", "levels": [{"name": "lvl_synthetic", "x": 0, "y": 0, "width": 8, "height": 8, "solids": "1", "bg": ""}], "filler": []},
+    {"case": "mixed_newlines_overlong", "levels": [{"name": "lvl_synthetic", "x": 0, "y": 0, "width": 16, "height": 32, "solids": "1111\r\n1\n\r01\n11\r0", "bg": ""}], "filler": []},
+    {"case": "later_zero_and_short", "levels": [{"name": "lvl_first", "x": 0, "y": 0, "width": 16, "height": 16, "solids": "1111\n1111", "bg": ""}, {"name": "lvl_second", "x": 0, "y": 0, "width": 16, "height": 16, "solids": "0\n", "bg": ""}], "filler": []},
+    {"case": "open_reservations", "levels": [{"name": "lvl_synthetic", "x": 0, "y": 0, "width": 24, "height": 24, "solids": "101\n111\n101", "bg": ""}], "filler": []},
+    {"case": "ordered_filler", "levels": [{"name": "lvl_synthetic", "x": 0, "y": 0, "width": 24, "height": 24, "solids": "301\n000\n401", "bg": ""}], "filler": [{"x": 0, "y": -2, "w": 2, "h": 2}, {"x": -2, "y": 0, "w": 2, "h": 3}]},
+    {"case": "negative_origin_height184", "levels": [{"name": "lvl_synthetic", "x": -7, "y": -9, "width": 16, "height": 184, "solids": "11\n1", "bg": ""}], "filler": []}
+  ]
+}

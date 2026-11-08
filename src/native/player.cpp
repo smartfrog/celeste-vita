@@ -49,7 +49,7 @@ void Player::validate_world() const {
     for (const auto* list : {&world_.collision.solids, &world_.collision.jump_thrus}) {
         for (const Body* body : *list) {
             if (!body) throw std::invalid_argument("Null Player platform");
-            collide_check(*body, *body, body->position);
+            collide_check(actor_.body, *body, actor_.body.position);
         }
     }
     for (const Body* safe : world_.safe_ground) {

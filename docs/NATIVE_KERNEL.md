@@ -37,7 +37,7 @@ performance on Vita**. No VPK is produced by this ticket.
 
 ## Supported contract
 
-- `Body` is just position, optional hitbox and target `collidable` flag.
+- `Body` is position, optional Hitbox or immutable target Grid, and `collidable`.
   `StaticWorld` contains explicit ordered Solid and JumpThru pointer lists;
   the caller supplies category membership and preserves object lifetimes.
   World and referenced bodies must outlive the actor and calls, including
@@ -68,10 +68,10 @@ performance on Vita**. No VPK is produced by this ticket.
   this is not a transactional scene validator. Pixel walking is linear in the
   requested distance, even for large valid int32 moves.
 
-The only collider type representable by this API is `Hitbox`; unsupported
-shapes/features have no conversion or fallback API. Grid, Circle,
-ColliderList, moving platforms/carry/push/lift/squish,
-map loading, rendering and audio are **not implemented**.
+Hitbox queries can target Hitbox or the bounded immutable Grid described in
+[native static tilemap](NATIVE_TILEMAP.md); unsupported shapes have no fallback.
+Circle, ColliderList, Grid queries, moving platforms/carry/push/lift/squish,
+runtime map loading, rendering and audio are **not implemented**.
 Standalone StateMachine/Coroutine compatibility is described in
 [native scheduling](NATIVE_SCHEDULING.md), not integrated Player behavior.
 Standalone sampled buttons are described in [native input](NATIVE_INPUT.md),

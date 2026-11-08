@@ -256,8 +256,8 @@ namespace Celeste
                     if (entity.GetType() != typeof(Solid) && entity.GetType() != typeof(JumpThru))
                         throw new NotSupportedException("Unsupported platform type");
                     var p = (Platform)entity;
-                    if (p.OnCollide != null || p.OnDashCollide != null || p.Collider is not Hitbox)
-                        throw new NotSupportedException("Platform hooks/non-Hitbox excluded");
+                    if (p.OnCollide != null || p.OnDashCollide != null || (p.Collider is not Hitbox && p.Collider is not Grid))
+                        throw new NotSupportedException("Platform hooks/unsupported collider excluded");
                 }
         }
         private bool Pickup(Holdable holdable) => throw new NotSupportedException("Holding excluded");
