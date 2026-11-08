@@ -1,5 +1,8 @@
 #include "draw.hpp"
 #include "diagnostic.hpp"
+#include "frame.hpp"
+#include "guest_io.hpp"
+#include "asset_pins.hpp"
 #include <vitaGL.h>
 #include <stdexcept>
 #include <string>
@@ -19,6 +22,24 @@ void body(const Body& shape) {
     const auto& box = shape.collider.value();
     rectangle(shape.position.x+box.offset.x, shape.position.y+box.offset.y, box.width, box.height);
 }
+std::string export_back_buffer(const char* path, const Player& player) {
+    glReadBuffer(GL_BACK);
+    glFinish();
+    check("frame export GPU finish");
+    std::vector<std::uint8_t> rgba(960*544*4);
+    glReadPixels(0,0,960,544,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());
+    check("frame export glReadPixels GL_BACK RGBA");
+    const auto ppm = encode_frame_ppm(960,544,rgba);
+    write_guest_file(path,ppm,SCE_O_EXCL);
+    const auto position = player.actor().body.position;
+    const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
+        " stage=after_draw_glFinish_GL_BACK_before_swap frame=0 x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
+        " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
+        " ground="+std::to_string(player.state().on_ground)+" dead="+std::to_string(player.death().dead)+
+        " resets=0 format=P6_RGB_top_down\n";
+    write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
+    return receipt;
+}
 }
 void initialize_graphics() {
     const auto fallback = vglInitExtended(1024*1024, 960, 544, 64*1024*1024, SCE_GXM_MULTISAMPLE_NONE);
@@ -33,7 +54,7 @@ void initialize_graphics() {
     glDisable(GL_BLEND);
     check("graphics initialization");
 }
-void draw(const Room& room, const Player& player) {
+std::string draw(const Room& room, const Player& player, const char* export_path) {
     glViewport(0,0,960,544);
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -64,8 +85,10 @@ void draw(const Room& room, const Player& player) {
     const auto position = player.actor().body.position;
     rectangle(position.x+hurtbox.offset.x,position.y+hurtbox.offset.y,hurtbox.width,hurtbox.height);
     check("room draw");
+    const auto exported = export_path ? export_back_buffer(export_path,player) : std::string{};
     vglSwapBuffers(GL_FALSE);
     check("buffer swap");
+    return exported;
 }
 void finish_graphics() {
     glFinish();

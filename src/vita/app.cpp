@@ -2,6 +2,7 @@
 #include "assets.hpp"
 #include "diagnostic.hpp"
 #include "draw.hpp"
+#include "guest_io.hpp"
 #include <psp2/ctrl.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/kernel/processmgr.h>
@@ -23,11 +24,8 @@ void log(const char* format, ...) {
 void signal(const char* event, unsigned frame) {
     char text[128];
     const int length = std::snprintf(text,sizeof(text),"%s frame=%u\n",event,frame);
-    const auto fd = sceIoOpen("ux0:data/celeste_native_room.ready", SCE_O_WRONLY|SCE_O_CREAT|SCE_O_TRUNC, 0666);
-    if (fd < 0) throw std::runtime_error("Readiness open failed: " + std::to_string(fd));
-    const auto written = sceIoWrite(fd,text,length);
-    const auto closed = sceIoClose(fd);
-    if (written != length || closed < 0) throw std::runtime_error("Readiness write/close failed");
+    if (length < 0 || length >= static_cast<int>(sizeof(text))) throw std::runtime_error("Readiness serialization failed");
+    write_guest_file("ux0:data/celeste_native_room.ready",std::string_view(text,length),SCE_O_TRUNC);
 }
 void state(const char* event, unsigned frame, const Session& session) {
     const auto& player = session.player();
@@ -58,7 +56,9 @@ void run() {
     Session session(room.world);
     Controller controller;
     unsigned previous = 0, frame = 0;
-    draw(room,session.player());
+    const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
+    const auto exported = draw(room,session.player(),frame_path.c_str());
+    log("%s",exported.c_str());
     state("frame ready",frame,session);
     signal("ready",frame);
     const auto start_time = sceKernelGetProcessTimeWide();
@@ -101,6 +101,14 @@ int main() {
     catch (const std::exception& error) {
         status = 1;
         if (std::fprintf(stderr,"FATAL: %s\n",error.what()) < 0 || std::fflush(stderr)) status = 2;
+        try {
+            const auto failure_path = std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
+            celeste::diagnostic::write_guest_file(failure_path.c_str(),std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",SCE_O_EXCL);
+            signal("failed",0);
+        } catch (const std::exception& diagnostic_error) {
+            status = 2;
+            std::fprintf(stderr,"Failure receipt also failed: %s; original: %s\n",diagnostic_error.what(),error.what());
+        }
     }
     if (std::fclose(stderr)) status = 2;
     sceKernelExitProcess(status);

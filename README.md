@@ -11,6 +11,9 @@ An opt-in [native Vita room diagnostic](docs/NATIVE_VITA_DIAGNOSTIC.md) builds o
 own C++ executable/VPK with debug rectangles, sampled controls and manual reset.
 This is not faithful rendering/audio, original respawn or a completed playable port;
 target execution evidence and limits are recorded separately from host compatibility.
+The documented `scripts/feedback_native_room.py --output <fresh-private-directory>`
+command builds/runs it and preserves one authorized native-renderer frame plus
+structured stage feedback; OS screenshots are not used.
 Voir [le noyau natif](docs/NATIVE_KERNEL.md) et
 [la compatibilité d'ordonnancement](docs/NATIVE_SCHEDULING.md) et
 [les boutons échantillonnés](docs/NATIVE_INPUT.md) et

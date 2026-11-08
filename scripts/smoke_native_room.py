@@ -13,6 +13,8 @@ import time
 import zipfile
 
 from vita_room_emulator import TITLE, prepare, launch_command
+from native_room_feedback import collect_native_frame, new_feedback, save_feedback
+from native_room_revision import REPO_ROOT
 
 
 def verify_guest(text, revision):
@@ -41,6 +43,13 @@ class XError(C.Structure):
 class ClientMessage(C.Structure):
     _fields_ = [("type",C.c_int),("serial",C.c_ulong),("send_event",C.c_int),("display",C.c_void_p),
                 ("window",C.c_ulong),("message_type",C.c_ulong),("format",C.c_int),("data",C.c_long*5)]
+
+
+class KeyEvent(C.Structure):
+    _fields_ = [("type",C.c_int),("serial",C.c_ulong),("send_event",C.c_int),("display",C.c_void_p),
+                ("window",C.c_ulong),("root",C.c_ulong),("subwindow",C.c_ulong),("time",C.c_ulong),
+                ("x",C.c_int),("y",C.c_int),("x_root",C.c_int),("y_root",C.c_int),
+                ("state",C.c_uint),("keycode",C.c_uint),("same_screen",C.c_int)]
 
 
 class X11:
@@ -79,6 +88,7 @@ class X11:
         self.fd = self.x.XConnectionNumber(self.display)
         self.x.XSelectInput(self.display,self.root,(1<<19)|(1<<22))
         self.keys = set()
+        self.trace = []
 
     def property(self, window, name):
         atom = self.x.XInternAtom(self.display,name.encode(),False)
@@ -135,39 +145,87 @@ class X11:
         self.x.XFlush(self.display)
 
     def drain(self):
+        events = []
         while self.x.XPending(self.display):
             event = (C.c_long*24)()
             self.x.XNextEvent(self.display,event)
+            key = C.cast(event,C.POINTER(KeyEvent)).contents
+            observed = {"type":key.type,"window":key.window}
+            if key.type in (2,3):
+                observed.update({"keycode":key.keycode,"modifiers":key.state})
+            events.append(observed)
+        if events:
+            self.trace.append({"phase":"drained-events","events":events})
+
+    def key_state(self, phase, code, pressed):
+        keymap = (C.c_ubyte*32)()
+        self.x.XQueryKeymap(self.display,keymap)
+        pending = self.x.XPending(self.display)
+        held = bool(keymap[code//8] & (1<<(code%8)))
+        self.trace.append({"phase":phase,"keycode":code,"requested_pressed":pressed,"server_pressed":held,
+                           "pending_xlib_events":pending,"keymap_hex":bytes(keymap).hex(),"xerrors":list(self.errors)})
+        if any(error != 3 for error,request in self.errors):
+            raise RuntimeError(f"X11 request failed: {self.errors}")
+        return held
+
+    def await_key_state(self, code, pressed):
+        deadline = time.monotonic()+3
+        while True:
+            if self.x.XPending(self.display):
+                self.drain()
+            if self.key_state("acknowledgement",code,pressed) == pressed:
+                return
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:
+                self.key_state("timeout",code,pressed)
+                raise RuntimeError("XTest did not establish the requested server key state within 3 seconds")
+            if self.x.XPending(self.display):
+                continue
+            if select.select([self.fd],[],[],remaining)[0]:
+                self.drain()
 
     def key(self, window, code, pressed):
         if not self.focused(window):
             raise RuntimeError("OUR window focus is unverified; refusing input")
-        if not self.xt.XTestFakeKeyEvent(self.display,code,pressed,0):
+        held = self.key_state("before-injection",code,pressed)
+        if pressed and held:
+            raise RuntimeError(f"Key {code} is already held; refusing unowned input")
+        if not pressed and code not in self.keys:
+            raise RuntimeError(f"Key {code} is not owned; refusing release")
+        accepted = bool(self.xt.XTestFakeKeyEvent(self.display,code,pressed,0))
+        self.trace.append({"phase":"injection","keycode":code,"pressed":pressed,"accepted":accepted})
+        if not accepted:
             raise RuntimeError("XTest key event failed")
         if pressed:
             self.keys.add(code)
-        else:
-            self.keys.discard(code)
         self.x.XFlush(self.display)
         self.x.XSync(self.display,False)
-        if any(error != 3 for error,request in self.errors):
-            raise RuntimeError(f"X11 request failed: {self.errors}")
-        deadline = time.monotonic()+3
-        while True:
-            keymap = (C.c_ubyte*32)()
-            self.x.XQueryKeymap(self.display,keymap)
-            if bool(keymap[code//8] & (1<<(code%8))) == pressed:
-                return
-            remaining = deadline-time.monotonic()
-            if remaining <= 0 or not select.select([self.fd],[],[],remaining)[0]:
-                raise RuntimeError("XTest did not establish the requested server key state within 3 seconds")
-            self.drain()
+        self.await_key_state(code,pressed)
+        if not pressed:
+            self.keys.remove(code)
 
     def close(self):
-        for code in self.keys:
-            self.xt.XTestFakeKeyEvent(self.display,code,False,0)
-        self.x.XSync(self.display,False)
-        self.x.XCloseDisplay(self.display)
+        failures = []
+        try:
+            for code in tuple(self.keys):
+                try:
+                    self.key_state("before-cleanup-release",code,False)
+                except RuntimeError as error:
+                    failures.append(str(error))
+                try:
+                    accepted = bool(self.xt.XTestFakeKeyEvent(self.display,code,False,0))
+                    self.trace.append({"phase":"cleanup-release","keycode":code,"accepted":accepted})
+                    if not accepted:
+                        raise RuntimeError(f"XTest cleanup release failed for owned key {code}")
+                    self.x.XSync(self.display,False)
+                    self.await_key_state(code,False)
+                    self.keys.remove(code)
+                except RuntimeError as error:
+                    failures.append(str(error))
+        finally:
+            self.x.XCloseDisplay(self.display)
+        if failures:
+            raise RuntimeError("Owned input cleanup failed: " + "; ".join(failures))
 
 
 def main():
@@ -176,11 +234,15 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--vpk", type=Path, required=True)
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
+    parser.add_argument("--feedback",type=Path)
     args = parser.parse_args()
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
-    if not output.is_relative_to(Path(".audit/native-room-vita").resolve()):
+    if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
         parser.error("Evidence must remain beneath .audit/native-room-vita")
-    output.mkdir(parents=True,exist_ok=True)
+    output.mkdir(parents=True,exist_ok=False)
+    feedback_path = (args.feedback or output / "feedback.json").resolve()
+    feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
+    save_feedback(feedback_path,feedback)
     fs, config = prepare(state,existing)
     if (fs / "ux0/app" / TITLE).exists():
         parser.error("Use a fresh isolated state; never overwrite an installed title")
@@ -203,15 +265,30 @@ def main():
     ready = fs / "ux0/data/celeste_native_room.ready"
     last_ready = ""
 
+    def observe_native_frame():
+        if not feedback["stages"]["native_image"]:
+            frame = collect_native_frame(fs,output,revision)
+            if frame:
+                feedback.update({"frame":frame,"artifacts":frame["artifacts"]})
+                feedback["stages"].update({"native_image":True,"image_openable":True})
+                save_feedback(feedback_path,feedback)
+                print("NATIVE_FRAME_FEEDBACK "+str(feedback_path),flush=True)
+                if not frame["black_letterbox_rows"] or not frame["nonzero_rgb_bytes"]:
+                    raise RuntimeError("Native frame export lacks nonzero room RGB or the full-frame black letterbox rows; inspect preserved readback")
+
     def wait(predicate, timeout=120):
         nonlocal last_ready
         deadline = time.monotonic()+timeout
         while True:
+            if x.x.XPending(x.display):
+                x.drain()
             if predicate():
                 return
             remaining = deadline-time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("Bounded X11/readiness wait expired")
+            if x.x.XPending(x.display):
+                continue
             readable,_,_ = select.select([x.fd,notify,process_fd],[],[],remaining)
             if process_fd in readable:
                 raise RuntimeError(f"Owned emulator exited before smoke completion: {process.wait()}")
@@ -224,6 +301,10 @@ def main():
                     if value != last_ready:
                         last_ready = value
                         events.append({"readiness_only":value.strip(),"at":time.monotonic()})
+                    observe_native_frame()
+                    if value.startswith("failed "):
+                        failure = fs / "ux0/data" / f"celeste_native_room-failure-{revision}.txt"
+                        raise RuntimeError("Guest failed: "+failure.read_text())
 
     def delay(seconds):
         deadline = time.monotonic()+seconds
@@ -234,6 +315,8 @@ def main():
             installed = {name:package.read(name) for name in package.namelist()}
         provenance = json.loads(installed["assets/native-room/provenance.json"])
         revision = provenance["revision"] + ("-dirty" if provenance["tracked_changes"] else "")
+        feedback["revision"] = revision
+        save_feedback(feedback_path,feedback)
         with (output / "install-host.log").open("wb") as host:
             process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
             process_fd = os.pidfd_open(process.pid)
@@ -275,6 +358,11 @@ def main():
             events.append({"game_window":window})
             wid = window["id"]
             wait(lambda: last_ready.startswith("ready "))
+            observe_native_frame()
+            if not feedback["stages"]["native_image"]:
+                raise RuntimeError("Guest startup ready without its required closed native frame export")
+            feedback["stages"]["startup"] = True
+            save_feedback(feedback_path,feedback)
             x.x.XSelectInput(x.display,wid,(1<<0)|(1<<1)|(1<<21)|(1<<22))
             x.activate(wid)
             wait(lambda: x.focused(wid),10)
@@ -307,20 +395,32 @@ def main():
         (output / "guest.log").write_bytes(data)
         text = data.decode()
         markers = verify_guest(text,revision)
+        feedback["stages"].update({"input":True,"clean_exit":True,"full_completion":True})
+        save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
+    except Exception as error:
+        feedback["errors"].append({"stage":"runtime","type":type(error).__name__,"message":str(error)})
+        save_feedback(feedback_path,feedback)
+        raise
     finally:
-        x.close()
-        os.close(notify)
-        if process_fd is not None:
-            os.close(process_fd)
-        if process is not None and process.returncode is None:
-            process.terminate()
-            process.wait(timeout=15)
-            events.append({"stopped_owned_host_on_failure":True})
-        guest = fs / "ux0/data/celeste_native_room.log"
-        if guest.is_file():
-            (output / "guest.log").write_bytes(guest.read_bytes())
-        (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
+        try:
+            x.close()
+        finally:
+            os.close(notify)
+            if process_fd is not None:
+                os.close(process_fd)
+            if process is not None and process.returncode is None:
+                process.terminate()
+                process.wait(timeout=15)
+                events.append({"stopped_owned_host_on_failure":True})
+            guest = fs / "ux0/data/celeste_native_room.log"
+            if guest.is_file():
+                (output / "guest.log").write_bytes(guest.read_bytes())
+            (output / "x11-input.json").write_text(json.dumps(x.trace,indent=2)+"\n")
+            (output / "events.json").write_text(json.dumps(events,indent=2)+"\n")
+            feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
+                                            "host":str(output / "host.log"),"guest":str(output / "guest.log")}
+            save_feedback(feedback_path,feedback)
 
 
 if __name__ == "__main__":

@@ -71,8 +71,11 @@ python3 -B scripts/verify_native_room_vpk.py \
   --staging .audit/native-room-vita/staging
 ```
 
-Staging stamps dirty/untracked source explicitly. Package verification requires
-the exact clean commit. Root `CELESTE_VITA` defaults OFF; host tests need no SDK.
+Staging and package verification share the same canonical-root current Git-state
+reader. Staging stamps dirty/untracked source explicitly; verification also rejects
+current source/config changes, even when HEAD and an older clean manifest match.
+Only the four exact untracked `.opencode` coordination paths are exempt.
+Root `CELESTE_VITA` defaults OFF; host tests need no SDK.
 `vita-elf-create`, `vita-make-fself`, `vita-mksfoex` and `vita-pack-vpk` are invoked
 by the installed VitaSDK CMake macros. Unique title ID: `CELR00001`, version 00.01.
 The <2 MiB package size is a goal, not a performance claim.
@@ -88,6 +91,45 @@ errors, destroys its own objects/closes files and exits the process. Library
 global allocations are reclaimed at process exit, not a fabricated teardown.
 
 ## Safe Vita3K smoke
+
+### One-command native-renderer feedback loop
+
+From a clean delivery commit, run once with a fresh output directory:
+
+```sh
+python3 -B scripts/feedback_native_room.py \
+  --output .audit/native-room-vita/feedback-unique-run
+```
+
+This stages verified private assets, builds the exact revision/VPK with the
+existing no-splash archive, verifies the current-clean package, installs/runs it
+in isolated Vita3K state, and preserves `feedback.json`. The app exports **one
+frame from its own native render buffer**, not a desktop/window screenshot.
+The structured report is updated as soon as the closed image is available,
+before input testing; image/startup/input/clean-exit/full-completion flags are
+separate. A later input failure returns nonzero while preserving the frame,
+logs, state, exact revision/VPK hash and concrete error. No required image stage
+is replaced by a `ready frame=0` marker.
+
+The first draw reads full 960×544 `GL_BACK`, after `glFinish` and before swap,
+using `glReadPixels(..., GL_RGBA, GL_UNSIGNED_BYTE, ...)`, then checks GL errors.
+Pinned vitaGL `framebuffers.c` lines 574–785 selects the current back-buffer
+address, emits bottom-up RGBA with width×4 output stride, and drains in-flight
+draws. `glReadBuffer` is implemented at 957–974; `gxm.c` 962–969 finishes GPU
+work and 928–929 advances the buffer indices only during swap. The display
+surface is A8B8G8R8 (little-endian RGBA bytes); width 960 is 64-pixel aligned.
+The tested encoder reverses rows and strips alpha into top-down P6 RGB, including
+the black letterbox rows. SDK `SCE_O_EXCL` preserves existing guest outputs.
+
+Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
+completion receipt with `frame_saved`, dimensions, revision, render stage and
+actual initial Player state. This receipt remains available independently of a
+buffered running guest log. Failures emit a closed revision-specific error receipt
+and fail fast. `convert_native_frame.py` performs only lossless format conversion
+of that guest PPM to PNG using Python's standard library; both originals and
+hashes are preserved under the feedback output. Parent visual review remains
+pending until the parent opens the returned artifact. This image does not prove
+input, death, reset or clean exit.
 
 Read `/home/fred/cloudpunk-vita/docs/VITA3K.md` first. The supplied launcher does
 **not** run the cloudpunk launcher or modify its config, titles, logs or archive.
@@ -118,7 +160,9 @@ existing X11 windows, finds our unique title plus actual OpenGL game-window
 title, validates its PID's isolated-config argument, and requires both
 `_NET_ACTIVE_WINDOW` and `XGetInputFocus` before XTest input. Physical X11 keycodes
 for this host's AZERTY layout: Right 114, Cross 53, Triangle 55, Start 36.
-It releases only keys it injected, never drives/closes unrelated windows, and
+Before injecting a press it checks server key state and refuses preheld keys
+without injecting or claiming ownership. It releases only accepted own injections,
+including cleanup after acknowledgement timeouts, never drives/closes unrelated windows, and
 only terminates its own spawned process. Missing isolation/focus/rendering is a
 runtime failure, not permission to bypass protections.
 
@@ -129,10 +173,13 @@ only. Final evidence is the **completed** guest log after Start, not readiness
 signals. The stdio `fopen`-before-redirect ordering avoids the documented SDK
 pitfall. Logs include revision, counts, input edges, bounded-frequency state,
 actual death, manual reset counter, clean exit and measured elapsed time.
-Linux screenshot commands/APIs are not used: visual verification requires the
-user-requested built-in screen-view tool. If that tool is unavailable, visual
-verification is explicitly blocked, not inferred from window titles/logs.
-The visual step is deferred to the parent; this smoke harness has no capture path.
+`x11-input.json` records pending Xlib events, drained event types/keycodes, errors
+and keymaps before injection and at acknowledgement/timeout. Buffered events are
+drained and server state rechecked before blocking on the X11 file descriptor.
+OS/Linux screenshot commands/APIs remain forbidden and are not used. The latest
+bounded authorization permits only our app's one native-renderer export and
+lossless format conversion. Parent visual inspection of that artifact is deferred
+to the parent, never inferred from window titles/logs or historical images.
 Preserve guest/host logs and state; distinguish guest clean exit from an emulator
 shutdown fault. Historical exploratory captures created before that constraint
 are retained privately, not a substitute for a new built-in visual check.

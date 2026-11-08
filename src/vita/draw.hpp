@@ -3,6 +3,6 @@
 
 namespace celeste::diagnostic {
 void initialize_graphics();
-void draw(const Room& room, const Player& player);
+std::string draw(const Room& room, const Player& player, const char* export_path = nullptr);
 void finish_graphics();
 }

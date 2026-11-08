@@ -5,12 +5,12 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import zipfile
 
 from binary_map import Reader
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA, MEMBER, read_mask, build_mask, map_driver
 from prepare_room_hazards import room_hazards
+from native_room_revision import REPO_ROOT, source_state
 
 
 def checksum(data):
@@ -47,7 +47,7 @@ def verified_bytes(path, expected, limit=4_000_512):
 
 def stage(output, mask_dir, hazard_dir, archive_path):
     output = output.resolve()
-    if not output.is_relative_to(Path(".audit").resolve()):
+    if not output.is_relative_to(REPO_ROOT / ".audit"):
         raise ValueError("Private diagnostic assets must remain under .audit")
     mask_provenance = json.loads((mask_dir / "provenance.json").read_text())
     hazard_provenance = json.loads((hazard_dir / "provenance.json").read_text())
@@ -71,8 +71,8 @@ def stage(output, mask_dir, hazard_dir, archive_path):
     if json.loads(hazards_raw) != hazards or facts["spawns"][0] != [19, 144]:
         raise ValueError("Prepared hazards or selected spawn changed")
     hazard_data = hazard_text(hazards).encode("ascii")
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    dirty = bool(subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all", "--", "CMakeLists.txt", "src", "scripts", "tests", "docs", "README.md"]))
+    revision, changes = source_state(REPO_ROOT)
+    dirty = bool(changes)
     asset_dir = output / "assets/native-room"
     asset_dir.mkdir(parents=True, exist_ok=True)
     files = {"global.mask": mask, "hazards.txt": hazard_data}

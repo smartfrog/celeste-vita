@@ -6,14 +6,16 @@ import hashlib
 import json
 from pathlib import Path
 import struct
-import subprocess
 import zipfile
 from sfo import parse_sfo
+from native_room_revision import REPO_ROOT, source_state
 
 
 def verify(vpk, build, staging):
     manifest = json.loads((staging / "assets/native-room/provenance.json").read_text())
-    revision = subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+    revision, changes = source_state(REPO_ROOT)
+    if changes:
+        raise ValueError("Current source/config is not clean: " + "; ".join(changes))
     if manifest["revision"] != revision or manifest["tracked_changes"]:
         raise ValueError("Staging is not from the exact clean delivery revision")
     elf = (build / "celeste_native_room").read_bytes()
