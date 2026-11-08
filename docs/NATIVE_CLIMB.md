@@ -101,3 +101,10 @@ PID/focus/preheld/owned-key checked and released before owned-host termination.
 Guest completion does not resolve historical emulator post-exit crashes or prove
 a healthy host. Parent visual review and independent integration review remain
 separate acceptance gates.
+
+The application-only `src/vita/layout.ld` leaves a minimum 4 KiB gap before
+`.init_array` for `vita-elf-create`'s appended SCE metadata. The first clean Climb
+build exposed a 1,848-byte gap versus 3,132 required bytes; a private relink proved
+the gap correction before changing app configuration. No shared linker/toolchain
+or runtime algorithms are patched. ELF/SELF/VPK validation and guest execution
+remain required after this layout change.
