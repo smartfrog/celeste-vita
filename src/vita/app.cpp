@@ -142,16 +142,16 @@ void run() {
     bool wall_near = false, wall_forced = false;
     bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
     float climb_entry_y = 0.0f;
-    const auto capture = [&](unsigned frame) {
+    const auto capture_path = [&]() -> const char* {
         capture_resolved = true;
         if (guest_capture_exists(frame_path.c_str())) {
             log("capture_skipped_existing path=%s prior_capture_preserved=ppm_and_receipt current_run_capture=false",frame_path.c_str());
-            return;
+            return nullptr;
         }
-        log("%s",render(frame_path.c_str(),frame).c_str());
+        return frame_path.c_str();
     };
-    if (capture_observed) capture(0);
-    else render(nullptr,0);
+    const auto exported = render(capture_observed ? capture_path() : nullptr,0);
+    if (!exported.empty()) log("%s",exported.c_str());
     log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
     state("frame ready",frame,session);
     signal("ready",frame);
@@ -199,8 +199,9 @@ void run() {
         const bool capture_event = !capture_resolved && ((capture_after_wall_jump && wall_jumped) ||
             (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
               player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
-        if (capture_event) { capture_observed = true; capture(frame); }
-        else render(nullptr,frame);
+        if (capture_event) capture_observed = true;
+        const auto exported = render(capture_event ? capture_path() : nullptr,frame);
+        if (!exported.empty()) log("%s",exported.c_str());
         if (jumped) state("jump",frame,session);
         const int new_state = player.state_machine().state();
         if (!sample.reset && old_state != new_state)
