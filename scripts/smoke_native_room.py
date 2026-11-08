@@ -569,8 +569,6 @@ def main():
                 status = None
                 events.append({"owned_host_pending_after_guest_exit":True})
             events.append({"host_exit_code":status})
-            if args.guest_replay and status not in (None,0):
-                raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
         guest = fs / "ux0/data/celeste_native_room.log"
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
@@ -585,7 +583,10 @@ def main():
             feedback["wall_jump"] = verify_wall_jump_guest(text)
         if args.after_climb:
             feedback["climb"] = verify_climb_guest(text)
-        feedback["stages"].update({"input":True,"clean_exit":True,"full_completion":True})
+        feedback["stages"].update({"input":True,"clean_exit":True})
+        if args.guest_replay and status not in (None,0):
+            raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
+        feedback["stages"]["full_completion"] = True
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
     except Exception as error:

@@ -284,3 +284,8 @@ plus the closed native frame and unchanged source/config state. Feedback uses
 `portal_requests=0`. `stages.input=true` means **guest fixture** input only. It
 does not validate a physical controller, full game, source Level death/respawn,
 hardware fidelity, or performance. Emulator elapsed time is not a Vita benchmark.
+
+A nonzero emulator exit after the observed clean guest shutdown remains an
+overall partial result: already verified guest input/exit and native-frame
+stages survive, but `full_completion` stays false and the host error is retained.
+Do not turn an emulator post-game crash into a successful host exit.

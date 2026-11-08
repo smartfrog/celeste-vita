@@ -117,6 +117,14 @@ class ReplayHostBoundaryTests(unittest.TestCase):
         feedback,_=self.run_scenario("guest_failure")
         self.assertFalse(feedback["stages"]["full_completion"])
 
+    def test_host_crash_after_guest_exit_keeps_proven_guest_stages_but_not_full_completion(self):
+        feedback,order=self.run_scenario("host_failure")
+        self.assertTrue(feedback["stages"]["input"])
+        self.assertTrue(feedback["stages"]["clean_exit"])
+        self.assertTrue(feedback["stages"]["native_image"])
+        self.assertFalse(feedback["stages"]["full_completion"])
+        self.assertEqual(order,["installer"])
+
     def run_scenario(self,mode):
         directory = ROOT / ".audit/native-room-vita/replay-tests"
         directory.mkdir(parents=True,exist_ok=True)
@@ -134,7 +142,9 @@ class ReplayHostBoundaryTests(unittest.TestCase):
             class Process:
                 def __init__(self,label,pid): self.label,self.pid,self.returncode=label,pid,None
                 def terminate(self): order.append(self.label); self.returncode=-15
-                def wait(self,timeout=None): return self.returncode
+                def wait(self,timeout=None):
+                    if self.label=="runtime" and mode=="host_failure": self.returncode=133
+                    return self.returncode
             installer,runtime=Process("installer",101),Process("runtime",102)
             def launch(*args,**kwargs):
                 self.assertEqual(args[0][0],"bwrap")
@@ -167,7 +177,7 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                 else:
                     error=TimeoutError if mode=="timeout" else ValueError if mode in {"bad_receipt","missing_events"} else RuntimeError
                     with self.assertRaises(error): main()
-            self.assertEqual(order,["installer","runtime"])
+            self.assertEqual(order,["installer"] if mode=="host_failure" else ["installer","runtime"])
             feedback=json.loads((output/"feedback.json").read_text())
             self.assertFalse(feedback["physical_controller_verified"])
             self.assertFalse(feedback["host_input_injected"])
