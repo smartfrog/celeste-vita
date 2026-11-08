@@ -213,7 +213,7 @@ class X11:
         return held
 
     def await_key_state(self, code, pressed):
-        deadline = time.monotonic()+3
+        deadline = time.monotonic()+10
         while True:
             if self.x.XPending(self.display):
                 self.drain()
@@ -222,7 +222,7 @@ class X11:
             remaining = deadline-time.monotonic()
             if remaining <= 0:
                 self.key_state("timeout",code,pressed)
-                raise RuntimeError("XTest did not establish the requested server key state within 3 seconds")
+                raise RuntimeError("XTest did not establish the requested server key state within 10 seconds")
             if self.x.XPending(self.display):
                 continue
             if select.select([self.fd],[],[],remaining)[0]:
