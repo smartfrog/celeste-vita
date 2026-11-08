@@ -9,9 +9,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-record Selection(string Source, string Sha256, int[][] ExecutableRanges, string[] Aliases, string[] ExecutableImplicitTypes = null, bool AllowNativeAbiDeclarations = false);
+record PlatformFixtureRequest(string OriginalMethodSha256, string OriginalBodySha256, string ReplacementBodySha256, string Profile, string Reason);
+record Selection(string Source, string Sha256, int[][] ExecutableRanges, string[] Aliases, string[] ExecutableImplicitTypes = null, bool AllowNativeAbiDeclarations = false, PlatformFixtureRequest ManagedPlatformFixture = null);
 record Request(Selection[] Selections, string Output, string Inventory);
 record Evidence(string File, string SourceSha256, string Kind, string Name, int Start, int End, string Sha256);
+record PlatformFixtureEvidence(Evidence Original, string OriginalSignatureSha256, string OriginalBodySha256, string ReplacementBody, string ReplacementBodySha256, string Profile, string Reason);
 
 sealed class Frontier : CSharpSyntaxRewriter
 {
@@ -19,6 +21,7 @@ sealed class Frontier : CSharpSyntaxRewriter
     readonly Selection selection;
     public readonly List<Evidence> Executable = new();
     public readonly List<Evidence> Declarations = new();
+    public readonly List<PlatformFixtureEvidence> ManagedPlatformFixtures = new();
 
     public Frontier(Selection selection, string source)
     {
@@ -104,6 +107,27 @@ sealed class Frontier : CSharpSyntaxRewriter
                 throw new InvalidDataException("Native ABI declaration cannot have a managed body: " + selection.Source + ":" + node.Identifier.Text);
             Record(Declarations, node, "native-abi", node.Identifier.Text);
             return node;
+        }
+        if (selection.ManagedPlatformFixture != null && node.Identifier.Text == "SDL_GetPlatform")
+        {
+            var fixture = selection.ManagedPlatformFixture;
+            const string replacement = "{ return DeathOracle.PlatformIdentityFixture.ReadPlatform(); }";
+            if (node.Parent is not ClassDeclarationSyntax owner || owner.Identifier.Text != "SDL" ||
+                node.Ancestors().OfType<FileScopedNamespaceDeclarationSyntax>().Single().Name.ToString() != "SDL2" ||
+                !node.Modifiers.Select(token => token.Kind()).SequenceEqual(new[] { SyntaxKind.PublicKeyword, SyntaxKind.StaticKeyword }) ||
+                node.ReturnType is not PredefinedTypeSyntax result || !result.Keyword.IsKind(SyntaxKind.StringKeyword) ||
+                node.ParameterList.Parameters.Count != 0 || node.Body == null || node.ExpressionBody != null)
+                throw new InvalidDataException("Managed platform fixture requires only the public managed string/no-argument SDL wrapper");
+            string originalBody = source.Substring(node.Body.SpanStart, node.Body.Span.Length);
+            if (Hash(source.Substring(node.SpanStart, node.Span.Length)) != fixture.OriginalMethodSha256 ||
+                Hash(originalBody) != fixture.OriginalBodySha256 || Hash(replacement) != fixture.ReplacementBodySha256 ||
+                fixture.Profile != "pc-linux" || string.IsNullOrWhiteSpace(fixture.Reason))
+                throw new InvalidDataException("Managed platform fixture identity or profile changed");
+            Record(Declarations, node, "managed-platform-fixture", node.Identifier.Text);
+            ManagedPlatformFixtures.Add(new(Declarations.Last(),
+                Hash(source.Substring(node.SpanStart, node.Body.SpanStart - node.SpanStart)),
+                fixture.OriginalBodySha256, replacement, fixture.ReplacementBodySha256, fixture.Profile, fixture.Reason));
+            return node.WithBody(((BlockSyntax)SyntaxFactory.ParseStatement(replacement)).WithTriviaFrom(node.Body));
         }
         Record(Declarations, node, "method", node.Identifier.Text, node.Body?.SpanStart ?? node.ExpressionBody?.SpanStart ?? node.Span.End);
         if (Selected(node) || node.Body == null && node.ExpressionBody == null)
@@ -227,6 +251,7 @@ static class Program
         var output = new StringBuilder();
         var executable = new List<Evidence>();
         var declarations = new List<Evidence>();
+        var managedPlatformFixtures = new List<PlatformFixtureEvidence>();
         foreach (var selection in request.Selections)
         {
             string source = File.ReadAllText(selection.Source);
@@ -243,6 +268,8 @@ static class Program
                         (external.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
             var frontier = new Frontier(selection, source);
             var rewritten = (CompilationUnitSyntax)frontier.Visit(root);
+            if (selection.ManagedPlatformFixture != null && frontier.ManagedPlatformFixtures.Count != 1)
+                throw new InvalidDataException("Expected exactly one approved managed platform fixture wrapper");
             if (!Signatures(root).SequenceEqual(Signatures(rewritten)))
                 throw new InvalidDataException("Declaration metadata or field order changed: " + selection.Source);
             foreach (var member in rewritten.Members)
@@ -257,9 +284,11 @@ static class Program
             }
             executable.AddRange(frontier.Executable);
             declarations.AddRange(frontier.Declarations);
+            managedPlatformFixtures.AddRange(frontier.ManagedPlatformFixtures);
         }
         File.WriteAllText(request.Output, output.ToString());
         File.WriteAllText(request.Inventory, JsonSerializer.Serialize(new { Executable = executable, Declarations = declarations,
+            ManagedPlatformFixtures = managedPlatformFixtures,
             OutputSha256 = Frontier.Hash(output.ToString()) }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 }

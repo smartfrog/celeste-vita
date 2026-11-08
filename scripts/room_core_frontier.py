@@ -54,4 +54,10 @@ def emit(tool, selections, output):
                 raise ValueError('Declaration frontier span identity changed')
             if (category == 'Executable' or entry['Kind'] == 'native-abi') and span not in generated:
                 raise ValueError('Unchanged member identity failed in declaration frontier: ' + entry['Name'])
+    for fixture in inventory['ManagedPlatformFixtures']:
+        body = fixture['ReplacementBody']
+        if hashlib.sha256(body.encode()).hexdigest() != fixture['ReplacementBodySha256'] or body not in generated:
+            raise ValueError('Managed platform fixture replacement identity changed')
+        if any(entry == fixture['Original'] for entry in inventory['Executable']):
+            raise ValueError('Managed platform fixture must not claim unchanged executable identity')
     return generated, inventory

@@ -299,6 +299,11 @@
     "sha256": "312703443dc447c43844d160fc8f6d97baa8322a8a119db2b3224914ca4d6919",
     "type": "Celeste.CrystalStaticSpinner"
   },
+  "Celeste.CurtainWipe.cs": {
+    "assembly": "Celeste.exe",
+    "sha256": "b193701b19ed555ea86ec97df6abebff958b73877a99b3db075230518e3e3631",
+    "type": "Celeste.CurtainWipe"
+  },
   "Celeste.CutsceneNode.cs": {
     "assembly": "Celeste.exe",
     "sha256": "2db248b221b84c18a30e6b489092d0c0d741a584fe5887c44a8b72c2faa5a083",

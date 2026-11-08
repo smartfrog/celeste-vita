@@ -64,6 +64,16 @@ static class MainProgram
 '''
 
 
+def platform_fixture_selection(source, method, body):
+    replacement = '{ return DeathOracle.PlatformIdentityFixture.ReadPlatform(); }'
+    return {'Source': str(source), 'Sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+        'ExecutableRanges': [[1, 10]], 'Aliases': [], 'ManagedPlatformFixture': {
+            'OriginalMethodSha256': hashlib.sha256(method.encode()).hexdigest(),
+            'OriginalBodySha256': hashlib.sha256(body.encode()).hexdigest(),
+            'ReplacementBodySha256': hashlib.sha256(replacement.encode()).hexdigest(),
+            'Profile': 'pc-linux', 'Reason': 'Declared reference-platform fixture, not native SDL execution'}}
+
+
 class DeclarationDiagnosticTests(unittest.TestCase):
     def test_attribute_suffix_diagnostic_resolves_the_original_attribute_type(self):
         self.assertEqual(declaration_candidates('CommandAttribute', {'Command': [('Celeste.exe', 'Monocle.Command')]}),
@@ -151,6 +161,34 @@ class DeclarationFrontierTests(unittest.TestCase):
                 [{'Source': str(source), 'Sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
                   'ExecutableRanges': [], 'Aliases': [], 'AllowNativeAbiDeclarations': True}], output)
         self.assertIn('Native ABI declaration cannot have a managed body', (output / 'frontier.log').read_text())
+
+    def test_platform_wrapper_is_a_pinned_fixture_not_an_unchanged_executable(self):
+        output = self.output / 'platform-fixture-contract'
+        output.mkdir()
+        source = output / 'SDL.cs'
+        body = '{ return "synthetic-original-platform"; }'
+        method = 'public static string SDL_GetPlatform() ' + body
+        source.write_text('namespace SDL2;\npublic static class SDL { ' + method + ' }\n')
+        replacement = '{ return DeathOracle.PlatformIdentityFixture.ReadPlatform(); }'
+        generated, inventory = emit(self.output / 'tool/bin/Release/net8.0/Frontier.dll',
+            [platform_fixture_selection(source, method, body)], output)
+        fixture = inventory['ManagedPlatformFixtures'][0]
+        self.assertEqual(fixture['OriginalBodySha256'], hashlib.sha256(body.encode()).hexdigest())
+        self.assertEqual(fixture['ReplacementBodySha256'], hashlib.sha256(replacement.encode()).hexdigest())
+        self.assertIn(replacement, generated)
+        self.assertFalse(any(entry['Name'] == 'SDL_GetPlatform' for entry in inventory['Executable']))
+
+    def test_platform_fixture_rejects_a_pointer_returning_signature(self):
+        output = self.output / 'platform-fixture-invalid-signature'
+        output.mkdir()
+        source = output / 'SDL.cs'
+        body = '{ throw new System.Exception(); }'
+        method = 'public static System.IntPtr SDL_GetPlatform() ' + body
+        source.write_text('namespace SDL2;\npublic static class SDL { ' + method + ' }\n')
+        with self.assertRaisesRegex(RuntimeError, 'Pinned frontier command failed'):
+            emit(self.output / 'tool/bin/Release/net8.0/Frontier.dll',
+                [platform_fixture_selection(source, method, body)], output)
+        self.assertIn('public managed string/no-argument SDL wrapper', (output / 'frontier.log').read_text())
 
     def test_excluded_implicit_constructor_throws(self):
         self.assertIn('excluded-member-threw', self.execute_case('implicit-constructor'))

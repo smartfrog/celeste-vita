@@ -47,20 +47,6 @@ namespace Celeste
 
 static class RoomCoreHelpers
 {
-    static BinaryPacker.Element ReadElement(JsonElement input)
-    {
-        var element = new BinaryPacker.Element { Name = input.GetProperty("name").GetString(), Attributes = new(), Children = new() };
-        foreach (var attribute in input.GetProperty("attributes").EnumerateObject())
-            element.Attributes.Add(attribute.Name, attribute.Value.ValueKind switch {
-                JsonValueKind.String => attribute.Value.GetString(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Number => attribute.Value.TryGetInt32(out var integer) ? (object)integer : attribute.Value.GetSingle(),
-                _ => throw new InvalidDataException("Unsupported raw map scalar") });
-        foreach (var child in input.GetProperty("children").EnumerateArray()) element.Children.Add(ReadElement(child));
-        return element;
-    }
-
     static void Main(string[] args)
     {
         AreaData.Areas = new() { new AreaData(), new AreaData() };
@@ -73,8 +59,8 @@ static class RoomCoreHelpers
             throw new Exception("Original source-default save fixture mismatch");
         using var raw = JsonDocument.Parse(File.ReadAllText(args[0]));
         using var stripped = JsonDocument.Parse(File.ReadAllText(args[2]));
-        var levelData = new LevelData(ReadElement(raw.RootElement));
-        var strippedData = new LevelData(ReadElement(stripped.RootElement));
+        var levelData = new LevelData(DeathOracle.RoomCoreRoomInput.ReadElement(raw.RootElement));
+        var strippedData = new LevelData(DeathOracle.RoomCoreRoomInput.ReadElement(stripped.RootElement));
         if (levelData.LoadSeed != 49 || levelData.Bounds.Height != 180 || levelData.Spawns.Count != 1 ||
             levelData.Spawns[0] != new Vector2(19, 144) || levelData.Entities.Count != 6 || levelData.Triggers.Count != 0 ||
             !levelData.Entities.Select(entity => (entity.ID, entity.Name)).SequenceEqual(strippedData.Entities.Select(entity => (entity.ID, entity.Name))) ||

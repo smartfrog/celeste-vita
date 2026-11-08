@@ -26,7 +26,7 @@ class RoomCoreRecipeTests(unittest.TestCase):
         project = ET.fromstring(project_text())
         self.assertEqual(project.findtext('PropertyGroup/EnableDefaultCompileItems'), 'false')
         self.assertEqual([entry.attrib['Include'] for entry in project.findall('ItemGroup/Compile')],
-            ['Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs'])
+            ['Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'])
 
     def test_excluded_callback_guard_throws_only_when_invoked(self):
         original = 'StateMachine.SetCallbacks(3, SwimUpdate);\n\tprivate int SwimUpdate()\n{ return 3; }'

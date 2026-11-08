@@ -17,7 +17,7 @@ from read_player_room_core_sources import SOURCE_PINS as ROOM_PINS, RAW_ROOM_SHA
 from room_core_frontier import build_tool, emit as emit_frontier
 
 
-def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs'), reference=None):
+def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
     referenced = '' if reference is None else f'<Reference Include="PrivateCheckpoint"><HintPath>{reference}</HintPath></Reference>'
     assembly = '' if reference is None else '<AssemblyName>RoomCoreHelpers</AssemblyName>'
     return ('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>'
@@ -75,11 +75,14 @@ def helper_probe(extract, manifest, baseline, room_source, output, before):
     manifest['baseline_reference_sha256'] = hashlib.sha256((baseline / 'bin/Release/net8.0/Oracle.dll').read_bytes()).hexdigest()
     support = ROOT / 'tests/native/oracle/death/RoomCoreHelpers.cs'
     (output / 'RoomCoreHelpers.cs').write_bytes(support.read_bytes())
+    room_input = ROOT / 'tests/native/oracle/death/RoomCoreRoomInput.cs'
+    (output / room_input.name).write_bytes(room_input.read_bytes())
     manifest['room_core_support_sha256'] = {str(support.relative_to(ROOT)): hashlib.sha256(support.read_bytes()).hexdigest()}
+    manifest['room_core_support_sha256'][str(room_input.relative_to(ROOT))] = hashlib.sha256(room_input.read_bytes()).hexdigest()
     (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     identity = verify_extraction(output)
     (output / 'source-identity.json').write_text(json.dumps(identity, indent=2) + '\n')
-    (output / 'Oracle.csproj').write_text(project_text(('Extracted.cs', 'RoomCoreHelpers.cs'), baseline / 'bin/Release/net8.0/Oracle.dll'))
+    (output / 'Oracle.csproj').write_text(project_text(('Extracted.cs', 'RoomCoreHelpers.cs', 'RoomCoreRoomInput.cs'), baseline / 'bin/Release/net8.0/Oracle.dll'))
     (output / 'NuGet.Config').write_bytes((baseline / 'NuGet.Config').read_bytes())
     compile_project(output, identity, before, [output / 'bin/Release/net8.0/RoomCoreHelpers.dll', room_source / 'raw-room.json', output / 'helper-result.json', room_source / 'presentation-stripped-room.json'])
     return identity
@@ -232,8 +235,9 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.Player.cs': player_ranges,
         'Celeste.Celeste.cs': [(152, 162)],
         'Celeste.Settings.cs': [(131, 142)],
-        'SDL2.SDL.cs': [(3047, 3050)],
-        'Monocle.Engine.cs': [],
+        'SDL2.SDL.cs': [],
+        'Monocle.Engine.cs': [(81, 85)],
+        'Monocle.MInput.cs': [(16, 18), (303, 307), (476, 479), (1353, 1369)],
         'Monocle.Tracker.cs': [(10, 143), (162, 165), (185, 193), (212, 215), (235, 285)],
         'Monocle.Tracked.cs': [(9, 12)],
         'Monocle.Calc.cs': [(19, 23), (263, 272), (323, 349), (371, 394), (405, 445), (480, 495), (542, 572),
@@ -310,6 +314,9 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     content += 'namespace Celeste { public partial class Session {\n' + extract('Celeste.Session.cs', [(12, 125), (170, 232), (251, 276)]) + '\n}\n'
     content += 'public static class BinaryPacker {\n' + extract('Celeste.BinaryPacker.cs', [(11, 64)]) + '\n}\n}\n'
     content += 'namespace Celeste { public class AreaData {\n' + extract('Celeste.AreaData.cs', [(12, 80), (84, 92), (820, 851), (867, 900), (907, 954)]) + '\n}\n}\n'
+    content += 'namespace DeathOracle { using global::Celeste; using static global::Celeste.AreaData; static class RoomCoreAreaInput { public static void Configure() {\n'
+    content += extract('Celeste.AreaData.cs', [(96, 191)]) + '\nAreas[1].ID = 1;\n} } }\n'
+    manifest['caller_area_input'] = 'First two original area object initializers only; original AreaData.Load/global map loading is not executed or claimed'
     content += whole('Monocle.Collide.cs', 'Monocle')
     selected_files = {entry['file'] for entry in manifest['extractions']}
     for name in declarations:
@@ -318,17 +325,25 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     selections = []
     for name, ranges in frontier_ranges.items():
         path = next(directory / name for directory in locations if (directory / name).is_file())
-        selections.append({'Source': str(path), 'Sha256': pins[name], 'ExecutableRanges': ranges,
+        selection = {'Source': str(path), 'Sha256': pins[name], 'ExecutableRanges': ranges,
             'Aliases': ['Random = PresentationOracle.TracedRandom'], 'AllowNativeAbiDeclarations': True, 'ExecutableImplicitTypes': {
                 'Celeste.Level.cs': ['Level'], 'Celeste.BackdropRenderer.cs': ['BackdropRenderer'],
                 'Celeste.DisplacementRenderer.cs': ['DisplacementRenderer'], 'Celeste.HudRenderer.cs': ['HudRenderer'],
                 'Celeste.HiresRenderer.cs': ['HiresRenderer'], 'Celeste.SaveData.cs': ['SaveData'],
-                'Monocle.Binding.cs': ['Binding']}.get(name, [])})
+                'Monocle.Binding.cs': ['Binding']}.get(name, [])}
+        if name == 'SDL2.SDL.cs':
+            selection['ManagedPlatformFixture'] = {
+                'OriginalMethodSha256': '2d269f2c750dd882d9b233e66422d06b38ab9b3d11ed77aed537bfbfd78fcafe',
+                'OriginalBodySha256': '87ceb960ed5b2f65cbbbd38d1ce60396c2845de54ea639fd97276d651830ecfa',
+                'ReplacementBodySha256': '36d3155ba05e7066484857c0c559dbdf5aae08c2ea1ea94d61d84c03e47b1a53',
+                'Profile': 'pc-linux', 'Reason': 'Parent-approved managed reference-platform identity input Linux; not original SDL wrapper/native execution or physical Vita identity'}
+        selections.append(selection)
     tool = build_tool(output / 'frontier-tool')
     frontier, inventory = emit_frontier(tool, selections, output)
     manifest['executable_members'] = inventory['Executable']
     manifest['declaration_contracts'] = inventory['Declarations']
     manifest['native_abi_declarations'] = [entry for entry in inventory['Declarations'] if entry['Kind'] == 'native-abi']
+    manifest['managed_platform_fixtures'] = inventory['ManagedPlatformFixtures']
     manifest['frontier_output_sha256'] = inventory['OutputSha256']
     manifest['frontier_recipe_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (ROOT / 'scripts/room_core_frontier.py', ROOT / 'tests/native/oracle/death/DeclarationFrontier.cs')}
@@ -367,16 +382,22 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     (output / 'Services.cs').write_text(services)
     (output / 'RoomCoreProbe.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreProbe.cs').read_bytes())
     (output / 'RoomCoreGpu.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreGpu.cs').read_bytes())
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         (output / name).write_bytes((ROOT / 'tests/native/oracle/death' / name).read_bytes())
     manifest['room_core_support_sha256'] = {'tests/native/oracle/death/RoomCoreProbe.cs': hashlib.sha256((output / 'RoomCoreProbe.cs').read_bytes()).hexdigest(),
         'Services.cs_after_fixture_removal': hashlib.sha256(services.encode()).hexdigest(),
         'scripts/read_player_room_core_sources.py': hashlib.sha256((ROOT / 'scripts/read_player_room_core_sources.py').read_bytes()).hexdigest()}
     manifest['room_core_support_sha256']['tests/native/oracle/death/RoomCoreGpu.cs'] = hashlib.sha256((output / 'RoomCoreGpu.cs').read_bytes()).hexdigest()
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         manifest['room_core_support_sha256']['tests/native/oracle/death/' + name] = hashlib.sha256((output / name).read_bytes()).hexdigest()
+    for fixture in manifest['managed_platform_fixtures']:
+        fixture['ReferencePlatform'] = 'Linux'
+        fixture['Provider'] = 'tests/native/oracle/death/PlatformIdentityFixture.cs'
+        fixture['ProviderSha256'] = manifest['room_core_support_sha256'][fixture['Provider']]
     manifest['native_abi_exclusion'] = 'Unchanged extern/DllImport contracts, not managed implementations. Generated assembly module initializer installs its sole throwing native resolver before source initialization. No native loading or default fallthrough. Resolver follows native loading caches: interception is proven only for the pinned import in fresh diagnostic processes without prior native bindings or FMOD mappings, not as a universal block. Isolated negative tests are not real RoomCore coverage.'
     manifest['gpu_exclusion'] = 'Typed recording-only device/resources; original GraphicsResource ownership callbacks, VertexDeclaration metadata/stride, geometry/math, RNG, clocks and gameplay callbacks remain source bodies. No GPU pixels or full FNA backend fidelity.'
+    manifest['immutable_map_input'] = 'Field-only preloaded single-room input storage. MapData constructor/Load/Reload remain guarded; no original map constructor or its field-initializer execution is claimed for this supplied input object. Original Get/TileBounds execute. Remaining world/caller construction is incomplete; no whole-map/LevelLoader fidelity.'
+    (output / 'presentation-stripped-room.json').write_bytes((room_source / 'presentation-stripped-room.json').read_bytes())
     (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (output / 'Oracle.csproj').write_text(project_text())
     (output / 'NuGet.Config').write_bytes((baseline / 'NuGet.Config').read_bytes())

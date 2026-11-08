@@ -44,12 +44,26 @@ static class NativeImportGuardProbe
         .GetMethod("FMOD_SDL_Register", BindingFlags.NonPublic | BindingFlags.Static) ??
         throw new InvalidOperationException("Pinned native import missing");
 
-    static string[] ReadFmodMappings()
+    internal static string[] NativeMappings() => File.ReadLines("/proc/self/maps").Where(line =>
+        line.Contains("fmod", StringComparison.OrdinalIgnoreCase) || line.Contains("SDL2", StringComparison.OrdinalIgnoreCase)).ToArray();
+
+    internal static void ExpectGuardedNative(MethodInfo method, object[] arguments, string library)
     {
-        var mappings = File.ReadLines("/proc/self/maps").Where(line => line.Contains("fmod", StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (mappings.Length != 0)
-            throw new InvalidOperationException("FMOD mapping invalidates the fresh-process native guard diagnostic");
-        return mappings;
+        if (method == null || (method.Attributes & MethodAttributes.PinvokeImpl) == 0 || method.GetMethodBody() != null)
+            throw new InvalidOperationException("Expected an unchanged native ABI declaration");
+        try
+        {
+            method.Invoke(null, arguments);
+            throw new InvalidOperationException("Native import bypassed the resolver");
+        }
+        catch (TargetInvocationException error) when (error.InnerException is UnsupportedClosure)
+        {
+            var attempt = NativeImportGuard.Attempts.Single();
+            if (attempt.Library != library || attempt.Assembly != Assembly.GetExecutingAssembly().FullName ||
+                attempt.ModuleVersionId != Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId ||
+                !error.InnerException.Message.Contains(attempt.Library) || !error.InnerException.Message.Contains(attempt.Assembly))
+                throw new InvalidOperationException("Unexpected native boundary attempt", error);
+        }
     }
 
     public static void Run(string[] args)
@@ -57,7 +71,8 @@ static class NativeImportGuardProbe
         if (args.Length != 2) throw new ArgumentException("Expected native guard diagnostic and pinned original assembly path");
         if (!NativeImportGuard.Installed || NativeImportGuard.Attempts.Length != 0)
             throw new InvalidOperationException("Native resolver was not installed before the diagnostic");
-        var mappingsBefore = ReadFmodMappings();
+        var mappingsBefore = NativeMappings();
+        if (mappingsBefore.Length != 0) throw new InvalidOperationException("Preloaded native mappings invalidate the native diagnostic");
         string status;
         object identity = null;
         if (args[0] == "native-abi-identity")
@@ -79,19 +94,7 @@ static class NativeImportGuardProbe
         }
         else if (args[0] == "native-abi-negative")
         {
-            try
-            {
-                PinnedImport().Invoke(null, new object[] { IntPtr.Zero });
-                throw new InvalidOperationException("Native import bypassed the resolver");
-            }
-            catch (TargetInvocationException error) when (error.InnerException is UnsupportedClosure)
-            {
-                var attempt = NativeImportGuard.Attempts.Single();
-                if (attempt.Library != "fmod_SDL" || attempt.Assembly != Assembly.GetExecutingAssembly().FullName ||
-                    attempt.ModuleVersionId != Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId ||
-                    !error.InnerException.Message.Contains(attempt.Library) || !error.InnerException.Message.Contains(attempt.Assembly))
-                    throw new InvalidOperationException("Unexpected native boundary attempt", error);
-            }
+            ExpectGuardedNative(PinnedImport(), new object[] { IntPtr.Zero }, "fmod_SDL");
             status = "expected-native-abi-guard-attempt-not-room-core-coverage";
         }
         else if (args[0] == "native-abi-duplicate")
@@ -111,7 +114,8 @@ static class NativeImportGuardProbe
             status = "duplicate-resolver-registration-rejected";
         }
         else throw new ArgumentException("Unknown native guard diagnostic: " + args[0]);
-        var mappingsAfter = ReadFmodMappings();
+        var mappingsAfter = NativeMappings();
+        if (mappingsAfter.Length != 0) throw new InvalidOperationException("Native diagnostic mapped an SDL/FMOD library");
         Console.WriteLine(JsonSerializer.Serialize(new { status, identity, assembly = Assembly.GetExecutingAssembly().FullName,
             moduleVersionId = Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId,
             processId = Environment.ProcessId, nativeGuardInstalled = NativeImportGuard.Installed,
