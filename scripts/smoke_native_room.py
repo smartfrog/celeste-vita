@@ -152,10 +152,16 @@ class X11:
         self.x.XSync(self.display,False)
         if any(error != 3 for error,request in self.errors):
             raise RuntimeError(f"X11 request failed: {self.errors}")
-        keymap = (C.c_ubyte*32)()
-        self.x.XQueryKeymap(self.display,keymap)
-        if bool(keymap[code//8] & (1<<(code%8))) != pressed:
-            raise RuntimeError("XTest did not establish the requested server key state")
+        deadline = time.monotonic()+3
+        while True:
+            keymap = (C.c_ubyte*32)()
+            self.x.XQueryKeymap(self.display,keymap)
+            if bool(keymap[code//8] & (1<<(code%8))) == pressed:
+                return
+            remaining = deadline-time.monotonic()
+            if remaining <= 0 or not select.select([self.fd],[],[],remaining)[0]:
+                raise RuntimeError("XTest did not establish the requested server key state within 3 seconds")
+            self.drain()
 
     def close(self):
         for code in self.keys:
@@ -269,6 +275,7 @@ def main():
             events.append({"game_window":window})
             wid = window["id"]
             wait(lambda: last_ready.startswith("ready "))
+            x.x.XSelectInput(x.display,wid,(1<<0)|(1<<1)|(1<<21)|(1<<22))
             x.activate(wid)
             wait(lambda: x.focused(wid),10)
 

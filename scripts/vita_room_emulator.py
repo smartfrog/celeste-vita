@@ -11,7 +11,7 @@ TITLE = "CELR00001"
 
 def prepare(state, existing):
     state = state.resolve()
-    if not state.is_relative_to(Path(".audit/native-room-vita").resolve()):
+    if not state.is_relative_to(Path(__file__).resolve().parents[1] / ".audit/native-room-vita"):
         raise ValueError("Emulator state must be beneath .audit/native-room-vita")
     shared = existing / "data/Vita3K/Vita3K"
     if (shared / "ux0/app" / TITLE).exists():
