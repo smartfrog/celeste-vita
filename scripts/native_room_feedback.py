@@ -6,7 +6,7 @@ from pathlib import Path
 from convert_native_frame import ppm_to_png
 from native_room_revision import REPO_ROOT
 
-RENDER_STAGE = "after_draw_glFinish_GL_BACK_RGB_transfer_before_swap"
+RENDER_STAGE = "after_draw_glFinish_GL_BACK_RGBA_mapped_transfer_before_swap"
 
 
 def save_feedback(path, feedback):

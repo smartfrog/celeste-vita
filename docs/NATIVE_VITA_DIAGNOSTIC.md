@@ -112,16 +112,18 @@ logs, state, exact revision/VPK hash and concrete error. No required image stage
 is replaced by a `ready frame=0` marker.
 
 The first draw reads full 960×544 `GL_BACK`, after `glFinish` and before swap,
-using `glReadPixels(..., GL_RGB, GL_UNSIGNED_BYTE, ...)`, then checks GL errors.
-The first RGBA CPU-memory readback returned all-zero RGB in the tested emulator;
-that preserved failed attempt is not valid room feedback. The RGB request selects
-pinned vitaGL's GPU-transfer path (`framebuffers.c` 52–193, 681–684), copies the
-selected back buffer via `sceGxmTransferCopy`, calls `sceGxmTransferFinish`, and
-reswizzles its transfer format into bottom-up RGB with width×3 output stride.
+using `vglReadPixels(..., GL_RGBA, GL_UNSIGNED_BYTE, ...)` into owned GPU-mapped
+`vglMalloc` memory, then checks GL errors and frees it with `vglFree`.
+The initial CPU readback returned zero RGB; the RGB-transfer attempt exposed
+Vita3K's `Unhandled format conversion from 0x60000 to 0x50000`. Neither failed
+attempt is valid room feedback. The mapped RGBA request explicitly selects pinned
+vitaGL's same-format GPU-transfer path (`framebuffers.c` 52–193, 788–797), copies
+the selected back buffer via `sceGxmTransferCopy`, calls `sceGxmTransferFinish`,
+and returns bottom-up RGBA with width×4 stride without unsupported conversion.
 `glReadBuffer` is implemented at 957–974; `gxm.c` 962–969 finishes GPU
 work and 928–929 advances the buffer indices only during swap. The display
-surface is A8B8G8R8; width 960 is 64-pixel aligned, and RGB row size 2880 is
-four-byte aligned. The tested encoder reverses packed RGB rows into P6, including
+surface is A8B8G8R8; width 960 is 64-pixel aligned. The tested encoder reverses
+RGBA rows and strips alpha into top-down P6 RGB, including
 the black letterbox rows. SDK `SCE_O_EXCL` preserves existing guest outputs.
 
 Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
