@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Celeste;
 using Microsoft.Xna.Framework;
+using Monocle;
 
 namespace DeathOracle;
 
@@ -40,11 +41,19 @@ static class RoomCoreCaller
         SaveData.Instance = new SaveData();
         for (int id = 0; id < AreaData.Areas.Count; id++) SaveData.Instance.Areas.Add(new AreaStats(id));
         level.Session = new Session(key, oldStats: SaveData.Instance.Areas[1]);
+        level.Session.Audio.Music.Event = "";
+        level.Session.Audio.Ambience.Event = "";
+        level.Camera = new Camera(1920, 1080);
         level.Background = new BackdropRenderer();
         level.Foreground = new BackdropRenderer();
         level.Displacement = new DisplacementRenderer();
         level.FormationBackdrop = new FormationBackdrop();
+        level.Lighting = new LightingRenderer();
+        level.Bloom = new BloomRenderer();
+        level.HudRenderer = new HudRenderer();
         return new { profile = "single-room-header-not-complete-world-caller", room.Name, room.LoadSeed,
-            mapConstructorExecuted = false, originalLevelLoaderExecuted = false, remainingWorldCallerIncomplete = true };
+            audioEvents = "declared-empty-explicit-audio-nongoal", cameraViewport = "1920x1080-declared-display-profile",
+            callerRenderers = "lighting-bloom-hud-declared-recording-profile", mapConstructorExecuted = false,
+            originalLevelLoaderExecuted = false, remainingWorldCallerIncomplete = true };
     }
 }

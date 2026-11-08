@@ -52,7 +52,7 @@ That checkpoint and its failure remain immutable. The parent subsequently
 approved only the managed wrapper fixture described below; it did not authorize
 native SDL2 loading, changing `IsGGP`, or removing its initializer.
 
-## Current managed platform fixture and first LoadLevel entry
+## Current managed platform fixture and first live tick
 
 The declared `pc-linux` profile supplies the string `Linux` through only the
 public managed no-argument `SDL_GetPlatform` wrapper. The original wrapper is
@@ -63,28 +63,48 @@ constructor remain unchanged and compute their own values from that input.
 
 This is a reference-platform input, not a claim about physical Vita, original SDL
 runtime behavior, original startup/save parity, native interop, or CIL equivalence.
-Tests observe one fixture read, unchanged RNG and clocks, no native attempts,
-and no SDL2/FMOD mappings. Unsupported profiles are rejected. Both the original
-native platform import and another SDL import still hit the unchanged throwing
-resolver, as does the pinned FMOD import.
+Tests observe no native attempts and no SDL2/FMOD mappings. Unsupported profiles
+are rejected. Both the original native platform import and another SDL import
+still hit the unchanged throwing resolver, as does the pinned FMOD import.
+Original `UserIO` static path initialization also reads the managed platform
+fixture twice; those reads are recorded rather than counted as native activity.
 
-The current execution prefix also runs original `MInput.Initialize`, prepares
-single-room header inputs, and enters the unchanged `LoadLevel(Respawn)` body.
-The body writes `LastIntroType = Respawn` and then stops at the still-guarded
-`SFX.EventnameByHandle` member. The process fails immediately; the next routine
-promotion is that original member and its proven initialization dependencies.
-No new platform authorization is needed for ordinary member promotions.
+The unchanged `LoadLevel(Respawn)` body now returns after creating the state14
+`Player` and room entities. The execution trace records `state = 14` at return.
+A real `Level.BeforeUpdate`, `Level.Update`, `Level.AfterUpdate` tick loop then
+reaches state `0` on tick 35 and executes exactly one further controlled live
+tick on tick 36. Both state0 ticks use original Level update and Player
+`NormalUpdate`; no state0 teleport, unsupported closure, native attempt, or
+native mapping occurs.
 
-Caller limitations are explicit: map data is preloaded field storage for the
+Reached source members now include the original `SFX.EventnameByHandle`,
+`Audio.SetAltMusic`/`SetMusic`/`SetAmbience`/`SetParameter`/`Stop`/
+`EndSnapshot`/`GetEventDescription`/`CreateInstance`/`Play` bodies, the original
+`Spikes` constructor and `Added`, `PlayerCollider.Check`, `Input.Initialize` and
+input binding primitives, `SaveData.AddTime`, and `UserIO.Saving`. These are
+ordinary source executions, not a whole-class import.
+
+The audio profile is explicit: the pinned SFX path constants are preloaded into
+`Audio.cachedEventDescriptions` with null descriptions before execution.
+Original audio bodies execute but receive no event instances. This is not FMOD,
+native audio, recording-service output, or startup-audio parity. A declared
+1920x1080 camera viewport, empty session audio events, and source
+Lighting/Bloom/Hud renderers are caller inputs for this bounded probe.
+
+Caller limitations remain explicit: map data is preloaded field storage for the
 pinned stripped room, not execution of the guarded MapData constructor or its
 initializers. Original MapData `Get`/`TileBounds` execute. Only the first two
-original area object initializers are selected, including the original wipe
-callbacks; whole AreaData loading is not claimed. World tile/caller assembly,
-input sampling/history ticks, and complete LevelLoader fidelity remain unproven.
-None of these limitations is counted as lifecycle coverage.
+original area object initializers plus the declared Spike atlas id are selected;
+whole AreaData loading is not claimed. World tile/caller assembly, original
+startup/save data, full input history, and complete LevelLoader fidelity remain
+unproven. Input initialization is executed once, but no button history or
+buffered input is claimed.
 
-There is still no state 14-to-0 transition, controlled live tick, or coherent
-corpse/wipe/reload roundtrip. Completion remains **0/8 lifecycle families**.
+There is still no death/corpse/wipe/reload roundtrip and no coherent eight-family
+coverage. Completion remains **0/8 lifecycle families**. The remaining gap is
+the real corpse lifecycle and Wipe completion through `Reload` into a second
+`LoadLevel(Respawn)`, then the Up/Left hazard, ordering, corpse/Hair/RNG/draw,
+callback/list, freeze/buffered-input, reload-resume, and repeated-cycle families.
 
 ## Evidence and reproduction
 
@@ -96,6 +116,12 @@ The first actual SDL2 bootstrap boundary is retained in
 All earlier failed probes, including probe92, remain unchanged.
 The first LoadLevel-entry trace is retained in
 `native-guard-test-7858d793f5854f21905ee2d25adeaf0f/load-level-prefix.jsonl`.
+The first successful live-tick run is retained in
+`native-guard-test-f71a5f2b157f459eb8c1bdd62bdaa368/respawn-live-tick.jsonl`
+with its compiled source manifest and source identity beside it.
+The additional declaration source `room-core-declarations-extra-01` was generated
+with `scripts/read_frontier_declarations.py --require-type LedgeBlocker` and
+recorded in the tracked declaration pins.
 
 With the pinned private inputs and discoveries present, this command creates a
 fresh compilation and separate processes for identity, negative import,
@@ -107,11 +133,14 @@ python3 -B -m unittest discover -s tests/native -p test_room_core_native_guard.p
 
 Each fresh `native-guard-test-*` directory retains the compilation receipt,
 source/declaration/fixture inventories, stdout/stderr, `execution-prefix.jsonl`,
-and `load-level-prefix.jsonl`.
+and `respawn-live-tick.jsonl`.
 The current cut has 183 unchanged extraction blocks across 123 entries, with
 generated-source SHA256
-`5f1fdbc7177c5e1d368b2c7ddf5049d9791ebfcb7b6f067e5e413cc83e355838`.
-This identity does not by itself establish runtime coverage.
+`83a018b515c73d3f95df88f1d0b7ad20469b9fcf698a207ba41de0233b2876bd`.
+It records 3027 executable members, 13421 declaration contracts including 1094
+native-ABI declarations, and zero managed platform fixture changes beyond the
+separate `SDL_GetPlatform` wrapper.
+This identity does not by itself establish full runtime coverage.
 
 Regression checks are the full native Python suite and the task-branch Release
 CMake/CTest build. They are not development synchronization, hardware, UI,

@@ -171,7 +171,7 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     baseline = output / 'baseline'
     prepare(source, baseline)
     manifest = json.loads((baseline / 'source-manifest.json').read_text())
-    manifest.update(claim='Canonical room-core dependency compile probe only; no lifecycle execution',
+    manifest.update(claim='Canonical room-core compile cut; a separate fresh process executes one bounded Respawn14->Normal0 live tick, zero of eight families closed',
                     room_core_recipe_sha256={str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                         for path in (Path(__file__), ROOT / 'scripts/read_player_room_core_sources.py')},
                     room_core_provenance_sha256=hashlib.sha256((room_source / 'provenance.json').read_bytes()).hexdigest(),
@@ -235,9 +235,24 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.Player.cs': player_ranges,
         'Celeste.Celeste.cs': [(152, 162)],
         'Celeste.Settings.cs': [(131, 142)],
+        'Celeste.SFX.cs': [(1590, 1595)],
+        'Celeste.Audio.cs': [(66, 66), (68, 68), (132, 161), (291, 308), (389, 395), (397, 404), (406, 420), (422, 441), (579, 585), (596, 617), (619, 638), (648, 662)],
+        'FMOD.Studio.HandleBase.cs': [(49, 65)],
+        'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (251, 260)],
+        'Celeste.PlayerCollider.cs': [(16, 22), (24, 50)],
+        'Celeste.Input.cs': [(79, 94), (96, 135), (137, 187), (189, 271), (326, 329), (331, 373)],
+        'Celeste.SaveData.cs': [(10, 136), (414, 418)],
+        'Celeste.UserIO.cs': [(36, 40), (40, 69)],
+        'Monocle.VirtualInput.cs': [(19, 27)],
+        'Monocle.VirtualButton.cs': [(29, 65), (79, 105)],
+        'Monocle.VirtualIntegerAxis.cs': [(40, 49), (100, 103)],
+        'Monocle.VirtualJoystick.cs': [(41, 41), (45, 69), (235, 238)],
+        'Monocle.Binding.cs': [(30, 76), (224, 260)],
+        'Celeste.LedgeBlocker.cs': [(14, 18)],
         'SDL2.SDL.cs': [],
         'Monocle.Engine.cs': [(81, 85)],
-        'Monocle.MInput.cs': [(16, 18), (303, 307), (476, 479), (1353, 1369)],
+        'Monocle.MInput.cs': [(16, 18), (38, 62), (303, 307), (476, 479), (1353, 1369)],
+        'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(76, 79), (130, 145)],
         'Monocle.Tracker.cs': [(10, 143), (162, 165), (185, 193), (212, 215), (235, 285)],
         'Monocle.Tracked.cs': [(9, 12)],
         'Monocle.Calc.cs': [(19, 23), (263, 272), (323, 349), (371, 394), (405, 445), (480, 495), (542, 572),
@@ -315,8 +330,9 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     content += 'public static class BinaryPacker {\n' + extract('Celeste.BinaryPacker.cs', [(11, 64)]) + '\n}\n}\n'
     content += 'namespace Celeste { public class AreaData {\n' + extract('Celeste.AreaData.cs', [(12, 80), (84, 92), (820, 851), (867, 900), (907, 954)]) + '\n}\n}\n'
     content += 'namespace DeathOracle { using global::Celeste; using static global::Celeste.AreaData; static class RoomCoreAreaInput { public static void Configure() {\n'
-    content += extract('Celeste.AreaData.cs', [(96, 191)]) + '\nAreas[1].ID = 1;\n} } }\n'
-    manifest['caller_area_input'] = 'First two original area object initializers only; original AreaData.Load/global map loading is not executed or claimed'
+    content += extract('Celeste.AreaData.cs', [(96, 191)]) + '\nAreas[1].ID = 1;\nAreas[1].Spike = "default";\n} } }\n'
+    manifest['caller_area_input'] = 'First two original area object initializers plus declared Spike atlas id only; original AreaData.Load/global map loading is not executed or claimed'
+    manifest['caller_runtime_profile'] = 'Declared 1920x1080 camera viewport, empty audio events with inert SFX cache, source Lighting/Bloom/Hud renderers, field-only room header and caller-provided wipe/player reconstruction; no original startup, save-audio or full LevelLoader parity'
     content += whole('Monocle.Collide.cs', 'Monocle')
     selected_files = {entry['file'] for entry in manifest['extractions']}
     for name in declarations:
@@ -396,15 +412,20 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         fixture['ProviderSha256'] = manifest['room_core_support_sha256'][fixture['Provider']]
     manifest['native_abi_exclusion'] = 'Unchanged extern/DllImport contracts, not managed implementations. Generated assembly module initializer installs its sole throwing native resolver before source initialization. No native loading or default fallthrough. Resolver follows native loading caches: interception is proven only for the pinned import in fresh diagnostic processes without prior native bindings or FMOD mappings, not as a universal block. Isolated negative tests are not real RoomCore coverage.'
     manifest['gpu_exclusion'] = 'Typed recording-only device/resources; original GraphicsResource ownership callbacks, VertexDeclaration metadata/stride, geometry/math, RNG, clocks and gameplay callbacks remain source bodies. No GPU pixels or full FNA backend fidelity.'
+    manifest['audio_boundary'] = 'Declared inert event-description cache entries map the pinned SFX path constants to null before source execution. Original Audio/Player/SoundSource bodies execute and receive no event instances. No FMOD system, native audio, sound, music, or startup-audio parity is claimed.'
     manifest['immutable_map_input'] = 'Field-only preloaded single-room input storage. MapData constructor/Load/Reload remain guarded; no original map constructor or its field-initializer execution is claimed for this supplied input object. Original Get/TileBounds execute. Remaining world/caller construction is incomplete; no whole-map/LevelLoader fidelity.'
     (output / 'presentation-stripped-room.json').write_bytes((room_source / 'presentation-stripped-room.json').read_bytes())
+    for name in ('atlas.json', 'Sprites.xml'):
+        data = (baseline / name).read_bytes() if name == 'atlas.json' else (source / 'presentation' / name).read_bytes()
+        (output / name).write_bytes(data)
+        manifest['room_core_support_sha256'][str(name)] = hashlib.sha256(data).hexdigest()
     (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (output / 'Oracle.csproj').write_text(project_text())
     (output / 'NuGet.Config').write_bytes((baseline / 'NuGet.Config').read_bytes())
     compile_project(output, identity, before)
-    result = {'status': 'compiled-not-room-core-closed', 'source_identity': identity, 'source_revision': before[0],
+    result = {'status': 'compiled-bounded-live-tick-not-family-closure', 'source_identity': identity, 'source_revision': before[0],
         'source_changes': before[1], 'native_abi_declarations': len(manifest['native_abi_declarations']),
-        'claim': 'Compilation only; no original LoadLevel or lifecycle execution; zero of eight families closed'}
+        'claim': 'Compilation only in this recipe; separate fresh-process execution establishes one bounded Respawn14->Normal0 live tick; zero of eight families closed'}
     (output / 'probe-result.json').write_text(json.dumps(result, indent=2) + '\n')
     return result
 

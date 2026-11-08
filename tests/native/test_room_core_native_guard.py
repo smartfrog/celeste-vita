@@ -16,7 +16,8 @@ PRIVATE = ROOT / '.audit/native-player-death-respawn'
 DECLARATIONS = (46, 49, 52, 54, 56, 59, 61, 63, 65, 66, 71, 74, 75, 77, 78, 80, 81, 83, 85, 87, 89, 91)
 
 
-@unittest.skipUnless(SDK.is_file() and (PRIVATE / 'room-core-probe-91/provenance.json').is_file(),
+@unittest.skipUnless(SDK.is_file() and (PRIVATE / 'room-core-probe-91/provenance.json').is_file()
+    and (PRIVATE / 'room-core-declarations-extra-01/provenance.json').is_file(),
     'Pinned private RoomCore declarations unavailable')
 class RoomCoreNativeGuardTests(unittest.TestCase):
     @classmethod
@@ -28,7 +29,7 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
         cls.output = PRIVATE / ('native-guard-test-' + uuid.uuid4().hex)
         cls.compilation = build(PRIVATE / '5ffd25a49f1e12c6549aa34648308f41f42361e8/source',
             PRIVATE / 'room-core-probe-42', cls.output,
-            declarations_source=[PRIVATE / f'room-core-probe-{number}' for number in DECLARATIONS] + [PRIVATE / 'room-core-platform-declarations-01'])
+            declarations_source=[PRIVATE / f'room-core-probe-{number}' for number in DECLARATIONS] + [PRIVATE / 'room-core-platform-declarations-01', PRIVATE / 'room-core-declarations-extra-01'])
 
     def execute_case(self, name):
         result = subprocess.run([str(SDK), str(self.output / 'bin/Release/net8.0/Oracle.dll'), name,
@@ -101,25 +102,51 @@ class RoomCoreNativeGuardTests(unittest.TestCase):
             'room-core-execute', str(trace)], cwd=ROOT, env=oracle_environment(SDK), text=True, capture_output=True)
         (self.output / 'execution-prefix.stdout').write_text(result.stdout)
         (self.output / 'execution-prefix.stderr').write_text(result.stderr)
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(trace.is_file(), result.stdout + result.stderr)
         rows = [json.loads(line) for line in trace.read_text().splitlines()]
         self.assertIn({'event': 'enter', 'member': 'Monocle.Tracker.Initialize'}, rows)
-        self.assertEqual(rows[-1]['event'], 'boundary')
-        self.assertTrue(rows[-1]['loadLevelEntered'])
         self.assertIn({'event': 'return', 'member': 'Celeste.Settings.constructor'}, rows)
-        self.assertEqual(rows[-1]['platformReads'], [{'Profile': 'pc-linux', 'Platform': 'Linux'}])
-        self.assertEqual(rows[-1]['nativeAttempts'], [])
+        self.assertEqual(rows[-1]['event'], 'completed')
+        self.assertEqual(rows[-1]['status'], 'respawn14-normal0-one-live-tick')
+        self.assertEqual(rows[-1]['nativeAttempts'], 0)
         self.assertEqual(rows[0]['nativeMappingsBefore'], [])
-        self.assertEqual(rows[-1]['nativeMappingsAtBoundary'], [])
+        self.assertEqual(rows[-1]['nativeMappingsAfter'], [])
+        self.assertEqual({read['Profile'] for read in rows[-1]['platformReads']}, {'pc-linux'})
+        self.assertEqual({read['Platform'] for read in rows[-1]['platformReads']}, {'Linux'})
 
-    def test_actual_load_level_body_is_entered_before_the_next_reported_boundary(self):
-        trace = self.output / 'load-level-prefix.jsonl'
+    def test_real_level_ticks_transition_respawn14_to_normal0_and_execute_one_live_tick(self):
+        trace = self.output / 'respawn-live-tick.jsonl'
         result = subprocess.run([str(SDK), str(self.output / 'bin/Release/net8.0/Oracle.dll'),
             'room-core-execute', str(trace)], cwd=ROOT, env=oracle_environment(SDK), text=True, capture_output=True)
-        (self.output / 'load-level-prefix.stderr').write_text(result.stderr)
-        self.assertNotEqual(result.returncode, 0)
+        (self.output / 'respawn-live-tick.stderr').write_text(result.stderr)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         rows = [json.loads(line) for line in trace.read_text().splitlines()]
-        self.assertTrue(rows[-1]['loadLevelEntered'], rows[-1]['exception'])
-        self.assertEqual(rows[-1]['lastIntroType'], 'Respawn')
-        self.assertIn('at Celeste.Level.LoadLevel(', rows[-1]['exception'])
+        loaded = next(row for row in rows if row['event'] == 'caller-load-level-return')
+        normal = next(row for row in rows if row['event'] == 'caller-normal0')
+        live = next(row for row in rows if row['event'] == 'caller-live-tick')
+        self.assertEqual(loaded['state'], 14)
+        self.assertEqual(normal['tick'], 35)
+        self.assertEqual(live['tick'], 36)
+        self.assertEqual(live['state'], 0)
+        self.assertFalse(live['dead'])
+        self.assertEqual(normal['state'], 0)
+        self.assertGreater(normal['scale'][0], 1.0)
+        self.assertLess(normal['scale'][1], 1.0)
+        self.assertIsNone(live['wipe'])
+        self.assertGreater(live['rawTimeActive'], normal['rawTimeActive'])
+        self.assertIn({'event': 'enter', 'member': 'Celeste.Level.LoadLevel(Respawn)'}, rows)
+        self.assertIn({'event': 'return', 'member': 'Celeste.Level.LoadLevel(Respawn)'}, rows)
+        self.assertEqual(rows[-1]['normalTick'], normal['tick'])
+        self.assertEqual(rows[-1]['liveTick'], live['tick'])
+
+    def test_manifest_records_audio_boundary_and_no_lifecycle_family_closure(self):
+        manifest = json.loads((self.output / 'source-manifest.json').read_text())
+        self.assertIn('Declared inert event-description cache', manifest['audio_boundary'])
+        result = json.loads((self.output / 'probe-result.json').read_text())
+        self.assertEqual(result['status'], 'compiled-bounded-live-tick-not-family-closure')
+        self.assertIn('zero of eight families closed', result['claim'])
+        self.assertTrue(any(entry['Name'] == 'EventnameByHandle' and entry['Kind'] == 'method'
+            for entry in manifest['executable_members']))
+        self.assertTrue(any(entry['Name'] == 'Added' and entry['Kind'] == 'method'
+            and entry['File'].endswith('Celeste.Spikes.cs') for entry in manifest['executable_members']))
