@@ -25,14 +25,31 @@ void body(const Body& shape) {
     const auto& box = shape.collider.value();
     rectangle(shape.position.x+box.offset.x, shape.position.y+box.offset.y, box.width, box.height);
 }
-void textured_quad(const TexturedQuad& q, unsigned texture) {
-    glBindTexture(GL_TEXTURE_2D,textures.at(texture));
-    glBegin(GL_QUADS);
+void textured_vertices(const TexturedQuad& q) {
     glTexCoord2f(q.u0,q.v0); glVertex2f(q.x,q.y);
     glTexCoord2f(q.u1,q.v0); glVertex2f(q.x+q.width,q.y);
     glTexCoord2f(q.u1,q.v1); glVertex2f(q.x+q.width,q.y+q.height);
     glTexCoord2f(q.u0,q.v1); glVertex2f(q.x,q.y+q.height);
+}
+void textured_quad(const TexturedQuad& q, unsigned texture) {
+    glBindTexture(GL_TEXTURE_2D,textures.at(texture));
+    glBegin(GL_QUADS);
+    textured_vertices(q);
     glEnd();
+}
+void tile_layer(const VisualAssets& visuals, bool background) {
+    int active_texture = -1;
+    for (const auto& command : visuals.commands) {
+        if (command.background != background) continue;
+        if (command.texture != active_texture) {
+            if (active_texture != -1) glEnd();
+            active_texture = command.texture;
+            glBindTexture(GL_TEXTURE_2D,textures.at(active_texture));
+            glBegin(GL_QUADS);
+        }
+        textured_vertices(tile_quad(visuals.textures[command.texture],command));
+    }
+    if (active_texture != -1) glEnd();
 }
 void hazard_markers(const Room& room) {
     glDisable(GL_TEXTURE_2D);
@@ -119,14 +136,12 @@ std::string draw(const Room& room, const Player& player, const char* export_path
         glEnable(GL_TEXTURE_2D);
         glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
         glColor4f(1,1,1,1);
-        for (const auto& command : visuals->commands)
-            if (command.background) textured_quad(tile_quad(visuals->textures[command.texture],command),command.texture);
+        tile_layer(*visuals,true);
         textured_quad(body_quad(visuals->textures[5],player.actor().body.position,static_cast<int>(player.state().facing)),5);
         hazard_markers(room);
         glEnable(GL_TEXTURE_2D);
         glColor4f(1,1,1,1);
-        for (const auto& command : visuals->commands)
-            if (!command.background) textured_quad(tile_quad(visuals->textures[command.texture],command),command.texture);
+        tile_layer(*visuals,false);
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_BLEND);
     } else {
