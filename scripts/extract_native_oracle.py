@@ -18,20 +18,21 @@ SOURCE_HASHES = {
     "Monocle.Hitbox.cs": "7bf2a0e6dbac16b79be9ef2d57a0d732a95a8aaf89934dc4dae7b29f070d51d6",
     "Monocle.Coroutine.cs": "d4cd81b29b8535146931606aeafac396ce739df00a24763a1b51c337325fae33",
     "Monocle.StateMachine.cs": "92091f4cdf54a87cab34832d33698d0d5dd33be4c11d8e61c42d1be07e5bdf4e",
+    "Monocle.VirtualButton.cs": "ae7c19ab7a08ddf2c2f5e8e31e2305ba9334f149573f9b01d78cac16291e8cbb",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/ilspy")
-    parser.add_argument("--domain", choices=("movement", "scheduling"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input"), default="movement")
     args = parser.parse_args()
     actual = hashlib.sha256((args.source / "inputs/Celeste.exe").read_bytes()).hexdigest()
     if actual != INPUT_SHA:
         raise RuntimeError(f"Unexpected reference input SHA256: {actual}")
     output = ROOT / ".audit/native-oracle"
-    if args.domain == "scheduling":
-        output /= "scheduling"
+    if args.domain != "movement":
+        output /= args.domain
     output.mkdir(parents=True, exist_ok=True)
     manifest = {"input_sha256": actual, "version": "PC 1.4.0.0", "extractions": []}
 
@@ -59,10 +60,13 @@ def main():
         content += extract("Monocle.Collider.cs", [(8, 22), (205, 251), (255, 258)]) + "\n} }\n"
         content += "namespace Monocle { public class Hitbox : Collider {\n"
         content += extract("Monocle.Hitbox.cs", [(7, 98), (180, 183)]) + "\n} }\n"
-    else:
+    elif args.domain == "scheduling":
         content = "using System;\nusing System.Collections;\nusing System.Collections.Generic;\nnamespace Monocle {\n"
         content += extract("Monocle.Coroutine.cs", [(6, 102)]) + "\n"
         content += extract("Monocle.StateMachine.cs", [(6, 202)]) + "\n}\n"
+    else:
+        content = "using Microsoft.Xna.Framework.Input;\nnamespace Monocle {\n"
+        content += extract("Monocle.VirtualButton.cs", [(5, 163)]) + "\n}\n"
     (output / "Extracted.cs").write_text(content)
     manifest["stub_boundaries"] = [
         "Two-float Vector2 addition/multiplication; no FNA runtime",
@@ -81,10 +85,18 @@ def main():
             "Private-field inspection for trace instrumentation only, no game execution",
             "Calc.Log and Calc.GetMethod throw; diagnostic and reflection methods retained unchanged but excluded",
         ]
+    elif args.domain == "input":
+        manifest["stub_boundaries"] = [
+            "Stable pre-resolved Binding held/pressed/released booleans; no hardware, threshold or gamepad mapping",
+            "MInput.Disabled and a sampled debug-key-held bool; Keys has one synthetic identity",
+            "VirtualInput abstract Update only; no input registration or engine lifecycle",
+            "Engine.DeltaTime is an explicit supplied float32; no full frame clock or freeze policy",
+            "Private-field inspection only in the runner, outside the unchanged extracted class",
+        ]
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     maintained = ROOT / "tests/native/oracle"
-    if args.domain == "scheduling":
-        maintained /= "scheduling"
+    if args.domain != "movement":
+        maintained /= args.domain
     (output / "Oracle.csproj").write_text(f'''<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>

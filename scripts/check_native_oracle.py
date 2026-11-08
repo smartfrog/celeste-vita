@@ -19,15 +19,18 @@ PRIVATE = ROOT / ".audit/native-oracle"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--domain", choices=("movement", "scheduling"), default="movement")
+    parser.add_argument("--domain", choices=("movement", "scheduling", "input"), default="movement")
     parser.add_argument("--native", type=Path, required=True, help="Host native_trace_runner executable")
     parser.add_argument("--fixtures", type=Path)
     args = parser.parse_args()
     if args.fixtures is None:
         args.fixtures = ROOT / f"tests/native/{args.domain}.fixtures"
-    private = PRIVATE if args.domain == "movement" else PRIVATE / "scheduling"
+    private = PRIVATE if args.domain == "movement" else PRIVATE / args.domain
     if args.domain == "scheduling":
         from compare_scheduling_traces import compare as compare_domain, FIELDS
+        field_count = len(FIELDS)
+    elif args.domain == "input":
+        from compare_input_traces import compare as compare_domain, FIELDS
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16

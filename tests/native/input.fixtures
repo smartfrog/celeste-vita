@@ -1,0 +1,288 @@
+# held raw-pressed raw-released disabled sampled-debug-key-held
+# Every operation emits before/after snapshots; ticks install their supplied delta before both.
+case press_hold_release 0.08
+query
+sample 1 1 0 0 0
+tick 0.0166667
+sample 1 0 0 0 0
+tick 0.0166667
+query
+sample 0 0 1 0 0
+query
+tick 0.0166667
+query
+
+case zero_buffer 0
+sample 1 1 0 0 0
+tick 0.1
+consume_buffer
+query
+sample 1 0 0 0 0
+tick 0
+query
+
+case buffer_exact_boundary 0.08
+sample 1 1 0 0 0
+tick 1
+sample 1 0 0 0 0
+tick 0.04
+tick 0.04
+query
+tick 0.01
+
+case buffer_crossing 0.08
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick @3da3d70b
+query
+tick 0.25
+
+case consume_buffer_raw 0.08
+sample 1 1 0 0 0
+tick 0.01
+consume_buffer
+consume_buffer
+query
+sample 1 0 0 0 0
+query
+tick 0.01
+
+case consume_press_raw 0.08
+sample 1 1 1 0 0
+tick 0.01
+consume_press
+query
+consume_buffer
+query
+tick 0
+query
+
+case consume_press_held_next 0.08
+sample 1 1 0 0 0
+tick 0
+consume_press
+sample 1 0 0 0 0
+query
+tick 0.01
+query
+
+case disabled_countdown 0.08
+repeat_pair 0.1 0.2
+sample 1 1 0 0 0
+tick 0
+sample 1 0 1 1 0
+tick 0.04
+query
+tick 0.1
+query
+sample 1 0 1 0 0
+query
+
+case disabled_consumed_reset 0.08
+sample 1 1 1 1 0
+tick 0
+consume_press
+query
+tick 0
+query
+sample 1 1 1 0 0
+query
+
+case debug_bypasses_both 0.08
+sample 0 0 1 1 1
+consume_press
+query
+tick 0.01
+query
+sample 0 0 1 1 0
+query
+
+case debug_bypasses_consumed 0
+sample 0 0 0 0 1
+consume_press
+query
+consume_buffer
+sample 0 0 0 0 0
+query
+
+case debug_bypasses_disabled 0
+sample 0 0 0 1 1
+query
+sample 1 1 1 1 0
+query
+sample 1 1 1 0 0
+query
+
+case repeat_first_multi 0
+repeat_pair 0.1 0.25
+sample 1 0 0 0 0
+tick 9
+tick 0.05
+tick 0.05
+query
+tick 0
+tick 0.25
+query
+
+case repeat_overshoot_one_per_tick 0
+repeat_pair 0.1 0.25
+sample 1 0 0 0 0
+tick 100
+tick 100
+query
+tick 100
+tick 0
+
+case repeat_zero_multi 0
+repeat_pair 0.1 0
+sample 1 0 0 0 0
+tick 1
+tick 0.1
+query
+tick 100
+tick 0.1
+
+case repeat_negative_multi 0
+repeat_pair 0.1 -0.2
+sample 1 0 0 0 0
+tick 0
+tick 0.1
+tick 0
+tick 0.01
+
+case repeat_single_delay 0
+repeat 0.125
+sample 1 0 0 0 0
+tick 0
+tick 0.125
+tick 0.0625
+tick 0.0625
+
+case repeat_consume_buffer 0.08
+repeat 0.1
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick 0.1
+consume_buffer
+query
+consume_press
+query
+tick 0.1
+query
+
+case repeat_disable_reenable 0.08
+repeat_pair 0.1 0.2
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick 0.1
+repeat_pair 0 -0.4
+query
+tick 0.01
+repeat_pair 0.9 0.3
+query
+tick 0.05
+tick 0.15
+
+case repeat_negative_first 0.08
+repeat 0.125
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+repeat_pair -0.5 -0.25
+tick 0.01
+repeat 0.5
+tick 0.125
+
+case repeat_enabled_reconfigure_preserves_flag 0
+repeat 0.1
+sample 1 0 0 0 0
+tick 0
+tick 0.1
+consume_press
+repeat_pair 0.5 0.6
+query
+tick 0
+query
+
+case repeat_release_disabled 0.08
+repeat 0.1
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick 0.1
+sample 0 0 1 1 0
+query
+tick 0
+sample 1 0 0 0 0
+tick 9
+
+case pressed_without_held 0.08
+repeat 0.1
+sample 0 1 1 0 0
+query
+tick 1
+query
+consume_buffer
+query
+sample 0 0 0 0 0
+tick 0
+
+case update_without_scene_step 0.08
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick 0
+tick 0.04
+query
+consume_press
+tick 0
+query
+
+case negative_buffer -0.08
+sample 1 1 0 0 0
+tick 0
+sample 1 0 0 0 0
+tick 0.01
+query
+buffer 0.08
+sample 1 1 0 0 0
+tick 0
+query
+
+case negative_delta 0
+repeat_pair 0.1 -0.2
+sample 1 0 0 0 0
+tick -0.25
+tick -0.25
+query
+
+case signed_zero_configuration @80000000
+repeat_pair @80000000 @80000000
+sample 1 1 0 0 0
+tick @80000000
+sample 1 0 0 0 0
+tick 0
+query
+
+case release_before_tick_keeps_buffer 0.08
+sample 1 1 0 0 0
+tick 0
+sample 0 0 1 0 0
+query
+consume_press
+query
+tick 0
+
+case live_buffer_configuration 0.08
+sample 1 1 0 0 0
+tick 0
+buffer 0
+sample 1 0 0 0 0
+query
+tick 0.04
+sample 1 1 0 0 0
+tick 0
+query

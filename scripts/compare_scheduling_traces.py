@@ -4,38 +4,16 @@
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-import re
-import struct
 
-from compare_native_traces import FLOAT_BITS, compare_rows
+from compare_native_traces import compare_rows
+from fixture_protocol import IDENTIFIER, integer, float_bits
 
 FIELDS = ("case", "step", "event", "detail", "state", "previous", "changed", "locked",
           "active", "finished", "wait", "depth", "ended", "removals", "raw", "delta", "raw_delta")
 DEFAULT_FIXTURES = Path(__file__).resolve().parents[1] / "tests/native/scheduling.fixtures"
-IDENTIFIER = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
-INTEGER = re.compile(r"(?:0|-?[1-9][0-9]*)\Z")
 COUNTS = {"construct": 2, "replace": 2, "cancel": 1, "tick": 3, "snapshot": 1,
           "raw": 2, "active": 2, "remove": 2, "lock": 2, "set": 2, "force": 2,
           "added": 2, "entity_added": 1}
-
-
-def integer(value, minimum, maximum):
-    if not INTEGER.fullmatch(value) or not minimum <= int(value) <= maximum:
-        raise ValueError(f"Invalid integer {value!r}")
-    return int(value)
-
-
-def float_bits(value):
-    if value.startswith("@"):
-        bits = value[1:]
-    else:
-        try:
-            bits = struct.pack(">f", float(value)).hex()
-        except (ValueError, OverflowError) as error:
-            raise ValueError(f"Invalid float32 {value!r}") from error
-    if not FLOAT_BITS.fullmatch(bits) or int(bits, 16) & 0x7f800000 == 0x7f800000:
-        raise ValueError(f"Invalid finite float32 bits {bits!r}")
-    return bits
 
 
 def validate_action(spec, scripts, count, role):
