@@ -11,6 +11,40 @@ namespace DeathOracle
         public static readonly List<(string Operation, object[] Arguments)> Commands = new();
         public static void Add(string operation, params object[] arguments) => Commands.Add((operation, arguments));
     }
+
+    public static class LifecycleRecording
+    {
+        static readonly PresentationOracle.RecordingBatch batch = new();
+        public static bool Active { get; private set; }
+        public static readonly List<(Matrix Matrix, VertexPositionColor[] Vertices, int Count)> Wipes = new();
+        public static PresentationOracle.RecordingBatch Batch => Active ? batch
+            : throw new UnsupportedClosure("Recording render scope required: Monocle.Draw.cs:SpriteBatch");
+
+        public static void Begin()
+        {
+            if (Active) throw new InvalidOperationException("Nested lifecycle render");
+            batch.Calls.Clear();
+            batch.Geometry.Calls.Clear();
+            Wipes.Clear();
+            Active = true;
+        }
+
+        public static void End()
+        {
+            if (!Active) throw new InvalidOperationException("No lifecycle render scope");
+            Active = false;
+        }
+
+        public static void Vertices<T>(Matrix matrix, T[] vertices, int count, Effect effect, BlendState blend) where T : struct, IVertexType
+        {
+            if (!Active || typeof(T) != typeof(VertexPositionColor) || count != 36 || vertices.Length != count
+                || effect != null || blend != null || matrix.M11 != 1f || matrix.M22 != 1f || matrix.M33 != 1f || matrix.M44 != 1f
+                || matrix.M12 != 0f || matrix.M13 != 0f || matrix.M14 != 0f || matrix.M21 != 0f || matrix.M23 != 0f || matrix.M24 != 0f
+                || matrix.M31 != 0f || matrix.M32 != 0f || matrix.M34 != 0f || matrix.M41 != 0f || matrix.M42 != 0f || matrix.M43 != 0f)
+                throw new UnsupportedClosure("Excluded recording GPU vertex operation");
+            Wipes.Add((matrix, (VertexPositionColor[])((VertexPositionColor[])(object)vertices).Clone(), count));
+        }
+    }
 }
 
 namespace Microsoft.Xna.Framework

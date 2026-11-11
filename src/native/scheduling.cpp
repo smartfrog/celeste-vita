@@ -28,6 +28,25 @@ void FrameClock::freeze(float duration) {
     if (freeze_timer < duration) freeze_timer = duration;
 }
 
+Tween::Tween(float seconds, std::function<float(float)> easer)
+    : time_left(seconds), duration(seconds), easer_(std::move(easer)) {
+    if (!std::isfinite(seconds) || seconds <= 0) throw std::invalid_argument("Invalid tween duration");
+}
+
+void Tween::update(float delta_time) {
+    if (!std::isfinite(delta_time) || delta_time < 0) throw std::invalid_argument("Invalid tween delta");
+    if (!active) return;
+    time_left -= delta_time;
+    percent = 1.0f - std::max(0.0f, time_left) / duration;
+    eased = easer_ ? easer_(percent) : percent;
+    if (on_update) on_update(*this);
+    if (time_left <= 0) {
+        time_left = 0;
+        if (on_complete) on_complete(*this);
+        active = false;
+    }
+}
+
 Iterator::Iterator(std::function<IteratorStep()> next) : next_(std::move(next)) {
     if (!next_) throw std::invalid_argument("Iterator requires a step callback");
 }

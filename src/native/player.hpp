@@ -29,6 +29,12 @@ struct PlayerInput {
     int aim_y = 0;
 };
 
+struct PlayerFrameContext {
+    FrameClock clock;
+    VirtualButton jump{0.08f}, dash{0.08f};
+    void sample(float raw_delta_time, const PlayerInput& input);
+};
+
 struct PlayerState {
     Vec2 speed{};
     Vec2 previous_position{};
@@ -73,7 +79,7 @@ using PlayerCosmeticObserver = std::function<void(PlayerCosmeticPhase)>;
 class Player final {
 public:
     explicit Player(const PlayerWorld& world, Vec2 spawn = {}, Vec2 initial_speed = {},
-                    PlayerProfile profile = PlayerProfile::default_static);
+                    PlayerProfile profile = PlayerProfile::default_static, PlayerFrameContext* context = nullptr);
     Player(const Player&) = delete;
     Player& operator=(const Player&) = delete;
 
@@ -93,15 +99,28 @@ public:
     bool die(Vec2 direction);
     void request_state(int state);
     void frame(float delta_time, PlayerInput input = {}, PlayerObserver observer = {}, PlayerCosmeticObserver cosmetic = {});
+    void update_sampled(PlayerInput input, PlayerCosmeticObserver cosmetic = {});
+    void begin_respawn();
+    float intro_ease() const { return intro_ease_; }
+    Vec2 dead_offset() const { return dead_offset_; }
+    const Tween* respawn_tween() const { return respawn_tween_ && respawn_tween_->active ? respawn_tween_.get() : nullptr; }
+    unsigned respawn_completions() const { return respawn_completions_; }
 
 private:
     const PlayerWorld& world_;
     Actor actor_;
     PlayerState state_;
     StateMachine machine_{26};
-    VirtualButton jump_{0.08f};
-    VirtualButton dash_{0.08f};
-    FrameClock clock_;
+    PlayerFrameContext owned_context_;
+    VirtualButton& jump_;
+    VirtualButton& dash_;
+    FrameClock& clock_;
+    const bool borrowed_context_;
+    std::uint64_t last_sampled_frame_;
+    std::unique_ptr<Tween> respawn_tween_;
+    float intro_ease_ = 0;
+    Vec2 dead_offset_{};
+    unsigned respawn_completions_ = 0;
     PlayerInput input_{};
     float delta_ = 0.0f;
     PlayerObserver observer_;
@@ -155,6 +174,7 @@ private:
     bool jump_thru_boost_blocked_check() const;
     bool check_hazards();
     bool die_immediate(Vec2 direction);
+    void frame_impl(float delta_time, PlayerInput input, PlayerObserver observer, PlayerCosmeticObserver cosmetic, bool sampled);
 };
 
 }

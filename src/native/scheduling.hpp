@@ -20,6 +20,18 @@ public:
     void freeze(float duration);
 };
 
+class Tween final {
+public:
+    explicit Tween(float duration, std::function<float(float)> easer = {});
+    bool active = true;
+    float time_left, percent = 0.0f, eased = 0.0f;
+    const float duration;
+    std::function<void(const Tween&)> on_update, on_complete;
+    void update(float delta_time);
+private:
+    std::function<float(float)> easer_;
+};
+
 class Iterator;
 using IteratorPtr = std::shared_ptr<Iterator>;
 using Yield = std::variant<std::monostate, std::int32_t, float, IteratorPtr>;

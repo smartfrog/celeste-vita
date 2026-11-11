@@ -41,16 +41,19 @@ class PresentationRandom final {
 public:
     explicit PresentationRandom(std::int32_t seed);
     double next_double();
+    int next(int maximum);
+    std::function<void(const char*,unsigned)> observer;
     unsigned calls() const { return calls_; }
 private:
     std::array<std::int32_t,56> values_{};
     int index_ = 0, partner_ = 21;
     unsigned calls_ = 0;
+    double sample();
 };
 
 enum class PlayerCosmeticPhase {
     scene_tick, ground, duck_turn, components, jump, duck, stand, fast_fall, landing,
-    select, hair_color, after_update
+    select, hair_color, after_update, respawn_complete, dash_trail
 };
 
 struct PlayerProjection {
@@ -75,6 +78,7 @@ struct PlayerPose {
     Vec2 scale{1,1};
     std::array<Vec2,4> hair_nodes{};
     PresentationColor hair_color{172,50,50,255};
+    PresentationColor sprite_color{};
     float hair_flash_timer = 0, idle_timer = 0, highest_air_y = 0;
     int last_dashes = 1, hair_facing = 1;
     bool fast_jump = false, flash = false, animating = false;
@@ -84,26 +88,38 @@ struct PlayerPose {
 
 class PlayerPresentation final {
 public:
-    PlayerPresentation(const PlayerFrameBank& bank, Vec2 spawn, std::int32_t diagnostic_seed = 0);
+    PlayerPresentation(const PlayerFrameBank& bank, Vec2 spawn, std::int32_t diagnostic_seed = 0,
+                       PresentationRandom* random = nullptr, const float* level_time = nullptr);
+    PlayerPresentation(const PlayerPresentation&)=delete;
+    PlayerPresentation& operator=(const PlayerPresentation&)=delete;
     void reset(Vec2 spawn);
     void observe(PlayerCosmeticPhase phase, const PlayerProjection& player, float delta_time);
     std::vector<PlayerDraw> draw(const PlayerProjection& player);
+    std::vector<PlayerDraw> trail_capture(const PlayerProjection& player, Vec2 offset, Vec2 body_scale);
+    void play_animation(std::string_view id) { play(id); }
+    void corpse_render(float scale, float rotation, int facing);
+    void corpse_color(PresentationColor initial);
     const PlayerPose& pose() const { return pose_; }
     unsigned random_calls() const { return random_.calls(); }
-    float scene_time() const { return scene_time_; }
+    float scene_time() const { return level_time_ ? *level_time_ : scene_time_; }
     std::int32_t diagnostic_seed() const { return diagnostic_seed_; }
 private:
     const PlayerFrameBank& bank_;
     const std::int32_t diagnostic_seed_;
-    PresentationRandom random_;
+    PresentationRandom owned_random_;
+    PresentationRandom& random_;
     PlayerPose pose_;
     float scene_time_ = 0;
+    const float* level_time_;
     void play(std::string_view id);
     void set_frame(unsigned frame);
     void callback(std::string_view kind, std::string_view animation);
     void update_animation(float delta_time);
     void select(const PlayerProjection& player);
+    std::vector<PlayerDraw> hair_draws();
 };
+
+std::vector<PlayerDraw> death_effect_draws(const PlayerFrameBank& bank, Vec2 position, PresentationColor color, float ease);
 
 class Player;
 struct PlayerWorld;

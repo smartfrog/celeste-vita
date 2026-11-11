@@ -30,6 +30,7 @@ class PresentationTrace {
 public:
     PresentationTrace(const celeste::PlayerFrameBank& bank, celeste::Vec2 spawn) : bank_(bank), view_(bank,spawn,0) { }
     void observe(const std::string& name, int tick, celeste::PlayerCosmeticPhase phase, const celeste::PlayerProjection& p, float dt) {
+        if(phase==celeste::PlayerCosmeticPhase::dash_trail) return;
         projection(name,tick,phase_name(phase),p,dt);
         view_.observe(phase,p,dt);
         state(name,tick,phase_name(phase));

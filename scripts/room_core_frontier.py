@@ -5,9 +5,10 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from check_native_oracle import ROOT, oracle_environment
+from native_oracle_sdk import sdk_path
 
-SDK = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+SDK = sdk_path(ROOT)
 TOOL_SOURCE = ROOT / 'tests/native/oracle/death/DeclarationFrontier.cs'
 
 

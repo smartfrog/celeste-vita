@@ -1,17 +1,15 @@
 #include "player.hpp"
 #include "presentation.hpp"
+#include "source_math.hpp"
 
 #include <cmath>
 
 namespace celeste {
 
 namespace {
-Vec2 angle_to_vector(float angle, float length) {
-    return {static_cast<float>(std::cos(static_cast<double>(angle))) * length,
-            static_cast<float>(std::sin(static_cast<double>(angle))) * length};
-}
 constexpr float pi = 3.14159265358979323846f;
 }
+using source_math::angle_to_vector;
 
 bool Player::super_wall_jump_angle_check() const {
     return std::abs(state_.dash_dir.x) <= 0.2f && state_.dash_dir.y <= -0.75f;

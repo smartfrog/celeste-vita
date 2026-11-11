@@ -7,6 +7,23 @@ from native_player_assets import pack_player_crops
 
 
 class PlayerCropTests(unittest.TestCase):
+    def test_death_extension_keeps_legacy_animations_and_uses_original_frames(self):
+        from native_player_assets import extend_death_bank
+        bank = {"animations": [{"id": str(i)} for i in range(24)], "frames": []}
+        xml = b'<Sprites><player path="p/"><Anim id="deadup" path="death" delay="0.02" frames="0-1"/><Anim id="deaddown" path="death" delay="0.02" frames="0-1"/><Anim id="deadside" path="death" delay="0.02" frames="0-1"/><Metadata/></player><player_sweat path="s/"><Loop id="idle" path="idle" frames="0"/></player_sweat></Sprites>'
+        atlas = {"p/death00": ("Gameplay0",1,2,3,4,-5,-6,32,32), "p/death01": ("Gameplay0",11,12,3,4,-5,-6,32,32), "s/idle00": ("Gameplay0",21,22,1,1,0,0,32,32)}
+        result = extend_death_bank(bank, xml, atlas)
+        self.assertEqual(result["animations"][:24], bank["animations"])
+        self.assertEqual([a["id"] for a in result["animations"][24:]], ["deadup", "deaddown", "deadside"])
+        self.assertEqual(result["animations"][24]["frames"], ["p/death00", "p/death01"])
+        self.assertEqual(result["frames"][0]["trim"], [5,6])
+        self.assertFalse(result["frames"][0]["hasHair"])
+
+    def test_death_extension_rejects_unresolved_animation(self):
+        from native_player_assets import extend_death_bank
+        with self.assertRaisesRegex(ValueError, "death animation"):
+            extend_death_bank({"animations": [{}]*24, "frames": []}, b'<Sprites><player path="p/"/></Sprites>', {})
+
     def test_identical_crops_share_page_rectangle(self):
         pages, layout = pack_player_crops({"a": (2, 2, bytes([50, 25, 0, 128]) * 4),
                                            "b": (2, 2, bytes([50, 25, 0, 128]) * 4)})
