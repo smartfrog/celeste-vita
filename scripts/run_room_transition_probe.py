@@ -33,11 +33,26 @@ def validate_controls(value):
     return total
 
 
+def execution_namespace(record, profile=None):
+    kind = record.get("kind")
+    if kind is None:
+        return ROOT / ".audit/native-room-transition/source-contract-01"
+    if kind == "native-room-transition-full-bake-source-cpu-v1":
+        if profile is None:
+            raise ValueError("Full-bake profile path is required")
+        from prepare_full_bake_transition_profile import verify_profile
+        if verify_profile(profile) != record:
+            raise ValueError("Full-bake profile path/content mismatch")
+        return ROOT / ".audit/native-room-transition-vita/full-bake-contract-01"
+    raise ValueError("Unknown SOURCE profile kind")
+
+
 def run(profile, sdk, content, controls, output):
-    if output.exists() or not output.resolve().is_relative_to(ROOT / ".audit/native-room-transition/source-contract-01"):
+    record = json.loads((profile / "transition-profile.json").read_text())
+    output_root = execution_namespace(record, profile)
+    if output.exists() or not output.resolve().is_relative_to(output_root):
         raise ValueError("Execution output must be fresh and private")
     validate_controls(json.loads(controls.read_text()))
-    record = json.loads((profile / "transition-profile.json").read_text())
     verify_inputs(record["inputs"], record["compiled_sources"])
     verify_file_identities({str(profile / name): value for name, value in record["generated"].items()})
     verify_file_identities({str(profile / name): value for name, value in record["compiled_artifacts"].items()})
