@@ -59,7 +59,7 @@ The guard rejects existing paths and dangling symlinks for the database and both
 | VitaSDK | `/home/fred/cloudpunk-vita/tools/vitasdk` (GCC 15.2.0) |
 | vitaGL no-splash | `/home/fred/cloudpunk-vita/tools/vita3k/vitagl-source/libvitaGL.a`, revision `cd3791e29ff7f1c0ab349f12c7231f4871ce6a75` |
 | Vita3K procedure | `/home/fred/cloudpunk-vita/docs/VITA3K.md` |
-| .NET SDK | `.audit/native-oracle/tools/dotnet-8.0.425/dotnet`, SDK 8.0.425 / runtime 8.0.31; `scripts/bootstrap_native_oracle.py` re-fetches the pinned hash-verified archive |
+| .NET SDK | Host-selected pinned path: `.audit/native-oracle/tools/dotnet-8.0.425-linux-x64/dotnet` on Linux x86_64, legacy `.audit/native-oracle/tools/dotnet-8.0.425/dotnet` on Linux aarch64; SDK 8.0.425 / runtime 8.0.31; `scripts/bootstrap_native_oracle.py` installs the pinned hash-verified archive for the current host |
 | ILSpy | `.audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll`; private inputs `.audit/ilspy/inputs/Celeste.exe` |
 | Node / REA | Node `v24.22.1`; `rea-agents@6.8.0` checkout `/home/fred/projects/rea` at `015a02d57b567bc9a1ed792d1e4b3ec083fa0ae3` (npm `11.16.0` only for a rebuild) |
 | Game/private inputs | `game/celeste-linux.zip`, `game/celeste-win-opengl.zip`, `game/Celeste-CUSA11302.pkg`; `.audit/ilspy`, `.audit/rea-input`, other `.audit/` evidence |

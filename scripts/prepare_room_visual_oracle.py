@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
 from native_room_textures import atlas_metadata
 from prepare_static_tilemap import build_layers, build_mask, mask_text
@@ -118,7 +119,7 @@ def main():
     if hashlib.sha256(atlas_path.read_bytes()).hexdigest() != "1f23b1f35544a3751ffec170b0230c7c9513000ab1549f78ebb9cb9f4203c8d9":
         raise ValueError("Changed atlas metadata")
     (output / "atlas.json").write_text(json.dumps(atlas_metadata(atlas_path.read_bytes())))
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
 
     def run(command, log):

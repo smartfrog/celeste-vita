@@ -20,7 +20,7 @@ class NativeOracleSdkTests(unittest.TestCase):
                          ROOT / ".audit/native-oracle/tools/dotnet-8.0.425/dotnet")
 
     def test_x64_selection_does_not_fall_back_to_an_existing_legacy_sdk(self):
-        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             legacy = root / ".audit/native-oracle/tools/dotnet-8.0.425/dotnet"
             legacy.parent.mkdir(parents=True)
