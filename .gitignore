@@ -1,6 +1,6 @@
 /game/
 /.audit/
-/.opencode/memory/
+/.opencode/
 /build/
 /dist/
 *.vpk
