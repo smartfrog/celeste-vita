@@ -51,14 +51,26 @@ Viewport letterbox(int width, int height) {
 Session::Session(const PlayerWorld& world, Vec2 spawn, const PlayerFrameBank* bank, std::int32_t diagnostic_seed)
     : world_(world), spawn_(spawn), player_(std::make_unique<Player>(world, spawn)),
       presentation_(bank ? std::make_unique<PlayerPresentation>(*bank,player_->actor().body.position,diagnostic_seed) : nullptr) {}
-PlayerProjection Session::projection() const { return project_player(*player_,world_,presentation_input_); }
+Session::Session(const PlayerWorld& world,const PlayerFrameBank& bank,bool checkpoint,std::int32_t seed,const RoomCatalog* catalog)
+    : world_(world),spawn_{19,144},automatic_(std::make_unique<FirstRoomSession>(world,bank,checkpoint,seed,catalog)),
+      automatic_bank_(&bank),hit_checkpoint_(checkpoint),diagnostic_seed_(seed),catalog_(catalog) {}
+PlayerProjection Session::projection() const { return automatic_ ? automatic_->projection() : project_player(*player_,world_,presentation_input_); }
 void Session::step(const Sample& sample) {
     if (exiting_) return;
     if (sample.exit) { exiting_ = true; return; }
+    if (automatic_) {
+        if(sample.reset) {
+            if(catalog_ && automatic_->room_definition()!=&catalog_->first()) throw std::runtime_error("Unsupported Room2 diagnostic reload");
+            automatic_=std::make_unique<FirstRoomSession>(world_,*automatic_bank_,hit_checkpoint_,diagnostic_seed_,catalog_);
+            ++resets_;
+        } else automatic_->step(1.f/60.f,sample.player);
+        return;
+    }
     if (sample.reset) {
         auto fresh = std::make_unique<Player>(world_, spawn_);
         player_ = std::move(fresh);
         if(presentation_) presentation_->reset(player_->actor().body.position);
+        trails_.clear();
         presentation_input_={};
         ++resets_;
         return;
@@ -66,6 +78,8 @@ void Session::step(const Sample& sample) {
     presentation_input_=sample.player;
     if (!player_->death().dead) player_->frame(1.0f / 60.0f, sample.player,{},
         presentation_ ? PlayerCosmeticObserver{[this](PlayerCosmeticPhase phase) {
+            if(phase==PlayerCosmeticPhase::scene_tick) trails_.update(player_->clock().delta);
+            if(phase==PlayerCosmeticPhase::dash_trail) trails_.add(projection(),presentation_->pose());
             presentation_->observe(phase,projection(),player_->clock().delta);
         }} : PlayerCosmeticObserver{});
 }

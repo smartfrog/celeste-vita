@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include "presentation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -82,6 +83,7 @@ int Player::dash_update() {
     if (s.dash_trail_timer > 0.0f) {
         s.dash_trail_timer -= delta_;
         if (s.dash_trail_timer <= 0.0f) {
+            cosmetic(PlayerCosmeticPhase::dash_trail);
             --s.dash_trail_counter;
             if (s.dash_trail_counter > 0) s.dash_trail_timer = 0.1f;
         }
@@ -132,10 +134,12 @@ IteratorPtr Player::dash_coroutine() {
                 s.speed.x *= 1.2f;
                 set_ducking(true);
             }
+            cosmetic(PlayerCosmeticPhase::dash_trail);
             s.dash_trail_timer = 0.08f;
             s.dash_trail_counter = 1;
             return Yield{0.15f};
         }
+        cosmetic(PlayerCosmeticPhase::dash_trail);
         s.auto_jump = true;
         s.auto_jump_timer = 0.0f;
         if (s.dash_dir.y <= 0.0f) s.speed = {s.dash_dir.x * 160.0f, s.dash_dir.y * 160.0f};

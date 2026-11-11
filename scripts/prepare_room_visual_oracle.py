@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
 from native_room_textures import atlas_metadata
 from prepare_static_tilemap import build_layers, build_mask, mask_text
@@ -50,7 +51,9 @@ def prepare(source, output):
         return extract(source / name, ranges, VISUAL_SOURCES[name])
 
     def existing(name, ranges):
-        if name in {"Celeste.MapData.cs", "Celeste.LevelLoader.cs"}:
+        if (source / name).is_file():
+            path = source / name
+        elif name in {"Celeste.MapData.cs", "Celeste.LevelLoader.cs"}:
             path = ROOT / ".audit/native-static-tilemap" / name
         elif name == "Monocle.Calc.cs":
             path = ROOT / ".audit/native-wall-jumps/closure" / name
@@ -94,6 +97,7 @@ def main():
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/native-room-visuals/source-closure-01")
     parser.add_argument("--prepared", type=Path, default=ROOT / ".audit/native-static-tilemap/prepared")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--inputs", type=Path, default=ROOT / ".audit/ilspy/inputs")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(ROOT / ".audit") or output.exists():
@@ -102,7 +106,7 @@ def main():
     input_identities = {}
     for name in ("Celeste.exe", "FNA.dll", "mscorlib.dll", "Content/Graphics/Atlases/Gameplay.meta",
                  "Content/Graphics/ForegroundTiles.xml", "Content/Graphics/BackgroundTiles.xml", "Content/Graphics/AnimatedTiles.xml", "Content/Graphics/Sprites.xml"):
-        path = ROOT / ".audit/ilspy/inputs" / name if "/" not in name else args.source / name.rsplit("/", 1)[-1]
+        path = args.inputs / name if "/" not in name else args.source / name.rsplit("/", 1)[-1]
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != MEMBERS[name]:
             raise ValueError("Changed independent source input: " + name)
@@ -118,7 +122,7 @@ def main():
     if hashlib.sha256(atlas_path.read_bytes()).hexdigest() != "1f23b1f35544a3751ffec170b0230c7c9513000ab1549f78ebb9cb9f4203c8d9":
         raise ValueError("Changed atlas metadata")
     (output / "atlas.json").write_text(json.dumps(atlas_metadata(atlas_path.read_bytes())))
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
 
     def run(command, log):

@@ -330,8 +330,9 @@ PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_c
         frame.has_hair=row=="1";
         result.bank.frames.push_back(std::move(frame));
     }
-    if(integer(take(text))!=24) throw std::invalid_argument("Expected bounded 24-animation closure");
-    for(int i=0;i<24;++i) {
+    const int animation_count=integer(take(text));
+    if(animation_count!=24 && animation_count!=27) throw std::invalid_argument("Expected bounded legacy or death-animation closure");
+    for(int i=0;i<animation_count;++i) {
         auto row=take(text);
         PlayerAnimation animation;
         animation.id=take(row,' ');

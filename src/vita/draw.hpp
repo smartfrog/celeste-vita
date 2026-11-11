@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.hpp"
+#include "lifecycle.hpp"
 
 namespace celeste::diagnostic {
 struct TexturedQuad {
@@ -15,6 +16,8 @@ struct PlayerRender {
     const PlayerAssets& assets;
     PlayerPresentation& presentation;
     const PlayerProjection& projection;
+    FirstRoomSession* lifecycle=nullptr;
+    PlayerTrails* trails=nullptr;
 };
 void initialize_graphics();
 void load_textures(const VisualAssets& visuals);

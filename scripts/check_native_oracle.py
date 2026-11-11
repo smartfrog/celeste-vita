@@ -11,6 +11,7 @@ import sys
 
 sys.dont_write_bytecode = True
 from compare_native_traces import compare
+from native_oracle_sdk import sdk_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,14 +26,15 @@ def oracle_environment(sdk):
     }
 
 
-def verify_extraction(private):
+def verify_extraction(private, source_root=None):
+    source_root = ROOT if source_root is None else source_root
     manifest = json.loads((private / "source-manifest.json").read_text())
     extracted = (private / "Extracted.cs").read_bytes()
     if hashlib.sha256(extracted).hexdigest() != manifest["extracted_sha256"]:
         raise ValueError("Generated extraction changed after its source manifest")
     blocks = 0
     for entry in manifest["extractions"]:
-        source = (ROOT / entry["source_path"]).read_bytes()
+        source = (source_root / entry["source_path"]).read_bytes()
         if hashlib.sha256(source).hexdigest() != entry["source_sha256"]:
             raise ValueError("Source hash changed: " + entry["file"])
         lines = source.decode().splitlines(keepends=True)
@@ -95,7 +97,7 @@ def main():
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     if not sdk.is_file():
         parser.error("Private SDK missing; run scripts/bootstrap_native_oracle.py first")
     evidence = private / "verification"

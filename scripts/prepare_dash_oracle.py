@@ -6,14 +6,15 @@ import argparse
 import json
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from check_native_oracle import ROOT, oracle_environment
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
+from native_oracle_sdk import sdk_path
 
 
 def main(include_climb=False):
     source = ROOT / ".audit/ilspy"
     output = ROOT / ".audit/native-dash/closure"
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     tool = source / "tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll"
     executable = source / "inputs/Celeste.exe"
     if not sdk.is_file() or not tool.is_file():

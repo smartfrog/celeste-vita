@@ -1,5 +1,10 @@
 # Native Vita room diagnostic
 
+The animated non-guest-replay application now selects the bounded
+[automatic first-room lifecycle](NATIVE_LIFECYCLE.md). The manual Normal-start
+diagnostic and historical guest replay described below remain separate legacy
+profiles; their existing evidence is not automatic-respawn evidence.
+
 This is our own C++ executable/VPK, not the original game. It composes the
 accepted [Normal Player](NATIVE_PLAYER.md), [bounded Dash](NATIVE_DASH.md), [full merged solidmask](NATIVE_TILEMAP.md)
 and [five static Up/Left spikes](NATIVE_HAZARDS.md) for explicitly selected room
@@ -74,15 +79,16 @@ Build from the repository root using the existing SDK/archive (do not rebuild
 the shared library or use the normal SDK splash archive):
 
 ```sh
-export VITASDK=/home/fred/cloudpunk-vita/tools/vitasdk
+export VITASDK=/home/fred/projects/celeste-vita/.audit/native-oracle/tools/vitasdk-2026.08.1-linux-x64
+export VITAGL=/home/fred/projects/celeste-vita/.audit/native-oracle/tools/vitagl-cd3791e
 export PATH="$VITASDK/bin:$PATH"
-python3 -B scripts/prepare_static_tilemap.py
-python3 -B scripts/prepare_room_hazards.py
+# Reuse verified existing preparation; generate it separately only if absent.
 python3 -B scripts/stage_native_room.py
-/usr/bin/cmake -S . -B .audit/native-room-vita/vita \
+/usr/bin/cmake -G "Unix Makefiles" -S . -B .audit/native-room-vita/vita \
   -DCMAKE_TOOLCHAIN_FILE="$VITASDK/share/vita.toolchain.cmake" \
   -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCELESTE_VITA=ON \
-  -DCELESTE_VITAGL_LIBRARY=/home/fred/cloudpunk-vita/tools/vita3k/vitagl-source/libvitaGL.a \
+  -DCMAKE_CXX_FLAGS="-I$VITAGL/source" \
+  -DCELESTE_VITAGL_LIBRARY="$VITAGL/libvitaGL.a" \
   -DCELESTE_ROOM_STAGING="$PWD/.audit/native-room-vita/staging"
 /usr/bin/cmake --build .audit/native-room-vita/vita -j2
 python3 -B scripts/verify_native_room_vpk.py \
@@ -91,14 +97,107 @@ python3 -B scripts/verify_native_room_vpk.py \
   --staging .audit/native-room-vita/staging
 ```
 
-Staging and package verification share the same canonical-root current Git-state
-reader. Staging stamps dirty/untracked source explicitly; verification also rejects
-current source/config changes, even when HEAD and an older clean manifest match.
+Use fresh staging and build directories, not a preserved candidate. The vitaGL
+include override is required because this SDK has no installed `vitaGL.h`.
+Staging, build and package verification require committed-clean source by default;
+current source/config changes are rejected even when HEAD matches an older package.
 Only the four exact untracked `.opencode` coordination paths are exempt.
 Root `CELESTE_VITA` defaults OFF; host tests need no SDK.
 `vita-elf-create`, `vita-make-fself`, `vita-mksfoex` and `vita-pack-vpk` are invoked
 by the installed VitaSDK CMake macros. Unique title ID: `CELR00001`, version 00.01.
 The <2 MiB package size is a goal, not a performance claim.
+
+### Explicit exact-WIP verification
+
+A dirty checkpoint requires the same explicit complete expected-state JSON at
+every stage: `--expected-source-state <manifest>` for staging and verification,
+and `-DCELESTE_EXPECTED_SOURCE_STATE=<absolute-manifest>` for CMake. Obtain it
+from `native_room_revision.source_identity()` after freezing code and reviewing
+the state, and store it under `.audit`; never edit an older receipt to fit new
+code. The manifest binds base HEAD, all expected paths, modes, status and bytes.
+There is no implicit dirty fallback or claim that a WIP binary is a clean SHA.
+
+For the bounded lifecycle package, pass
+`.audit/native-player-death-respawn/native-geometry` as `--mask-dir` and
+`.audit/native-player-death-respawn/native-hazards` as `--hazard-dir`. Reuse
+`.audit/native-lifecycle-vita/prepared/{spike-visuals-01,decals-01}` and original
+`.audit/native-player-death-respawn/native-assets-02`. Pass these three as `--visual-dir`,
+`--decal-dir`, `--player-dir`; enable CMake's `CELESTE_ROOM_TEXTURED`,
+`CELESTE_ROOM_SPIKE_ART`, `CELESTE_ROOM_DECALS` and
+`CELESTE_ROOM_ANIMATED_PLAYER`. Leave guest replay and deferred capture OFF.
+This stages the actual death-extension producer output directly, not a derived
+payload-only directory. Player provenance retains all `files` hashes and new
+producers declare `payload_files` and `evidence_files` separately. Legacy
+payload-only provenance remains supported. `bank.json` is verified source-linked
+evidence, never a VPK entry; the death payload is `player.txt` (13992 B) and six
+32768-byte pages (210600 B total). Unknown files, missing pins and bank/metadata
+mismatches fail staging. Evidence is not deleted or omitted from its provenance.
+
+The build generates a readonly resident ELF token over the complete source
+identity, staged provenance/pins/payload, prepared evidence, SDK tools, vitaGL,
+linked SDK archives, generated compile/link flags and explicit include headers.
+The verifier recomputes it rather than trusting the generated receipt. It also
+reruns the pinned `vita-elf-create` and `vita-make-fself -c -s` conversions in a
+private temporary build directory and requires byte-identical VELF/SELF, then
+matches the actual packaged SELF and assets. Changed inputs or preexisting
+unbound artifacts require a fresh build directory. Before/after checks reject
+source, input and artifact drift; a different WIP at the same HEAD cannot reuse
+the old binary by editing receipts. This is a local provenance check, not signed
+authentication against a malicious builder. Real SDK-chain reproducibility must
+be checked on the authorized fresh target build; mock conversion tests alone do
+not establish it. It proves neither runtime/hardware behavior nor performance.
+
+### Input-only automatic guest diagnostic
+
+`CELESTE_ROOM_GUEST_AUTOMATIC=ON` selects `first_room_auto_death_v2` through
+`src/vita/guest_automatic_replay.hpp`. It defaults OFF, requires the animated
+Player, and is mutually exclusive with the unchanged legacy
+`CELESTE_ROOM_GUEST_REPLAY`/250-frame fixture. Both normal animated production
+and the new diagnostic call the same automatic `Session` constructor; only
+input sampling and observation differ. No poses, timers, RNG or expected
+outcomes are supplied to gameplay.
+
+Use `stage_native_room.py --guest-automatic`, not `--guest-auto`; keep deferred
+capture flags OFF and use distinct fresh production/automatic staging and build
+directories. Both variants require the same exact-state opt-in described above.
+Provenance and generated pins carry `guest_automatic` as the fixture ID or null;
+`guest_automatic_fixture` pins the source header SHA256, sample count and exit
+frame. Legacy `guest_replay` is unchanged. The resident build token also binds
+the actual compile definition and CMake mode, so production and automatic
+artifacts at the same source fingerprint cannot be relabeled interchangeably.
+
+The fixture contains only accepted immutable default-profile source raw
+Right/Left/C input changes for frames 0–363, then Start at frame364. All 365
+samples use `Controller::sample`; the exit sample observes the current Session
+without an extra Scene update. Per-sample `guest_automatic` records contain
+`fixture frame x y jump reset exit state dead reloads room_deaths save_deaths
+jumps`. Here `x`/`y` are sampled input axes and `jump` is held C/Cross, not a
+position or an asserted Jump outcome. State and counters are observed after
+the actual step; `reset` remains 0.
+
+`guest_automatic_complete` contains `fixture samples exit_frame reloads
+room_deaths save_deaths jumps full_completion`. Completion requires observed
+initial Respawn14→Normal, two deaths and automatic reloads through Respawn14→Normal,
+three actual Jumps, no manual reset, an alive final Normal Player, terminal Start,
+and successful graphics teardown. A fresh native frame export is required; the
+existing completion receipt is closed only after the guest log closes cleanly.
+External verification must still independently check inputs, events, image and
+receipt rather than trusting `full_completion`. Host-only fixture checks do not
+establish Vita execution, hardware fidelity, full Engine/ECS behavior or performance.
+
+Without an explicit WallJump/Climb capture override, both animated production
+and the automatic guest use `capture=initial_respawn`. Frame0 still renders and
+publishes readiness, but does not export its initial Respawn14/wipe image. Export
+waits for the first actual live Normal Player with no active wipe, no death or
+reset, loads1/reloads0, respawn_callbacks1/wipe_callbacks0, and no pending or
+committed corpse. The predicate only reads Session state; it adds no Scene step,
+draw, input, countdown or RNG call. Capture frame numbering is the app's
+post-step render frame, one greater than that input sample's zero-based index.
+The receipt includes `wipe_active=0` and the actual lifecycle witnesses. Missing,
+skipped or duplicate exports fail completion; a black image is never accepted
+by relaxing body/content probes. The resident build context explicitly binds
+the capture policy and checks its compile definitions against CMake options.
+Legacy manual spawn, WallJump and Climb capture policies remain unchanged.
 
 vitaGL is the existing no-splash archive at revision
 `cd3791e29ff7f1c0ab349f12c7231f4871ce6a75`; initialization checks its actual
@@ -176,6 +275,8 @@ retry on every frame for both spawn and deferred policies. New outputs still use
 `SCE_O_EXCL`; unexpected stat/write errors fail fast instead of being treated as
 missing. An existing failure receipt is likewise preserved without masking the
 primary error, and stale artifacts never satisfy a current-run capture claim.
+The `initial_respawn` policy preserves an existing pair too, but fails because
+that pair cannot satisfy its required fresh export.
 
 Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
 completion receipt with `frame_saved`, dimensions, revision, render stage and
@@ -355,13 +456,15 @@ Do not turn an emulator post-game crash into a successful host exit.
 Replay completion requires an observed host exit status 0 within the 30-second
 post-guest wait. A timeout is partial even if subsequent owned-process cleanup
 returns 0; cleanup status 133 or termination likewise cannot promote completion.
+The verified guest/frame stages and explicit timeout error survive cleanup.
+This scripted guest host-exit requirement leaves the default manual smoke policy
+unchanged and is not a new manual host-health validation.
 
-### Production automatic lifecycle (separate opt-in)
+### Automatic lifecycle host verification (separate opt-in)
 
-`--guest-automatic` selects `first_room_auto_death_v2`, not the legacy 250-sample
-Triangle replay. It is incompatible with `--guest-replay`, `--after-climb`,
-`--after-wall-jump` and `--frame-only`. The native build must use
-`CELESTE_ROOM_GUEST_AUTOMATIC=ON` and the production animated death profile.
+`--guest-automatic` consumes the [input-only automatic guest diagnostic](#input-only-automatic-guest-diagnostic),
+not the legacy 250-sample Triangle replay. It is incompatible with `--guest-replay`,
+`--after-climb`, `--after-wall-jump` and `--frame-only`.
 
 For an already verified artifact, `smoke_native_room.py` requires `--source-root`
 (the native source checkout), `--build` (its build's `src/vita` directory), and
@@ -384,13 +487,10 @@ no manual reset, and a live final state. `guest_automatic_complete` alone cannot
 prove completion. The closed guest receipt, current-run native image, unchanged
 private config and observed host exit 0 remain independently mandatory.
 
-The production animated automatic profile defaults to `capture=initial_respawn`:
-frame 0 renders and publishes readiness, but does not export its initial wipe.
-One fresh export follows the first live Normal render with no active wipe,
-`loads=1`, `automatic_reloads=0`, `respawn_callbacks=1`, `wipe_callbacks=0`, no
-pending/committed corpse, and zero deaths/resets. Its positive app-frame number
-must equal the first observed Normal sample plus one; that increment is not an
-extra simulation step. Missing deferred files remain pending, not successful.
+The host independently checks the `initial_respawn` policy and lifecycle witnesses
+described above. Its positive app-frame number must equal the first observed
+Normal sample plus one; that increment is not an extra simulation step.
+Missing deferred files remain pending, not successful.
 The native resident build binding must declare the same capture policy; old
 frame-0 automatic artifacts are rejected before launch. Receipt body draw count,
 source RGB/texture/bank/hair/spike/decal checks remain mandatory, including visible
@@ -403,6 +503,3 @@ it never opens host input/desktop APIs. The image is the guest's own native
 `glReadPixels` export, not a desktop screenshot or a replacement renderer.
 Unit/mocked protocol checks are not a new emulator lifecycle pass. No physical
 controller, hardware, full-game, GPU fidelity or performance claim follows.
-The verified guest/frame stages and explicit timeout error survive cleanup.
-This host-exit requirement is replay-specific; the default manual smoke policy
-is unchanged and is not a new host-health validation.

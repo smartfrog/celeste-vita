@@ -1,4 +1,5 @@
 #include "movement.hpp"
+#include "source_math.hpp"
 
 #include <cmath>
 #include <limits>
@@ -166,6 +167,16 @@ Actor::Actor(const StaticWorld& world, Vec2 position, std::optional<Hitbox> coll
 }
 
 Vec2 Actor::position_remainder() const { return remainder_; }
+Vec2 Actor::exact_position() const { return add(body.position,remainder_); }
+void Actor::zero_remainder() { remainder_={}; }
+void Actor::move_towards(Vec2 target,float amount) {
+    require_finite(target);
+    if(!std::isfinite(amount) || amount<0) throw std::invalid_argument("Invalid approach amount");
+    auto exact=exact_position();
+    move_h(source_math::approach(exact.x,target.x,amount)-exact.x);
+    exact=exact_position();
+    move_v(source_math::approach(exact.y,target.y,amount)-exact.y);
+}
 
 bool Actor::move_h(float amount, Collision callback, Body* pusher) {
     return move(amount, true, std::move(callback), pusher);

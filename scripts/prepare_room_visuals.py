@@ -6,12 +6,12 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
-import zipfile
 
 from check_native_oracle import ROOT, verify_extraction
 from native_room_textures import atlas_metadata, decode_crops, extrude
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA
 from stage_native_room import checksum, verified_bytes
+from game_input import archive_identity, read_members
 
 
 TEXTURES = ("tilesets/dirt", "tilesets/snow", "tilesets/girder", "tilesets/cement", "tilesets/bgDirt", "characters/player/idle00")
@@ -135,19 +135,10 @@ def prepare(archive_path, oracle, output):
     for name, digest in result["artifacts"].items():
         verified_bytes(oracle / name, digest, 32 * 1024 * 1024)
     members, provenance = {}, {}
-    with zipfile.ZipFile(archive_path) as archive:
-        if archive_path.stat().st_size != 883881658:
-            raise ValueError("Unexpected Linux private archive length")
-        for name, digest in MEMBERS.items():
-            info = archive.getinfo(name)
-            if info.file_size > 16 * 1024 * 1024:
-                raise ValueError("Oversized private member")
-            data = archive.read(name)
-            if hashlib.sha256(data).hexdigest() != digest:
-                raise ValueError("Private member identity changed: " + name)
-            provenance[name] = {"sha256": digest, "bytes": len(data), "member": name}
-            if name.endswith((".data", ".meta")):
-                members[name.rsplit("/", 1)[-1]] = data
+    for name, data in read_members(archive_path, MEMBERS, 16 * 1024 * 1024).items():
+        provenance[name] = {"sha256": MEMBERS[name], "bytes": len(data), "member": name}
+        if name.endswith((".data", ".meta")):
+            members[name.rsplit("/", 1)[-1]] = data
     metadata = atlas_metadata(members["Gameplay.meta"])
     crops = {}
     for name in TEXTURES:
@@ -177,9 +168,7 @@ def prepare(archive_path, oracle, output):
     (output / "visuals.txt").write_bytes(text)
     files["visuals.txt"] = hashlib.sha256(text).hexdigest()
     manifest = {"input_sha256": INPUT_SHA, "map_sha256": MAP_SHA, "selected_room": "1", "members": provenance,
-                "archive": {"path": str(archive_path), "bytes": 883881658,
-                            "sha256": "a613430411dbef3c0c45a0474f90f4845122964c7d177d69e88965bcb84741bf",
-                            "hash_source": "Accepted parent/explorer independent archive hash receipt; member pins re-read here, no redundant archive rehash"},
+                "archive": archive_identity(archive_path),
                 "source_bake": {"path": str(oracle), "result_sha256": hashlib.sha256((oracle / "result.json").read_bytes()).hexdigest(),
                                 "source_manifest_sha256": hashlib.sha256((oracle / "source-manifest.json").read_bytes()).hexdigest(), **result["bake"]},
                 "textures": specs, "draw_counts": dict(counts), "submitted_rgba_bytes": sum((output / f"texture{i}.rgba").stat().st_size for i in range(6)),

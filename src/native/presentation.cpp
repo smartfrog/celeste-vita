@@ -1,4 +1,5 @@
 #include "presentation.hpp"
+#include "source_math.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -7,9 +8,6 @@
 
 namespace celeste {
 namespace {
-float approach(float value, float target, float amount) {
-    return value > target ? std::max(value-amount,target) : std::min(value+amount,target);
-}
 bool same_id(std::string_view a, std::string_view b) {
     if (a.size()!=b.size()) return false;
     for (std::size_t i=0;i<a.size();++i) {
@@ -43,7 +41,7 @@ void finite(Vec2 p) {
 }
 }
 
-PresentationRandom::PresentationRandom(std::int32_t seed) {
+PresentationRandom::PresentationRandom(std::int32_t seed) : initial_seed_(seed) {
     auto value=subtract(161803398,seed==std::numeric_limits<std::int32_t>::min() ? std::numeric_limits<std::int32_t>::max() : std::abs(seed));
     values_[55]=value;
     std::int32_t next=1;
@@ -59,7 +57,7 @@ PresentationRandom::PresentationRandom(std::int32_t seed) {
         if (values_[i]<0) values_[i]+=std::numeric_limits<std::int32_t>::max();
     }
 }
-double PresentationRandom::next_double() {
+double PresentationRandom::sample() {
     if (++index_>=56) index_=1;
     if (++partner_>=56) partner_=1;
     auto value=subtract(values_[index_],values_[partner_]);
@@ -69,13 +67,30 @@ double PresentationRandom::next_double() {
     ++calls_;
     return static_cast<double>(value)*4.656612875245797E-10;
 }
+double PresentationRandom::next_double() {
+    const double value=sample();
+    if(observer) observer("NextDouble",calls_);
+    return value;
+}
+int PresentationRandom::next(int maximum) {
+    if(maximum<=0) throw std::invalid_argument("Invalid random upper bound");
+    const int value=static_cast<int>(sample()*maximum);
+    if(observer) observer("Next",calls_);
+    return value;
+}
+std::array<std::int32_t,58> PresentationRandom::state_words() const {
+    std::array<std::int32_t,58> result{};
+    result[0]=index_;result[1]=partner_;
+    std::copy(values_.begin(),values_.end(),result.begin()+2);
+    return result;
+}
 
 const PlayerAnimation& PlayerFrameBank::animation(std::string_view id) const {
     for (const auto& animation:animations) if (same_id(animation.id,id)) return animation;
     throw std::invalid_argument("Missing bounded player animation: "+std::string(id));
 }
 void PlayerFrameBank::validate() const {
-    if (!pages || pages>10 || frames.empty() || frames.size()>256 || animations.size()!=24)
+    if (!pages || pages>10 || frames.empty() || frames.size()>256 || (animations.size()!=24 && animations.size()!=27))
         throw std::invalid_argument("Invalid bounded player frame bank size");
     for (const auto& f:frames) {
         if (f.name.empty() || f.page>=pages || f.u<1 || f.v<1 || f.width<1 || f.height<1 ||
@@ -92,23 +107,31 @@ void PlayerFrameBank::validate() const {
         if (!a.next.empty()) animation(a.next);
     }
     for (const char* id:{"idle","idleA","idleB","idleC","runSlow","runFast","runStumble","flip","skid","jumpSlow","jumpFast","fallSlow","fallFast","duck","edge","edgeBack","push","lookUp","climbUp","climbLookBackStart","climbLookBack","dangling","wallslide","dash"}) animation(id);
+    if(animations.size()==27) for(const char* id:{"deadup","deaddown","deadside"}) animation(id);
     for (auto f:bangs) if (f>=frames.size()) throw std::invalid_argument("Bangs outside player bank");
     if (hair>=frames.size()) throw std::invalid_argument("Hair outside player bank");
 }
 
-PlayerPresentation::PlayerPresentation(const PlayerFrameBank& bank, Vec2 spawn, std::int32_t diagnostic_seed)
-    : bank_(bank), diagnostic_seed_(diagnostic_seed), random_(diagnostic_seed) {
+PlayerPresentation::PlayerPresentation(const PlayerFrameBank& bank, Vec2 spawn, std::int32_t diagnostic_seed,
+                                     PresentationRandom* random, const float* level_time)
+    : bank_(bank), diagnostic_seed_(diagnostic_seed), owned_random_(diagnostic_seed),
+      random_(random ? *random : owned_random_), level_time_(level_time) {
     bank.validate();
     reset(spawn);
 }
 void PlayerPresentation::reset(Vec2 spawn) {
     finite(spawn);
     pose_={};
+    simulate_hair_motion_=true;
     const auto& idle=bank_.animation("idle");
     pose_.animation=pose_.last_animation="idle";
     pose_.frame=idle.frames.front();
     pose_.animating=idle.delay>0;
     for(auto& node:pose_.hair_nodes) node={spawn.x-200,spawn.y+200};
+}
+void PlayerPresentation::bind_player_owner(const Player& player) {
+    if(player_owner_ && player_owner_!=&player) throw std::logic_error("Player presentation owner cannot be replaced");
+    player_owner_=&player;
 }
 void PlayerPresentation::callback(std::string_view kind, std::string_view animation) {
     const auto add=[this](std::string_view text){for(unsigned char c:text){pose_.callback_hash^=c;pose_.callback_hash*=16777619u;}};
@@ -181,7 +204,7 @@ void PlayerPresentation::select(const PlayerProjection& p) {
             if(!p.solid_point(at(float(p.facing),2)) && !p.solid_point(at(float(p.facing*4),2)) && !p.jump_thru_body(at(float(p.facing*4),2))) play("edge");
             else if(!p.solid_point(at(float(-p.facing),2)) && !p.solid_point(at(float(-p.facing*4),2)) && !p.jump_thru_body(at(float(-p.facing*4),2))) play("edgeBack");
             else if(p.raw_y==-1) {if(pose_.last_animation!="lookUp") play("lookUp");}
-            else if(!pose_.animation.empty() && pose_.animation.find("idle")==std::string::npos) play("idle");
+            else if(pose_.animation.find("idle")==std::string::npos) play("idle");
         } else if(((p.speed.x>0)-(p.speed.x<0))==-p.move_x && p.move_x!=0) {
             if(std::abs(p.speed.x)>90) play("skid");
             else if(pose_.animation!="skid") play("flip");
@@ -196,22 +219,23 @@ void PlayerPresentation::select(const PlayerProjection& p) {
     } else play("fallSlow");
 }
 void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjection& p, float dt) {
-    if (!std::isfinite(dt) || dt<0 || (p.facing!=1 && p.facing!=-1) || p.state<0 || p.state>2 || p.dashes<0 || p.dashes>1)
+    if (!std::isfinite(dt) || dt<0 || (p.facing!=1 && p.facing!=-1) || p.state<0 || (p.state>2 && p.state!=14) || p.dashes<0 || p.dashes>1)
         throw std::invalid_argument("Presentation is limited to default-inventory Normal, Climb and Dash");
     finite(p.position); finite(p.speed); finite(p.dash_direction);
     switch(phase) {
     case PlayerCosmeticPhase::scene_tick:
-        scene_time_+=dt;
+        if(!level_time_) scene_time_+=dt;
         pose_.idle_timer+=dt;
         if(p.speed.x!=0 || p.speed.y!=0) pose_.idle_timer=0;
         break;
     case PlayerCosmeticPhase::ground:
         pose_.highest_air_y=p.on_ground ? p.position.y : std::min(p.position.y,pose_.highest_air_y);
-        if(int((scene_time_-dt)/0.05f)<int(scene_time_/0.05f)) pose_.flash=!pose_.flash;
+        if(int((scene_time()-dt)/0.05f)<int(scene_time()/0.05f)) pose_.flash=!pose_.flash;
         break;
     case PlayerCosmeticPhase::duck_turn: case PlayerCosmeticPhase::stand: pose_.scale={0.8f,1.2f}; break;
     case PlayerCosmeticPhase::duck: pose_.scale={1.4f,0.6f}; break;
     case PlayerCosmeticPhase::jump: pose_.scale={0.6f,1.4f}; break;
+    case PlayerCosmeticPhase::climb_hop: pose_.fast_jump=false; break;
     case PlayerCosmeticPhase::components:
         pose_.wave+=dt*4.f;
         update_animation(dt);
@@ -230,9 +254,9 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
     }
     case PlayerCosmeticPhase::select:
         if(!p.solid_body || !p.solid_point || !p.jump_thru_body) throw std::invalid_argument("Player presentation requires exact point and full-body probes");
-        pose_.scale.x=approach(pose_.scale.x,1,1.75f*dt);
-        pose_.scale.y=approach(pose_.scale.y,1,1.75f*dt);
-        select(p);
+        pose_.scale.x=source_math::approach(pose_.scale.x,1,1.75f*dt);
+        pose_.scale.y=source_math::approach(pose_.scale.y,1,1.75f*dt);
+        if(p.state!=14) select(p);
         pose_.rate=1;
         break;
     case PlayerCosmeticPhase::hair_color:
@@ -255,7 +279,7 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
         Vec2 previous=nodes[0];
         for(unsigned i=1;i<4;++i) {
             float step=(1.f-float(i)/4.f*0.5f)*64.f;
-            nodes[i]=approach(nodes[i],target,step*dt);
+            if(simulate_hair_motion_) nodes[i]=approach(nodes[i],target,step*dt);
             Vec2 difference{nodes[i].x-previous.x,nodes[i].y-previous.y};
             if(length(difference)>3.f) {
                 auto unit=normalized(difference);
@@ -266,9 +290,21 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
         }
         break;
     }
+    case PlayerCosmeticPhase::respawn_complete: pose_.scale={1.5f,0.5f}; break;
+    case PlayerCosmeticPhase::dash_trail: break;
     }
 }
-std::vector<PlayerDraw> PlayerPresentation::draw(const PlayerProjection& p) {
+void PlayerPresentation::corpse_render(float scale, float rotation, int facing) {
+    if((facing!=1 && facing!=-1) || !std::isfinite(scale) || !std::isfinite(rotation))
+        throw std::invalid_argument("Invalid corpse pose");
+    pose_.scale={float(facing)*scale,scale};
+    pose_.rotation=rotation;
+    pose_.hair_facing=facing;
+}
+void PlayerPresentation::corpse_color(PresentationColor initial) {
+    pose_.hair_color=pose_.animation_frame==0 ? PresentationColor{} : initial;
+}
+std::vector<PlayerDraw> PlayerPresentation::hair_draws() {
     const auto& f=bank_.frames[pose_.frame];
     std::vector<PlayerDraw> draws;
     if(f.has_hair) {
@@ -282,8 +318,48 @@ std::vector<PlayerDraw> PlayerPresentation::draw(const PlayerProjection& p) {
             draws.push_back({frame(i),{pose_.hair_nodes[i].x+offset.x,pose_.hair_nodes[i].y+offset.y},{5,5},scale(i),0,{0,0,0,255}});
         for(int i=3;i>=0;--i) draws.push_back({frame(i),pose_.hair_nodes[i],{5,5},scale(i),0,pose_.hair_color});
     }
-    draws.push_back({pose_.frame,{std::floor(p.position.x),std::floor(p.position.y)},{16,32},
-                     {pose_.scale.x*float(p.facing),pose_.scale.y},pose_.rotation,p.tired && pose_.flash ? PresentationColor{255,0,0,255} : PresentationColor{}});
+    return draws;
+}
+std::vector<PlayerDraw> PlayerPresentation::draw(const PlayerProjection& p) {
+    auto draws=hair_draws();
+    const Vec2 position{std::floor(p.position.x),std::floor(p.position.y)};
+    pose_.sprite_color=p.tired && pose_.flash ? PresentationColor{255,0,0,255} : PresentationColor{};
+    draws.push_back({pose_.frame,position,{16,32},
+                     {pose_.scale.x*float(p.facing),pose_.scale.y},pose_.rotation,pose_.sprite_color});
+    return draws;
+}
+
+std::vector<PlayerDraw> PlayerPresentation::trail_capture(const PlayerProjection& p,Vec2 offset,Vec2 body_scale) {
+    for(auto& node:pose_.hair_nodes) { node.x+=offset.x;node.y+=offset.y; }
+    struct RestoreHair {
+        std::array<Vec2,4>& nodes;
+        Vec2 offset;
+        ~RestoreHair() { for(auto& node:nodes) { node.x-=offset.x;node.y-=offset.y; } }
+    } restore{pose_.hair_nodes,offset};
+    auto draws=hair_draws();
+    draws.push_back({pose_.frame,{std::floor(p.position.x+offset.x),std::floor(p.position.y+offset.y)},{16,32},body_scale,pose_.rotation,pose_.sprite_color});
+    return draws;
+}
+
+std::vector<PlayerDraw> death_effect_draws(const PlayerFrameBank& bank, Vec2 position, PresentationColor color, float ease) {
+    finite(position);
+    if(!std::isfinite(ease) || ease<0 || ease>1) throw std::invalid_argument("Invalid death effect percent");
+    const auto fill=std::fmod(std::floor(ease*10.f),2.0)==0 ? color : PresentationColor{};
+    const float scale=ease<0.5f ? 0.5f+ease : source_math::cube_out(1.f-(ease-0.5f)*2.f);
+    const auto& frame=bank.frames.at(bank.hair);
+    const Vec2 origin{frame.frame_width*0.5f,frame.frame_height*0.5f};
+    std::vector<PlayerDraw> draws;
+    const auto at=[&](int i) {
+        const float angle=(float(i)/8.f+ease*0.25f)*6.2831855f;
+        const auto vector=source_math::angle_to_vector(angle,source_math::cube_out(ease)*24.f);
+        return Vec2{position.x+vector.x,position.y+vector.y};
+    };
+    for(int i=0;i<8;++i) {
+        const auto p=at(i);
+        for(auto offset:{Vec2{-1,0},Vec2{1,0},Vec2{0,-1},Vec2{0,1}})
+            draws.push_back({bank.hair,{p.x+offset.x,p.y+offset.y},origin,{scale,scale},0,{0,0,0,255}});
+    }
+    for(int i=0;i<8;++i) draws.push_back({bank.hair,at(i),origin,{scale,scale},0,fill});
     return draws;
 }
 }

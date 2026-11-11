@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from native_room_textures import atlas_metadata
 from prepare_room_visuals import MEMBERS
 from read_player_presentation_sources import SOURCE_PINS
@@ -119,7 +120,7 @@ def prepare(source, output):
 <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><UseAppHost>false</UseAppHost><AllowUnsafeBlocks>true</AllowUnsafeBlocks><CheckForOverflowUnderflow>false</CheckForOverflowUnderflow><NuGetAudit>false</NuGetAudit></PropertyGroup>
 <ItemGroup><Compile Include="Extracted.cs"/><Compile Include="Shims.cs"/><Compile Include="Runner.cs"/><Compile Include="Replay.cs"/><Compile Include="Geometry.cs"/></ItemGroup></Project>''')
     (output / "NuGet.Config").write_text('<configuration><packageSources><clear/></packageSources></configuration>')
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
     for arguments, log in ((["--version"], "sdk.log"), (["--list-runtimes"], "runtime.log"),
                             (["restore", output / "Oracle.csproj", "--configfile", output / "NuGet.Config"], "restore.log"),

@@ -11,6 +11,7 @@ namespace celeste {
 
 class FrameClock final {
 public:
+    static constexpr float time_rate=1.0f,time_rate_b=1.0f;
     float raw_delta = 0.0f;
     float delta = 0.0f;
     float freeze_timer = 0.0f;
@@ -18,6 +19,18 @@ public:
     void sample(float raw);
     bool simulate();
     void freeze(float duration);
+};
+
+class Tween final {
+public:
+    explicit Tween(float duration, std::function<float(float)> easer = {});
+    bool active = true;
+    float time_left, percent = 0.0f, eased = 0.0f;
+    const float duration;
+    std::function<void(const Tween&)> on_update, on_complete;
+    void update(float delta_time);
+private:
+    std::function<float(float)> easer_;
 };
 
 class Iterator;

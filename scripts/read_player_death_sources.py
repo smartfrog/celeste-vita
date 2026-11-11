@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from check_native_oracle import ROOT, oracle_environment
+from native_oracle_sdk import sdk_path
 from prepare_room_visuals import MEMBERS
 from read_player_presentation_sources import ILSPY_SHA, source_type, extract as extract_presentation, SOURCE_PINS as PRESENTATION_PINS
 from extract_native_oracle import SOURCE_HASHES
@@ -38,7 +39,7 @@ def extract(inputs, archive, output):
     output = output.resolve()
     if not output.is_relative_to(ROOT / ".audit/native-player-death-respawn") or output.exists():
         raise ValueError("Death source output must be fresh and private")
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     tool = ROOT / ".audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll"
     if hashlib.sha256(tool.read_bytes()).hexdigest() != ILSPY_SHA:
         raise ValueError("Offline ILSpy identity changed")

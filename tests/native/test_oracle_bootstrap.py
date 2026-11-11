@@ -12,10 +12,13 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import bootstrap_native_oracle as bootstrap
+import native_oracle_sdk
 
 
 SDK = b"test-sdk"
 SHA512 = "84a4d017d74d7aa842e981679d1b044e6be1f35b9b2b214021e30bc40871d016d29611cca373d8502ad5c890e3ad360ee698f9cf2d7a4d5a9fba102d88ba310f"
+X64_BYTES = 216833108
+X64_SHA512 = "934b8060a7190e5909ad1fd0785db542f487b3bbf6cdd14826b02095fdd0d0394298b1634085eff302928fccc33f7c1a7253e9b87df555fc36fce819bcd2e798"
 
 
 class SizedChunk:
@@ -33,24 +36,47 @@ class OracleBootstrapTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.tools = Path(self.stack.enter_context(tempfile.TemporaryDirectory(dir=directory)))
-        self.archive = self.tools / "dotnet-sdk-8.0.425-linux-arm64.tar.gz"
+        self.rid = "linux-arm64"
+        self.pin = {"bytes": len(SDK), "sha512": hashlib.sha512(SDK).hexdigest()}
+        self.archive = self.tools / f"dotnet-sdk-{bootstrap.VERSION}-{self.rid}.tar.gz"
         self.metadata = self.release_metadata(SDK)
         self.archive_bytes = SDK
         self.stack.enter_context(patch.object(bootstrap, "TOOLS", self.tools))
-        self.stack.enter_context(patch.object(bootstrap, "ARCHIVE_BYTES", len(SDK), create=True))
-        self.stack.enter_context(patch.object(bootstrap, "ARCHIVE_SHA512", hashlib.sha512(SDK).hexdigest(), create=True))
+        self.stack.enter_context(patch.object(bootstrap, "host_rid", return_value=self.rid))
+        self.stack.enter_context(patch.dict(bootstrap.PINS, {self.rid: self.pin}))
         self.stack.enter_context(patch.object(bootstrap, "METADATA_BYTES", 4096, create=True))
         self.requests = self.stack.enter_context(patch.object(bootstrap.urllib.request, "urlopen", side_effect=self.response))
         self.extract = self.stack.enter_context(patch.object(bootstrap.tarfile, "open"))
         self.execute = self.stack.enter_context(patch.object(bootstrap.subprocess, "check_output", return_value="8.0.425\n"))
         self.stack.enter_context(patch("builtins.print"))
 
-    def release_metadata(self, archive):
+    def release_metadata(self, archive, rid=None):
         return json.dumps({"releases": [{"sdks": [{"version": "8.0.425", "runtime-version": "8.0.31",
-            "files": [{"rid": "linux-arm64", "url": "https://example.invalid/sdk", "hash": hashlib.sha512(archive).hexdigest()}]}]}]}).encode()
+            "files": [{"rid": self.rid if rid is None else rid, "url": "https://example.invalid/sdk",
+                       "hash": hashlib.sha512(archive).hexdigest()}]}]}]}).encode()
 
     def response(self, url, **kwargs):
         return io.BytesIO(self.metadata if url == bootstrap.METADATA else self.archive_bytes)
+
+    def run_x64(self):
+        self.metadata = self.release_metadata(SDK, "linux-x64")
+        with patch.object(bootstrap, "host_rid", return_value="linux-x64"), \
+             patch.dict(bootstrap.PINS, {"linux-x64": self.pin}):
+            bootstrap.main()
+
+    def seed_legacy_state(self):
+        files = {
+            self.tools / "releases.json": b"historical arm metadata\n",
+            self.tools / "sdk-verification.json": b"historical arm receipt\n",
+            self.tools / "cli/telemetry.sentinel": b"historical arm cli\n",
+            self.tools / "packages/cache.sentinel": b"historical arm packages\n",
+            self.tools / "dotnet-8.0.425/sdk.sentinel": b"historical arm sdk\n",
+            self.tools / "dotnet-sdk-8.0.425-linux-arm64.tar.gz": b"historical arm archive\n",
+        }
+        for path, data in files.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        return files
 
     def assert_no_install(self):
         self.extract.assert_not_called()
@@ -85,7 +111,8 @@ class OracleBootstrapTests(unittest.TestCase):
         output.__enter__ = Mock(return_value=output)
         output.__exit__ = Mock(return_value=False)
         output.name = str(self.tools / "owned-download.part")
-        with patch.object(bootstrap, "ARCHIVE_BYTES", 212188361), \
+        oversized = {"bytes": 212188361, "sha512": self.pin["sha512"]}
+        with patch.dict(bootstrap.PINS, {self.rid: oversized}), \
              patch.object(bootstrap.urllib.request, "urlopen", side_effect=[io.BytesIO(self.metadata), response]), \
              patch("tempfile.NamedTemporaryFile", return_value=output), \
              patch.object(bootstrap.hashlib, "file_digest") as digest:
@@ -104,7 +131,8 @@ class OracleBootstrapTests(unittest.TestCase):
     def test_archive_size_exceed_is_rejected_before_extraction(self):
         self.archive_bytes = SDK + b"!"
         self.metadata = self.release_metadata(self.archive_bytes)
-        with patch.object(bootstrap, "ARCHIVE_SHA512", hashlib.sha512(self.archive_bytes).hexdigest(), create=True):
+        changed = {"bytes": len(SDK), "sha512": hashlib.sha512(self.archive_bytes).hexdigest()}
+        with patch.dict(bootstrap.PINS, {self.rid: changed}):
             with self.assertRaisesRegex(RuntimeError, "(size|exceed)"):
                 bootstrap.main()
         self.assertFalse(self.archive.exists())
@@ -113,7 +141,8 @@ class OracleBootstrapTests(unittest.TestCase):
     def test_premature_archive_eof_is_rejected_before_extraction(self):
         self.archive_bytes = SDK[:-1]
         self.metadata = self.release_metadata(self.archive_bytes)
-        with patch.object(bootstrap, "ARCHIVE_SHA512", hashlib.sha512(self.archive_bytes).hexdigest(), create=True):
+        changed = {"bytes": len(SDK), "sha512": hashlib.sha512(self.archive_bytes).hexdigest()}
+        with patch.dict(bootstrap.PINS, {self.rid: changed}):
             with self.assertRaisesRegex(RuntimeError, "(size|short|EOF)"):
                 bootstrap.main()
         self.assertFalse(self.archive.exists())
@@ -127,6 +156,9 @@ class OracleBootstrapTests(unittest.TestCase):
         self.execute.assert_called_once()
         receipt = json.loads((self.tools / "sdk-verification.json").read_text())
         self.assertEqual(receipt["sha512"], hashlib.sha512(SDK).hexdigest())
+        self.assertEqual(receipt["runtime"], "8.0.31")
+        self.assertEqual(receipt["rid"], "linux-arm64")
+        self.assertEqual(receipt["path"], str(self.tools / native_oracle_sdk.SDK_DIRECTORIES["linux-arm64"] / "dotnet"))
 
     def test_small_chunk_streams_reach_exact_archive_boundary(self):
         with patch.object(bootstrap, "CHUNK_BYTES", 3):
@@ -186,13 +218,73 @@ class OracleBootstrapTests(unittest.TestCase):
         self.assertEqual(self.requests.call_count, 1)
         self.assert_no_install()
 
+    def test_arm64_install_keeps_the_legacy_sdk_directory(self):
+        bootstrap.main()
+        self.assertTrue((self.tools / native_oracle_sdk.SDK_DIRECTORIES["linux-arm64"]).is_dir())
+
+    def test_arm64_metadata_stays_at_the_tools_root(self):
+        bootstrap.main()
+        self.assertEqual((self.tools / "releases.json").read_bytes(), self.metadata)
+
+    def test_arm64_cli_and_package_directories_stay_at_the_tools_root(self):
+        bootstrap.main()
+        environment = self.execute.call_args.kwargs["env"]
+        self.assertEqual(environment["DOTNET_CLI_HOME"], str(self.tools / "cli"))
+        self.assertEqual(environment["NUGET_PACKAGES"], str(self.tools / "packages"))
+
+    def test_x64_install_uses_the_arch_specific_archive_and_directory(self):
+        self.run_x64()
+        self.assertEqual((self.tools / f"dotnet-sdk-{bootstrap.VERSION}-linux-x64.tar.gz").read_bytes(), SDK)
+        self.assertTrue((self.tools / native_oracle_sdk.SDK_DIRECTORIES["linux-x64"]).is_dir())
+        self.assertFalse(self.archive.exists())
+
+    def test_x64_metadata_is_written_under_the_x64_state_directory(self):
+        self.run_x64()
+        self.assertEqual((self.tools / "bootstrap-linux-x64/releases.json").read_bytes(), self.metadata)
+
+    def test_x64_receipt_is_written_under_the_x64_state_directory(self):
+        self.run_x64()
+        self.assertFalse((self.tools / "sdk-verification.json").exists())
+        receipt = json.loads((self.tools / "bootstrap-linux-x64/sdk-verification.json").read_text())
+        self.assertEqual(receipt["rid"], "linux-x64")
+        self.assertEqual(receipt["path"], str(self.tools / native_oracle_sdk.SDK_DIRECTORIES["linux-x64"] / "dotnet"))
+
+    def test_x64_cli_and_package_directories_are_under_the_x64_state_directory(self):
+        self.run_x64()
+        environment = self.execute.call_args.kwargs["env"]
+        self.assertEqual(environment["DOTNET_CLI_HOME"], str(self.tools / "bootstrap-linux-x64/cli"))
+        self.assertEqual(environment["NUGET_PACKAGES"], str(self.tools / "bootstrap-linux-x64/packages"))
+        self.assertFalse((self.tools / "cli").exists())
+        self.assertFalse((self.tools / "packages").exists())
+
+    def test_x64_bootstrap_preserves_all_legacy_state_files(self):
+        legacy = self.seed_legacy_state()
+        self.run_x64()
+        for path, contents in legacy.items():
+            self.assertEqual(path.read_bytes(), contents, str(path))
+
+    def test_unpinned_host_rid_fails_before_network(self):
+        with patch.object(bootstrap, "host_rid", return_value="linux-x64"), \
+             patch.dict(bootstrap.PINS, {"linux-x64": None}):
+            with self.assertRaisesRegex(RuntimeError, "No pinned .NET SDK artifact.*linux-x64"):
+                bootstrap.main()
+        self.requests.assert_not_called()
+        self.assertEqual(list(self.tools.iterdir()), [])
+        self.assert_no_install()
+
 
 class PinnedArtifactTests(unittest.TestCase):
-    def test_published_archive_size_is_pinned(self):
-        self.assertEqual(getattr(bootstrap, "ARCHIVE_BYTES", None), 212188361)
+    def test_published_arm64_archive_size_is_pinned(self):
+        self.assertEqual(bootstrap.PINS["linux-arm64"]["bytes"], 212188361)
 
-    def test_published_archive_sha512_is_pinned(self):
-        self.assertEqual(getattr(bootstrap, "ARCHIVE_SHA512", None), SHA512)
+    def test_published_arm64_archive_sha512_is_pinned(self):
+        self.assertEqual(bootstrap.PINS["linux-arm64"]["sha512"], SHA512)
+
+    def test_published_x64_archive_size_is_pinned(self):
+        self.assertEqual(bootstrap.PINS["linux-x64"]["bytes"], X64_BYTES)
+
+    def test_published_x64_archive_sha512_is_pinned(self):
+        self.assertEqual(bootstrap.PINS["linux-x64"]["sha512"], X64_SHA512)
 
 
 if __name__ == "__main__":

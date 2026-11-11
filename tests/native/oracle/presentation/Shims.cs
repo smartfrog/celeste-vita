@@ -28,11 +28,12 @@ namespace PresentationOracle
 {
     public sealed class TracedRandom : PrivateRuntime.Random
     {
+        public static Action<TracedRandom, string> Observer;
         public int Calls;
         public TracedRandom() : base() { }
         public TracedRandom(int seed) : base(seed) { }
-        public override double NextDouble() { Calls++; return base.NextDouble(); }
-        public override int Next(int max) { Calls++; return base.Next(max); }
+        public override double NextDouble() { Calls++; double value = base.NextDouble(); Observer?.Invoke(this, "NextDouble"); return value; }
+        public override int Next(int max) { Calls++; int value = base.Next(max); Observer?.Invoke(this, "Next"); return value; }
     }
 
     public record RecordedDraw(object Texture, Vector2 Position, Rectangle Clip, Color Color,
@@ -42,6 +43,9 @@ namespace PresentationOracle
     {
         public readonly List<RecordedDraw> Calls = new();
         public readonly OriginalSpriteBatch Geometry = new();
+        public void Draw(Texture2D texture, Vector2 position, Rectangle clip, Color color, float rotation,
+                         Vector2 origin, float scale, SpriteEffects effects, float depth) =>
+            throw new NotSupportedException("Excluded scalar SpriteBatch draw");
         public void Draw(Texture2D texture, Vector2 position, Rectangle clip, Color color, float rotation,
                          Vector2 origin, Vector2 scale, SpriteEffects effects, float depth)
         {
