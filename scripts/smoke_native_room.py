@@ -13,10 +13,13 @@ import subprocess
 import time
 import zipfile
 
-from vita_room_emulator import TITLE, prepare, launch_command
-from native_room_feedback import collect_native_frame, new_feedback, save_feedback
-from native_room_revision import REPO_ROOT, source_state
-from native_room_replay import verify_replay_intent, verify_replay_guest, completion_receipt
+from vita_room_emulator import TITLE, prepare, launch_command, launcher_kind
+from native_room_feedback import collect_native_frame, native_capture_policy, new_feedback, save_feedback
+from native_room_revision import REPO_ROOT
+from native_room_replay import (verify_replay_intent, verify_replay_guest, completion_receipt, verify_replay_source,
+                                verify_automatic_intent, verify_automatic_guest, verify_automatic_source,
+                                verify_dash_probe_source)
+from native_room_dash_runtime import verify_dash_probe_intent, verify_dash_probe_guest, dash_probe_completion_receipt
 
 KEYBOARD_MAPPING = {"left":"ArrowLeft", "up":"ArrowUp", "right":"ArrowRight", "cross":"KeyX", "square":"KeyZ", "triangle":"KeyV", "start":"Enter", "l1":"KeyQ", "l2":"KeyU"}
 
@@ -291,9 +294,19 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--vpk", type=Path, required=True)
     parser.add_argument("--existing", type=Path, default=Path("/home/fred/cloudpunk-vita/tools/vita3k"))
+    parser.add_argument("--appdir", type=Path, help="Extracted AppDir; default is <existing>/squashfs-root")
+    parser.add_argument("--source-checkout", type=Path, default=REPO_ROOT,
+                        help="Clean VPK-source checkout for guest replay; default is this source root")
     parser.add_argument("--feedback",type=Path)
     parser.add_argument("--frame-only",action="store_true")
-    parser.add_argument("--guest-replay",action="store_true",help="Use only the compiled guest-controls fixture; no X11/input/portal calls")
+    guest_mode = parser.add_mutually_exclusive_group()
+    guest_mode.add_argument("--guest-replay",action="store_true",help="Use only the compiled legacy guest-controls fixture; no X11/input/portal calls")
+    guest_mode.add_argument("--guest-automatic",action="store_true",help="Verify the production automatic lifecycle using input-only guest controls")
+    guest_mode.add_argument("--guest-dash-probe",action="store_true",help="Verify the source-bound native Dash GPU probe using guest-only controls")
+    parser.add_argument("--source-root",type=Path,help="Native source root providing authoritative automatic VPK verification")
+    parser.add_argument("--expected-source-state",type=Path,help="Explicit exact-WIP native manifest; absent retains strict clean verification")
+    parser.add_argument("--build",type=Path,help="Native build src/vita directory for authoritative VPK verification")
+    parser.add_argument("--staging",type=Path,help="Native staged payload for authoritative VPK verification")
     capture = parser.add_mutually_exclusive_group()
     capture.add_argument("--after-wall-jump",action="store_true")
     capture.add_argument("--after-climb",action="store_true")
@@ -302,18 +315,85 @@ def main():
         parser.error("Post-WallJump capture requires input")
     if args.guest_replay and (args.frame_only or not args.after_climb):
         parser.error("Guest replay requires --after-climb and cannot use --frame-only")
+    if args.guest_dash_probe:
+        if args.frame_only or args.after_climb or args.after_wall_jump:
+            parser.error("Guest Dash probe cannot use manual/deferred capture modes")
+        if not all((args.source_root, args.build, args.staging)):
+            parser.error("Guest Dash probe requires --source-root, --build and --staging")
+    if args.guest_automatic and (args.frame_only or args.after_climb or args.after_wall_jump):
+        parser.error("Guest automatic cannot use manual/deferred capture modes")
+    if args.guest_automatic and not all((args.source_root, args.build, args.staging)):
+        parser.error("Guest automatic requires --source-root, --build and --staging")
+    if args.expected_source_state and not ((args.guest_automatic or args.guest_dash_probe) and args.source_root):
+        parser.error("Expected source state requires --guest-automatic or --guest-dash-probe and --source-root")
+    scripted_guest = args.guest_replay or args.guest_automatic or args.guest_dash_probe
     state, output, existing = args.state.resolve(), args.output.resolve(), args.existing.resolve()
+    appdir = (args.appdir or existing / "squashfs-root").resolve()
     if not output.is_relative_to(REPO_ROOT / ".audit/native-room-vita"):
         parser.error("Evidence must remain beneath .audit/native-room-vita")
     output.mkdir(parents=True,exist_ok=False)
     feedback_path = (args.feedback or output / "feedback.json").resolve()
     feedback = json.loads(feedback_path.read_text()) if feedback_path.is_file() else new_feedback(None,args.vpk.resolve())
-    if args.guest_replay:
-        feedback.update(requested_scope="guest_replay_smoke",input_source="scripted_guest_controls",
+    if args.guest_dash_probe and (feedback.get('frame') or feedback.get('artifacts') or
+            any(feedback['stages'].get(key) for key in ('native_image','input','clean_exit','full_completion'))):
+        raise ValueError('Dash requires fresh runtime feedback, not earlier frame/completion evidence')
+    with zipfile.ZipFile(args.vpk) as package:
+        installed = {name:package.read(name) for name in package.namelist()}
+    provenance = json.loads(installed["assets/native-room/provenance.json"])
+    capture_policy = native_capture_policy(provenance.get("render_style") == "animated_player_partial",
+                                           bool(provenance.get("guest_replay")),args.after_wall_jump,args.after_climb,
+                                           dash_probe=args.guest_dash_probe)
+    feedback["capture_policy"] = capture_policy
+    revision = provenance.get("binding", {}).get("revision_label") or provenance["revision"] + ("-dirty" if provenance["tracked_changes"] else "")
+    verify_automatic_intent(provenance,args.guest_automatic)
+    verify_dash_probe_intent(provenance,args.guest_dash_probe)
+    actual_hash = hashlib.sha256(args.vpk.read_bytes()).hexdigest()
+    if feedback["vpk"]["sha256"] is not None and feedback["vpk"]["sha256"] != actual_hash:
+        raise ValueError("VPK changed after package verification")
+    feedback["vpk"]["sha256"] = actual_hash
+    if scripted_guest:
+        feedback.update(requested_scope="guest_dash_probe_smoke" if args.guest_dash_probe else "guest_automatic_smoke" if args.guest_automatic else "guest_replay_smoke",input_source="scripted_guest_controls",
                         physical_controller_verified=False,host_input_injected=False,portal_requests=0)
+        if args.guest_automatic:
+            def automatic_source():
+                selected = verify_automatic_source(provenance,args.vpk.resolve(),args.source_root.resolve(),
+                                                   args.build.resolve(),args.staging.resolve(),
+                                                   args.expected_source_state.resolve() if args.expected_source_state else None)
+                if selected["package"]["vpk_sha256"] != actual_hash:
+                    raise ValueError("Automatic VPK changed after its initial input pin")
+                if capture_policy != "initial_respawn" or selected["package"].get("build_binding",{}).get("capture_policy") != capture_policy:
+                    raise ValueError("Automatic VPK lacks the exact bound initial_respawn capture policy")
+                return selected
+            feedback["guest_automatic_provenance"] = automatic_source()
+            feedback["guest_automatic"] = provenance["guest_automatic"]
+            feedback["stages"]["package_verified"] = True
+        elif args.guest_dash_probe:
+            def dash_source():
+                selected = verify_dash_probe_source(provenance,args.vpk.resolve(),args.source_root.resolve(),
+                                                    args.build.resolve(),args.staging.resolve(),
+                                                    args.expected_source_state.resolve() if args.expected_source_state else None)
+                if selected['package']['vpk_sha256']!=actual_hash or selected['package'].get('build_binding',{}).get('capture_policy')!='dash_trails':
+                    raise ValueError('Dash VPK changed or lacks its resident capture policy')
+                return selected
+            feedback['guest_dash_probe_provenance'] = dash_source()
+            feedback['guest_dash_probe'] = provenance['guest_dash_probe']
+            feedback['stages']['package_verified'] = True
+        else:
+            feedback["guest_replay_provenance"] = verify_replay_source(provenance,args.source_checkout.resolve())
+            feedback["guest_replay"] = provenance["guest_replay"]
         verify_no_owned_runtime(state)
+    else:
+        verify_replay_intent(provenance,False)
+    feedback["revision"] = revision
+    launcher_kind(appdir)
     fs, config = prepare(state,existing)
-    if not args.guest_replay:
+    if args.guest_dash_probe:
+        basename = f'celeste_native_room-{revision}-dash-probe.ppm'
+        names = ['celeste_native_room.log','celeste_native_room.ready',basename,basename+'.txt',basename+'.trail.rgba',
+                 f'celeste_native_room-complete-{revision}-dash-probe.txt',f'celeste_native_room-failure-{revision}-dash-probe.txt']
+        if any((fs / 'ux0/data' / name).exists() or (fs / 'ux0/data' / name).is_symlink() for name in names):
+            raise ValueError('Dash requires fresh guest log/readiness/export/completion/failure paths; prior evidence preserved')
+    if not scripted_guest:
         verify_keyboard_mapping(config.read_text())
     frozen_config = output / "effective-config.yml"
     frozen_config.write_bytes(config.read_bytes())
@@ -321,12 +401,12 @@ def main():
                                   "sha256":hashlib.sha256(frozen_config.read_bytes()).hexdigest(),
                                   "backend":"OpenGL","resolution_multiplier":1,"disable_surface_sync":False,
                                    "override_scope":"fresh private state only; shared config untouched"}
-    if not args.guest_replay:
+    if not scripted_guest:
         feedback["emulator_config"]["verified_keyboard_mapping"] = KEYBOARD_MAPPING
     save_feedback(feedback_path,feedback)
     if (fs / "ux0/app" / TITLE).exists():
         parser.error("Use a fresh isolated state; never overwrite an installed title")
-    x = None if args.guest_replay else X11()
+    x = None if scripted_guest else X11()
     inventory = [] if x is None else x.windows()
     if x is not None:
         (output / "windows-before.json").write_text(json.dumps(inventory,indent=2)+"\n")
@@ -341,26 +421,35 @@ def main():
         notify = libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
         if notify < 0 or libc.inotify_add_watch(notify,os.fsencode(fs / "ux0/data"),0x8|0x80) < 0:
             raise OSError(C.get_errno(),"inotify initialization failed")
-    command, env = launch_command(state,existing,["-c",str(config.parent),"--keep-config","--",str(args.vpk.resolve())])
-    events = [{"host_input_api":"not_created","window_inventory":"not_requested","host_input_injected":False,"portal_requests":0}] if args.guest_replay else []
+    command, env = launch_command(state,existing,["-c",str(config.parent),"--keep-config","--",str(args.vpk.resolve())],
+                                  appdir,readonly_paths=[args.vpk.resolve()],unshare_pid=scripted_guest)
+    events = [{"host_input_api":"not_created","window_inventory":"not_requested","host_input_injected":False,"portal_requests":0}] if scripted_guest else []
     process = None
     process_fd = None
     ready = fs / "ux0/data/celeste_native_room.ready"
     last_ready = ""
     frame_only_complete = False
+    automatic_verified = False
+    dash_verified = False
+    mode_suffix = '-dash-probe' if args.guest_dash_probe else ''
+    failure = fs / 'ux0/data' / f'celeste_native_room-failure-{revision}{mode_suffix}.txt'
+    export_basename = f'celeste_native_room-{revision}' + ('-dash-probe.ppm' if args.guest_dash_probe else '.ppm')
 
     def observe_native_frame():
         if not feedback["stages"]["native_image"]:
             guest = fs / "ux0/data/celeste_native_room.log"
-            skipped = f"capture_skipped_existing path=ux0:data/celeste_native_room-{revision}.ppm "
+            skipped = f"capture_skipped_existing path=ux0:data/{export_basename} "
             if guest.exists() and any(line.startswith(skipped) and "current_run_capture=false" in line
                                       for line in guest.read_text().splitlines()):
                 return
-            if args.guest_replay:
-                marker = f"frame_saved path=ux0:data/celeste_native_room-{revision}.ppm "
+            if scripted_guest:
+                marker = f"frame_saved path=ux0:data/{export_basename} "
                 if not guest.exists() or not any(line.startswith(marker) and line.endswith("\n") for line in guest.read_text().splitlines(keepends=True)):
                     return
-            frame = collect_native_frame(fs,output,revision,capture="climb" if args.after_climb else "wall_jump" if args.after_wall_jump else "spawn",
+            if capture_policy == "initial_respawn" and (not guest.exists() or
+                    [line for line in guest.read_text().splitlines() if line.startswith("capture policy=")] != ["capture policy=initial_respawn"]):
+                raise ValueError("Guest lacks its exact initial_respawn capture policy receipt")
+            frame = collect_native_frame(fs,output,revision,capture=capture_policy,
                                          visual_provenance=provenance.get("visuals") if provenance.get("render_style") in {"textured_partial", "animated_player_partial"} else None,
                                          player_provenance=provenance.get("player"),
                                          decal_provenance=provenance.get("decals"))
@@ -370,7 +459,7 @@ def main():
                 feedback["stages"].update({"native_image":True,"image_openable":True})
                 save_feedback(feedback_path,feedback)
                 print("NATIVE_FRAME_FEEDBACK "+str(feedback_path),flush=True)
-                if not frame["black_letterbox_rows"] or not frame["nonzero_rgb_bytes"]:
+                if (not args.guest_dash_probe and not frame["black_letterbox_rows"]) or not frame["nonzero_rgb_bytes"]:
                     raise RuntimeError("Native frame export lacks nonzero room RGB or the full-frame black letterbox rows; inspect preserved readback")
                 feedback["stages"]["render_content"] = True
                 save_feedback(feedback_path,feedback)
@@ -379,10 +468,9 @@ def main():
         nonlocal last_ready
         deadline = time.monotonic()+timeout
         while True:
-            if args.guest_replay:
-                failure = fs / "ux0/data" / f"celeste_native_room-failure-{revision}.txt"
-                if failure.exists():
-                    raise RuntimeError("Guest failed: "+failure.read_text())
+            if scripted_guest:
+                if failure.exists() or failure.is_symlink():
+                    raise RuntimeError('Guest failure receipt present: '+str(failure))
                 guest_log = fs / "ux0/data/celeste_native_room.log"
                 if guest_log.exists() and "FATAL:" in guest_log.read_text():
                     raise RuntimeError("Guest reported FATAL; see preserved guest.log")
@@ -401,10 +489,10 @@ def main():
                 raise TimeoutError("Bounded guest/readiness wait expired")
             if x is not None and x.x.XPending(x.display):
                 continue
-            descriptors = [process_fd] if args.guest_replay else [x.fd,notify,process_fd]
-            readable,_,_ = select.select(descriptors,[],[],min(remaining,0.25) if args.guest_replay else remaining)
+            descriptors = [process_fd] if scripted_guest else [x.fd,notify,process_fd]
+            readable,_,_ = select.select(descriptors,[],[],min(remaining,0.25) if scripted_guest else remaining)
             if process_fd in readable:
-                if args.guest_replay and predicate():
+                if scripted_guest and predicate():
                     return
                 raise RuntimeError(f"Owned emulator exited before smoke completion: {process.wait()}")
             if x is not None and x.fd in readable:
@@ -418,7 +506,6 @@ def main():
                         events.append({"readiness_only":value.strip(),"at":time.monotonic()})
                     observe_native_frame()
                     if value.startswith("failed "):
-                        failure = fs / "ux0/data" / f"celeste_native_room-failure-{revision}.txt"
                         raise RuntimeError("Guest failed: "+failure.read_text())
 
     def delay(seconds):
@@ -426,22 +513,6 @@ def main():
         wait(lambda: time.monotonic() >= deadline,seconds+0.1)
 
     try:
-        with zipfile.ZipFile(args.vpk) as package:
-            installed = {name:package.read(name) for name in package.namelist()}
-        provenance = json.loads(installed["assets/native-room/provenance.json"])
-        verify_replay_intent(provenance,args.guest_replay)
-        revision = provenance["revision"] + ("-dirty" if provenance["tracked_changes"] else "")
-        actual_hash = hashlib.sha256(args.vpk.read_bytes()).hexdigest()
-        if feedback["vpk"]["sha256"] is not None and feedback["vpk"]["sha256"] != actual_hash:
-            raise ValueError("VPK changed after package verification")
-        feedback["vpk"]["sha256"] = actual_hash
-        if args.guest_replay:
-            current,changes = source_state()
-            if current != revision or changes:
-                raise ValueError("Guest replay requires the exact clean package revision")
-            feedback["guest_replay"] = provenance["guest_replay"]
-        feedback["revision"] = revision
-        save_feedback(feedback_path,feedback)
         with (output / "install-host.log").open("wb") as host:
             process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
             process_fd = os.pidfd_open(process.pid)
@@ -453,20 +524,25 @@ def main():
             os.close(process_fd)
             process_fd = None
             events.append({"installed_exact_vpk_entries":True,"stopped_owned_installer":True})
-        command, env = launch_command(state,existing,["-c",str(config.parent),"--keep-config","-r",TITLE])
+        runtime_arguments = ["-c",str(config.parent),"--keep-config"] + \
+                            (["--frontend","sdl"] if scripted_guest else []) + ["-r",TITLE]
+        command, env = launch_command(state,existing,runtime_arguments,appdir,unshare_pid=scripted_guest)
         with (output / "host.log").open("wb") as host:
             process = subprocess.Popen(command,env=env,cwd=state,stdout=host,stderr=subprocess.STDOUT)
             process_fd = os.pidfd_open(process.pid)
             events.append({"runtime_pid":process.pid,"command":command})
-            if args.guest_replay:
+            if scripted_guest:
                 wait(lambda: bool(last_ready),150)
                 feedback["stages"]["startup"] = True
                 save_feedback(feedback_path,feedback)
-                complete = fs / "ux0/data" / f"celeste_native_room-complete-{revision}.txt"
+                complete = fs / "ux0/data" / f"celeste_native_room-complete-{revision}{mode_suffix}.txt"
                 def completed():
-                    if not complete.exists() or "[on_game_closed]: Game closed: Celeste Native Room Diagnostic" not in (output / "host.log").read_text():
+                    if not complete.exists():
                         return False
-                    if complete.read_text() != completion_receipt(revision):
+                    if args.guest_dash_probe and complete.is_symlink():
+                        raise ValueError('Dash completion must be an owned regular file')
+                    expected = dash_probe_completion_receipt(revision,provenance['guest_dash_probe_fixture']) if args.guest_dash_probe else completion_receipt(revision,automatic=args.guest_automatic)
+                    if (args.guest_dash_probe and complete.stat().st_size>1024) or complete.read_text() != expected:
                         raise ValueError("Guest completion receipt differs from the exact replay contract")
                     return True
                 wait(completed,420)
@@ -501,10 +577,12 @@ def main():
                 wid = window["id"]
                 wait(lambda: last_ready.startswith("ready "))
                 observe_native_frame()
-                if not (args.after_wall_jump or args.after_climb) and not feedback["stages"]["native_image"]:
-                    raise RuntimeError("Guest startup ready without its required closed native frame export")
                 feedback["stages"]["startup"] = True
                 save_feedback(feedback_path,feedback)
+                if capture_policy == "initial_respawn" and not feedback["stages"]["native_image"]:
+                    wait(lambda: feedback["stages"]["native_image"],120)
+                elif capture_policy == "spawn" and not feedback["stages"]["native_image"]:
+                    raise RuntimeError("Guest startup ready without its required closed native frame export")
                 if args.frame_only:
                     frame_only_complete = True
                     events.append({"frame_only_checkpoint":True,"input_not_attempted":True,"guest_clean_exit_not_claimed":True})
@@ -578,8 +656,20 @@ def main():
         data = guest.read_bytes()
         (output / "guest.log").write_bytes(data)
         text = data.decode()
-        if args.guest_replay:
-            proof = verify_replay_guest(text,revision,provenance["guest_replay"])
+        if args.guest_automatic:
+            proof = verify_automatic_guest(text,revision,provenance["guest_automatic"],provenance["guest_automatic_fixture"])
+            feedback["guest_automatic_observed"] = proof
+            markers = proof["markers"]
+            if feedback["stages"]["native_image"]:
+                frame = feedback["frame"]
+                if frame["capture"] != "initial_respawn" or frame["frame_state"]["frame"] != proof["respawn_normal_frames"][0]+1:
+                    raise ValueError("Initial Respawn capture is not the first observed Normal app frame")
+        elif args.guest_dash_probe:
+            proof = verify_dash_probe_guest(text,revision,provenance['guest_dash_probe_fixture'],complete.read_text(),feedback.get('frame'))
+            feedback['guest_dash_probe_observed'] = proof
+            markers = proof['markers']
+        elif args.guest_replay:
+            proof = verify_replay_guest(text,revision,provenance["guest_replay"],args.source_checkout.resolve())
             feedback["guest_replay_observed"] = proof
             markers = proof["markers"]
         else:
@@ -589,14 +679,19 @@ def main():
         if args.after_climb:
             feedback["climb"] = verify_climb_guest(text)
         feedback["stages"].update({"input":True,"clean_exit":True})
-        if args.guest_replay:
+        if scripted_guest:
             if not feedback["stages"]["native_image"]:
                 raise RuntimeError("Completed guest replay lacks its current-run closed native frame")
             if status is None:
                 raise TimeoutError("Owned emulator did not exit within 30 seconds after guest completion") from host_wait_error
             if status != 0:
                 raise RuntimeError(f"Owned emulator failed after guest completion: {status}")
-        feedback["stages"]["full_completion"] = True
+        if args.guest_automatic:
+            automatic_verified = True
+        elif args.guest_dash_probe:
+            dash_verified = True
+        else:
+            feedback["stages"]["full_completion"] = True
         save_feedback(feedback_path,feedback)
         events.append({"completed_guest_markers":markers,"claim":"Diagnostic only; not full game or hardware proof"})
     except Exception as error:
@@ -637,12 +732,53 @@ def main():
                 feedback["runtime_evidence"] = {"events":str(output / "events.json"),"x11_input":str(output / "x11-input.json"),
                                                 "host":str(output / "host.log"),"guest":str(output / "guest.log")}
                 feedback["emulator_config"]["sha256_after"] = hashlib.sha256(config.read_bytes()).hexdigest()
-                if args.guest_replay and feedback["emulator_config"]["sha256_after"] != feedback["emulator_config"]["sha256"]:
+                config_changed = scripted_guest and feedback["emulator_config"]["sha256_after"] != feedback["emulator_config"]["sha256"]
+                if config_changed:
                     feedback["stages"]["full_completion"] = False
                     feedback["errors"].append({"stage":"config_after","type":"RuntimeError","message":"Private emulator config changed during replay"})
-                    save_feedback(feedback_path,feedback)
-                    raise RuntimeError("Private emulator config changed during replay")
+                failure_error = None
+                if scripted_guest:
+                    try:
+                        try:
+                            failure.lstat()
+                        except FileNotFoundError:
+                            if not failure.parent.is_dir():
+                                raise RuntimeError('Cannot verify guest failure absence: '+str(failure.parent))
+                        else:
+                            raise RuntimeError('Guest failure receipt present after owned process cleanup: '+str(failure))
+                    except (OSError,RuntimeError) as error:
+                        failure_error = error
+                        feedback['stages']['full_completion'] = False
+                        feedback['errors'].append(dict(stage='guest_failure_after',type=type(error).__name__,message=str(error)))
+                if args.guest_dash_probe:
+                    try:
+                        after = dash_source()
+                        feedback['guest_dash_probe_source_after'] = after
+                        if after!=feedback['guest_dash_probe_provenance']:
+                            raise ValueError('Dash source/inputs/artifacts/harness changed during runtime')
+                        feedback['stages']['full_completion'] = dash_verified and not config_changed and not feedback['errors']
+                    except Exception as error:
+                        feedback['stages']['full_completion'] = False
+                        feedback['errors'].append(dict(stage='source_after',type=type(error).__name__,message=str(error)))
+                        save_feedback(feedback_path,feedback)
+                        raise
+                if args.guest_automatic:
+                    try:
+                        after = automatic_source()
+                        feedback["guest_automatic_source_after"] = after
+                        if after != feedback["guest_automatic_provenance"]:
+                            raise ValueError("Automatic source/inputs/artifacts/harness changed during runtime")
+                        feedback["stages"]["full_completion"] = automatic_verified and not config_changed and not feedback["errors"]
+                    except Exception as error:
+                        feedback["stages"]["full_completion"] = False
+                        feedback["errors"].append({"stage":"source_after","type":type(error).__name__,"message":str(error)})
+                        save_feedback(feedback_path,feedback)
+                        raise
                 save_feedback(feedback_path,feedback)
+                if failure_error is not None:
+                    raise failure_error
+                if config_changed:
+                    raise RuntimeError("Private emulator config changed during replay")
 
 
 if __name__ == "__main__":

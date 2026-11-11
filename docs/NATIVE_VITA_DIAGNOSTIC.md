@@ -197,6 +197,22 @@ the symlink targets and all shared titles (`CPVH00001`, `CPVR00001`, others).
 Only the minimal user profile is copied; no saves/titles/shared caches are cloned.
 No firmware download, library rebuild or original game execution occurs.
 
+`--appdir <extracted-AppDir>` selects the official sharun layout (`AppRun`,
+`bin/Vita3K`) while the default keeps the historical
+`<existing>/squashfs-root` linuxdeploy layout and its Qt hook. The vendor
+`AppRun` is executed directly; its loader/environment is not recreated.
+`/tmp` is a private bind of the state temp directory, mounted before the real
+state path is restored. AppDir, replay VPK and firmware paths that live under
+`/tmp` are remapped read-only at their real paths; only the actual state remains
+writable. Only the host `/tmp/.X11-unix` socket directory is exposed read-only
+for later GUI access. The sandbox has a private network namespace, fresh private
+`HOME`/`XDG_RUNTIME_DIR`, and no session-bus/SSH-agent environment. The effective
+original `XAUTHORITY` is resolved before `HOME` changes: an explicit value is
+preserved, and the implicit original file path is exposed read-only if the
+private `/tmp` hides it; cookies are never read, copied or reported. Vendor
+auto-updates are disabled (`DISABLE_AUTO_UPDATES=1`). Missing launcher files fail
+explicitly before launch.
+
 ```sh
 python3 -B scripts/smoke_native_room.py \
   --state .audit/native-room-vita/vita3k-state/unique-run \
@@ -269,6 +285,10 @@ firmware, shader compiler, private archive, and accepted prepared assets; it
 downloads nothing and changes neither shared emulator configuration nor desktop
 security settings. No click or permission acceptance is part of this path.
 
+All GUI launch paths require an explicit, nonblank `DISPLAY`. This fail-fast
+guard does not test connectivity: the operator must separately verify the
+existing real display and authorization. No display discovery or fallback is used.
+
 `CELESTE_ROOM_GUEST_REPLAY` defaults **OFF**. Staging, build, package verification,
 and runtime must agree on explicit replay intent. Normal builds retain the
 existing SceCtrl mapping and sampling path. A replay package must not be run with
@@ -297,8 +317,27 @@ byte-exact VPK entries, stops only its installer, and launches its title via
 Vita3K `-r`. It observes guest files and its own pidfd with bounded waits. Private
 OpenGL 1x configuration keeps surface synchronization enabled. The closed
 completion receipt is emitted only after graphics teardown and guest-log close;
-the host additionally requires Vita3K's game-closed notification before cleanup.
+the host additionally requires an observed Vita3K exit status 0 before cleanup.
 Failures retain partial feedback and any already exported real frame.
+
+`--source-checkout <clean-checkout>` permits a reviewed host harness to replay a
+genuine prebuilt VPK from an earlier revision. Before creating emulator state or
+launching, replay verifies that the selected checkout is clean, is at the exact
+VPK source revision, and contains the same fixture identity. Feedback records
+the selected source revision separately from the actual host-harness revision,
+changes and fingerprint. The default is the current source root, and dirty,
+wrong-revision or fixture-mismatched selected sources are rejected.
+
+Guest replay launches the installed app through Vita3K's SDL frontend, which the
+pinned CLI documents as running the `-r` app in a plain window and quitting with
+it; manual/legacy smoke keeps its existing Qt/X11 path. Guest completion requires
+the exact closed guest receipt, observed fixture/input checkpoints, the native
+frame and a final observed host exit 0; it does not depend on Qt's
+`on_game_closed` log message. Guest launches also use a private PID namespace so
+AppRun's detached descendants are reaped with the owned launcher wrapper. The
+private config seeds the verified `user-id` and controller bind defaults that the
+emulator otherwise normalizes, and the unchanged raw config hash check still
+fails the run if any other field changes.
 
 Completion requires observed Jump, Climb entry/ascent/drain/hold/release/landing,
 Dash freeze/thaw/launch/return, actual spike death, Triangle reset, and Start exit,
@@ -316,6 +355,54 @@ Do not turn an emulator post-game crash into a successful host exit.
 Replay completion requires an observed host exit status 0 within the 30-second
 post-guest wait. A timeout is partial even if subsequent owned-process cleanup
 returns 0; cleanup status 133 or termination likewise cannot promote completion.
+
+### Production automatic lifecycle (separate opt-in)
+
+`--guest-automatic` selects `first_room_auto_death_v2`, not the legacy 250-sample
+Triangle replay. It is incompatible with `--guest-replay`, `--after-climb`,
+`--after-wall-jump` and `--frame-only`. The native build must use
+`CELESTE_ROOM_GUEST_AUTOMATIC=ON` and the production animated death profile.
+
+For an already verified artifact, `smoke_native_room.py` requires `--source-root`
+(the native source checkout), `--build` (its build's `src/vita` directory), and
+`--staging`, in addition to the existing VPK/state/output arguments. Verification
+delegates to that source root's `scripts/verify_native_room_vpk.py`, before and
+after runtime. Dirty sources require explicit `--expected-source-state PATH`;
+without it the native committed-clean default remains strict. The resident
+binary/build/assets binding and complete source identity must match throughout.
+The feedback wrapper forwards these native source/manifest pins to staging,
+CMake, package verification and smoke; it requires the animated `--player-dir`.
+Invoking the wrapper builds and runs: do not invoke it before review/runtime GO.
+
+The input-only sequence is derived from accepted source trace SHA256
+`b2123d17ef324e44535f20f75963ea9a177ea38217c8255162a2c97c45c04260`:
+364 production steps, then a non-stepping exit sample at frame 364. The host
+requires exactly 365 ordered `guest_automatic` records with the exact controls,
+two actual death rising edges, two dead-to-Respawn14 reloads, three Respawn14-to-
+Normal transitions (including startup), three actual Jumps, monotonic counters,
+no manual reset, and a live final state. `guest_automatic_complete` alone cannot
+prove completion. The closed guest receipt, current-run native image, unchanged
+private config and observed host exit 0 remain independently mandatory.
+
+The production animated automatic profile defaults to `capture=initial_respawn`:
+frame 0 renders and publishes readiness, but does not export its initial wipe.
+One fresh export follows the first live Normal render with no active wipe,
+`loads=1`, `automatic_reloads=0`, `respawn_callbacks=1`, `wipe_callbacks=0`, no
+pending/committed corpse, and zero deaths/resets. Its positive app-frame number
+must equal the first observed Normal sample plus one; that increment is not an
+extra simulation step. Missing deferred files remain pending, not successful.
+The native resident build binding must declare the same capture policy; old
+frame-0 automatic artifacts are rejected before launch. Receipt body draw count,
+source RGB/texture/bank/hair/spike/decal checks remain mandatory, including visible
+live player hair. Black or relabeled intro frames cannot prove completion.
+Explicit WallJump/Climb overrides keep their existing policies; legacy `spawn`
+still requires frame 0.
+
+This path retains guest-only input, private isolation and owned-process cleanup;
+it never opens host input/desktop APIs. The image is the guest's own native
+`glReadPixels` export, not a desktop screenshot or a replacement renderer.
+Unit/mocked protocol checks are not a new emulator lifecycle pass. No physical
+controller, hardware, full-game, GPU fidelity or performance claim follows.
 The verified guest/frame stages and explicit timeout error survive cleanup.
 This host-exit requirement is replay-specific; the default manual smoke policy
 is unchanged and is not a new host-health validation.

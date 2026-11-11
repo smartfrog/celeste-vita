@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT / "scripts"))
 from native_room_replay import replay_intent, verify_replay_intent, verify_replay_guest, completion_receipt
 from smoke_native_room import main
+from native_room_feedback import collect_native_frame
 
 
 def completed_replay_log():
@@ -158,7 +159,8 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                 self.assertEqual(feedback["errors"][0]["type"],"TimeoutError")
                 self.assertEqual(feedback["host_events"][-1]["host_exit_code"],cleanup_exit_code)
 
-    def run_scenario(self,mode,host_exit_code=0,cleanup_exit_code=-15):
+    def run_scenario(self,mode,host_exit_code=0,cleanup_exit_code=-15,automatic=False,frame_fixture=None,dash_probe=False,
+                     late_failure_kind=None,late_failure_phase='host_wait'):
         directory = ROOT / ".audit/native-room-vita/replay-tests"
         directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -167,22 +169,79 @@ class ReplayHostBoundaryTests(unittest.TestCase):
             (fs/"ux0/app").mkdir(parents=True)
             (fs/"ux0/data").mkdir()
             config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
+            appdir = root / "appdir"
+            (appdir / "usr/bin").mkdir(parents=True)
+            (appdir / "usr/bin/Vita3K").write_bytes(b"synthetic")
+            (appdir / "apprun-hooks").mkdir()
+            (appdir / "apprun-hooks/linuxdeploy-plugin-qt-hook.sh").write_text("synthetic hook\n")
             import zipfile
-            payload=json.dumps({"revision":"synthetic","tracked_changes":False,"guest_replay":replay_intent()}).encode()
+            provenance={"revision":"synthetic","tracked_changes":False,
+                        "guest_replay":None if automatic or dash_probe else replay_intent(),
+                        "guest_automatic":"first_room_auto_death_v2" if automatic else None,
+                        "guest_automatic_fixture":dict(id="first_room_auto_death_v2", samples=365, exit_frame=364,
+                                                       source="src/vita/guest_automatic_replay.hpp",sha256="e"*64) if automatic else None}
+            if automatic:
+                provenance.update(render_style="animated_player_partial",player={"death_animation_extension":True})
+            if dash_probe:
+                from test_dash_probe_runtime import probe_fixture, probe_completion
+                provenance.update(guest_dash_probe=probe_fixture()['id'],guest_dash_probe_fixture=probe_fixture())
+            suffix = '-dash-probe' if dash_probe else ''
+            closed = probe_completion() if dash_probe else completion_receipt('synthetic',automatic=automatic)
+            if frame_fixture:
+                provenance.update(frame_fixture["provenance"])
+            payload=json.dumps(provenance).encode()
             member="assets/native-room/provenance.json"
             with zipfile.ZipFile(vpk,"w") as package: package.writestr(member,payload)
             order=[]
+            failure = fs / f'ux0/data/celeste_native_room-failure-synthetic{suffix}.txt'
+            late_failure_event = None
+            raised_error = None
+            def publish_late_failure(phase):
+                nonlocal late_failure_event
+                self.assertIsNone(late_failure_event)
+                self.assertEqual((output/'guest-complete.txt').read_text(),closed)
+                self.assertFalse(failure.exists() or failure.is_symlink())
+                self.assertNotIn('FATAL',(fs/'ux0/data/celeste_native_room.log').read_text())
+                if late_failure_kind=='regular':
+                    failure.write_bytes(b'\xffopaque failure')
+                elif late_failure_kind=='symlink':
+                    target = root / 'failure-target.txt'
+                    target.write_bytes(b'\xffopaque failure target')
+                    failure.symlink_to(target)
+                elif late_failure_kind=='dangling_symlink':
+                    failure.symlink_to(root/'missing-failure-target.txt')
+                elif late_failure_kind!='unknown':
+                    raise ValueError('Unknown late failure fixture kind')
+                late_failure_event = dict(phase=phase,kind=late_failure_kind,closed_completion_already_observed=True,
+                                          log_still_has_no_FATAL=True,path=str(failure))
+            original_lstat = Path.lstat
+            def lstat(path,*args,**kwargs):
+                if late_failure_event and late_failure_kind=='unknown' and path==failure:
+                    raise PermissionError(13,'Synthetic unknown failure-path state',str(path))
+                return original_lstat(path,*args,**kwargs)
             class Process:
                 def __init__(self,label,pid): self.label,self.pid,self.returncode=label,pid,None
                 def terminate(self): order.append(self.label); self.returncode=-15
                 def wait(self,timeout=None):
                     if self.label=="runtime":
                         if timeout==30:
+                            if late_failure_kind and late_failure_phase=='host_wait': publish_late_failure('host_wait')
                             if host_exit_code is None: raise subprocess.TimeoutExpired("synthetic-owned-runtime",timeout)
                             self.returncode=host_exit_code
-                        elif timeout==15: self.returncode=cleanup_exit_code
+                        elif timeout==15:
+                            if late_failure_kind and late_failure_phase=='cleanup': publish_late_failure('cleanup')
+                            self.returncode=cleanup_exit_code
                     return self.returncode
             installer,runtime=Process("installer",101),Process("runtime",102)
+            deferred=[]
+            def publish_native_frame():
+                if mode=='no_frame': return
+                if frame_fixture:
+                    source=fs/f"ux0/data/celeste_native_room-synthetic{suffix}.ppm"
+                    source.write_bytes(frame_fixture["ppm"])
+                    Path(str(source)+".txt").write_text(frame_fixture["receipt"])
+                    if dash_probe:
+                        Path(str(source)+'.trail.rgba').write_bytes(frame_fixture['raw'])
             def launch(*args,**kwargs):
                 self.assertEqual(args[0][0],"bwrap")
                 if not (fs/"ux0/app/CELR00001").exists():
@@ -194,37 +253,103 @@ class ReplayHostBoundaryTests(unittest.TestCase):
                     data=fs/"ux0/data"
                     (data/"celeste_native_room.ready").write_text("ready frame=0\n")
                     text=completed_replay_log()
+                    if automatic:
+                        from test_guest_automatic import completed_automatic_log
+                        text=completed_automatic_log()
+                    if dash_probe:
+                        text=frame_fixture['log']
                     if mode=="unclosed_frame": text=text.replace("frame_saved path=","not a closed frame path=")
                     if mode=="skip_existing": text=text.replace(
-                        "frame_saved path=ux0:data/celeste_native_room-synthetic.ppm width=960 height=544",
-                        "capture_skipped_existing path=ux0:data/celeste_native_room-synthetic.ppm prior_capture_preserved=ppm_and_receipt current_run_capture=false")
-                    (data/"celeste_native_room.log").write_text(text.replace("death frame=242","missing events") if mode=="missing_events" else text)
-                    (data/"celeste_native_room-complete-synthetic.txt").write_text("invalid\n" if mode=="bad_receipt" else completion_receipt("synthetic"))
-                    (output/"host.log").write_text("[on_game_closed]: Game closed: Celeste Native Room Diagnostic\n")
-                    if mode=="guest_failure": (data/"celeste_native_room-failure-synthetic.txt").write_text("synthetic guest failure")
+                        f"frame_saved path=ux0:data/celeste_native_room-synthetic{suffix}.ppm ",
+                        f"capture_skipped_existing path=ux0:data/celeste_native_room-synthetic{suffix}.ppm prior_capture_preserved=ppm_and_receipt current_run_capture=false ")
+                    missing = 'frame=40 ' if dash_probe else "frame=36 x=1" if automatic else "death frame=242"
+                    if mode=="deferred_frame": deferred.append(text)
+                    (data/"celeste_native_room.log").write_text(text.replace(missing,"missing events") if mode=="missing_events" else text)
+                    if mode!="deferred_frame":
+                        completion_suffix = '' if mode=='wrong_mode_completion' else suffix
+                        (data/f"celeste_native_room-complete-synthetic{completion_suffix}.txt").write_text("invalid\n" if mode=="bad_receipt" else closed)
+                        publish_native_frame()
+                    else:
+                        (data/"celeste_native_room.log").write_text(text.replace("frame_saved path=","pending native export path="))
+                    (output/"host.log").write_text("sdl frontend closed\n")
+                    if mode=="guest_failure": (data/f"celeste_native_room-failure-synthetic{suffix}.txt").write_text("synthetic guest failure")
+                    if mode=='wrong_mode_failure': (data/'celeste_native_room-failure-synthetic.txt').write_text('another mode failure')
+                    if mode=="config_mutation": config.write_text(config.read_text()+"changed: true\n")
                 return runtime
-            arguments=["smoke_native_room.py","--guest-replay","--after-climb","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]
-            with patch("sys.argv",arguments), patch("smoke_native_room.prepare",return_value=(fs,config)), \
-                 patch("smoke_native_room.source_state",return_value=("synthetic",[])), \
+            arguments=["smoke_native_room.py","--guest-replay","--after-climb","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--appdir",str(appdir)]
+            if automatic:
+                arguments[1:3]=["--guest-automatic","--source-root",str(root),"--build",str(root/"build"),"--staging",str(root/"staging")]
+            if dash_probe:
+                arguments[1:3]=['--guest-dash-probe','--source-root',str(root),'--build',str(root/'build'),'--staging',str(root/'staging')]
+            automatic_provenance={"source_checkout":str(root),"source":{"state_sha256":"synthetic"},
+                                  "package":{"vpk_sha256":hashlib.sha256(vpk.read_bytes()).hexdigest(),
+                                              "build_binding":{"capture_policy":"dash_trails" if dash_probe else "initial_respawn"}}}
+            if dash_probe:
+                automatic_provenance['fixture'] = probe_fixture()
+            source_after=automatic_provenance if mode!="source_drift" else automatic_provenance | {"source":{"state_sha256":"changed"}}
+            if mode=="source_verify_failure": source_after=ValueError("native source/artifact changed")
+            def select_wait(*args):
+                if mode!="deferred_frame" or not deferred:
+                    raise TimeoutError("synthetic unattended timeout")
+                current=json.loads((output/"feedback.json").read_text())
+                self.assertTrue(current["stages"]["startup"])
+                self.assertFalse(current["stages"]["native_image"])
+                publish_native_frame()
+                (fs/"ux0/data/celeste_native_room.log").write_text(deferred.pop())
+                (fs/"ux0/data/celeste_native_room-complete-synthetic.txt").write_text(completion_receipt("synthetic",automatic=automatic))
+                return ([],[],[])
+            with patch.dict("os.environ",{"DISPLAY":"unit-test-only.invalid:99.0"}), \
+                 patch("sys.argv",arguments), patch("smoke_native_room.prepare",return_value=(fs,config)), \
+                 patch("native_room_replay.source_state",return_value=("synthetic",[])), \
+                 patch("smoke_native_room.verify_automatic_source",side_effect=[automatic_provenance,source_after]) as source_verifier, \
+                 patch("smoke_native_room.verify_dash_probe_source",side_effect=[automatic_provenance,source_after]) as dash_verifier, \
                  patch("smoke_native_room.X11",side_effect=AssertionError("No X11 or XTEST")), \
                  patch("smoke_native_room.C.CDLL",side_effect=AssertionError("No ctypes libraries")), \
                  patch("builtins.input",side_effect=AssertionError("No interactive input")), \
-                 patch("smoke_native_room.collect_native_frame",return_value=None if mode=="no_frame" else {"artifacts":{},"black_letterbox_rows":True,"nonzero_rgb_bytes":1}), \
+                 patch("smoke_native_room.collect_native_frame",side_effect=collect_native_frame if frame_fixture else None,
+                       return_value=None if mode=="no_frame" else {"artifacts":{},"black_letterbox_rows":True,"nonzero_rgb_bytes":1,
+                                                                  "capture":"initial_respawn" if automatic else "climb","frame_state":{"frame":36}}), \
                  patch("smoke_native_room.subprocess.Popen",side_effect=launch), \
                  patch("smoke_native_room.os.pidfd_open",side_effect=[201,202]), patch("smoke_native_room.os.close"), \
-                 patch("smoke_native_room.select.select",side_effect=TimeoutError("synthetic unattended timeout")):
-                if mode=="complete": main()
+                 patch.object(Path,'lstat',lstat), \
+                 patch("smoke_native_room.select.select",side_effect=select_wait):
+                if late_failure_kind:
+                    try:
+                        main()
+                    except (RuntimeError,OSError) as error:
+                        raised_error = dict(type=type(error).__name__,message=str(error))
+                elif mode in {"complete","deferred_frame","wrong_mode_failure"}: main()
                 else:
-                    error=TimeoutError if mode in {"timeout","host_timeout"} else ValueError if mode in {"bad_receipt","missing_events"} else RuntimeError
+                    error=TimeoutError if mode in {"timeout","host_timeout","wrong_mode_completion"} else ValueError if mode in {"bad_receipt","missing_events","source_drift","source_verify_failure","invalid_native_frame","wrong_capture_frame"} or dash_probe and mode in {'unclosed_frame','skip_existing'} else RuntimeError
                     with self.assertRaises(error): main()
-            self.assertEqual(order,["installer"] if mode in {"complete","host_failure","missing_events","no_frame","unclosed_frame","skip_existing"} else ["installer","runtime"])
+            if automatic: self.assertEqual(source_verifier.call_count,2)
+            if dash_probe: self.assertEqual(dash_verifier.call_count,2)
+            self.assertEqual(order,["installer"] if mode in {"complete","deferred_frame","wrong_mode_failure","wrong_capture_frame","host_failure","missing_events","no_frame","unclosed_frame","skip_existing","source_drift","source_verify_failure","config_mutation"} else ["installer","runtime"])
             feedback=json.loads((output/"feedback.json").read_text())
+            self.assertNotIn("[on_game_closed]",(output/"host.log").read_text())
             self.assertFalse(feedback["physical_controller_verified"])
             self.assertFalse(feedback["host_input_injected"])
             self.assertEqual(feedback["portal_requests"],0)
             self.assertEqual(feedback["input_source"],"scripted_guest_controls")
+            if not automatic and not dash_probe:
+                self.assertEqual(feedback["guest_replay_provenance"]["source_checkout"],str(ROOT))
+                self.assertEqual(feedback["guest_replay_provenance"]["source_revision"],"synthetic")
+                self.assertEqual(feedback["guest_replay_provenance"]["host_harness"]["root"],str(ROOT))
             self.assertEqual(json.loads((output/"x11-input.json").read_text()),[])
-            feedback["host_events"]=json.loads((output/"events.json").read_text())
+            host_events=json.loads((output/"events.json").read_text())
+            commands=[event["command"] for event in host_events if "command" in event]
+            self.assertEqual(len(commands),2)
+            installer,runtime=commands
+            for command in commands:
+                self.assertIn("--unshare-pid",command)
+                self.assertIn("--unshare-net",command)
+            self.assertNotIn("--frontend",installer)
+            self.assertEqual(runtime[runtime.index("--frontend")+1],"sdl")
+            feedback["host_events"]=host_events
+            if late_failure_kind:
+                self.assertIsNotNone(late_failure_event)
+                feedback['late_failure_event'] = late_failure_event
+                feedback['raised_error'] = raised_error
             return feedback,order
 
 

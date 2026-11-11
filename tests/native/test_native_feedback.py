@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import zipfile
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,8 +40,14 @@ class NativeFeedbackTests(unittest.TestCase):
             config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
             with config.open("a") as stream:
                 stream.write("".join(f"keyboard-button-{button}: {key}\n" for button, key in KEYBOARD_MAPPING.items()))
-            vpk.write_bytes(b"synthetic package")
-            with patch("sys.argv",["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--frame-only"]), \
+            with zipfile.ZipFile(vpk,"w") as package:
+                package.writestr("assets/native-room/provenance.json",json.dumps({"revision":"synthetic","tracked_changes":False}))
+            appdir = root / "appdir"
+            (appdir / "usr/bin").mkdir(parents=True)
+            (appdir / "usr/bin/Vita3K").write_bytes(b"synthetic")
+            (appdir / "apprun-hooks").mkdir()
+            (appdir / "apprun-hooks/linuxdeploy-plugin-qt-hook.sh").write_text("synthetic hook\n")
+            with patch("sys.argv",["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--appdir",str(appdir),"--frame-only"]), \
                  patch("smoke_native_room.prepare",return_value=(fs,config)) as prepared, \
                  patch("smoke_native_room.X11",side_effect=RuntimeError("stop before X11")):
                 with self.assertRaisesRegex(RuntimeError,"stop before X11"):

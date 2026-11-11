@@ -44,6 +44,11 @@ class SmokeCleanupTests(unittest.TestCase):
             config.write_text("backend-renderer: OpenGL\nresolution-multiplier: 1\ndisable-surface-sync: false\n")
             with config.open("a") as stream:
                 stream.write("".join(f"keyboard-button-{button}: {key}\n" for button, key in KEYBOARD_MAPPING.items()))
+            appdir = root / "appdir"
+            (appdir / "usr/bin").mkdir(parents=True)
+            (appdir / "usr/bin/Vita3K").write_bytes(b"synthetic")
+            (appdir / "apprun-hooks").mkdir()
+            (appdir / "apprun-hooks/linuxdeploy-plugin-qt-hook.sh").write_text("synthetic hook\n")
             member = "assets/native-room/provenance.json"
             payload = json.dumps({"revision":"synthetic","tracked_changes":False}).encode()
             with zipfile.ZipFile(vpk,"w") as package:
@@ -95,10 +100,10 @@ class SmokeCleanupTests(unittest.TestCase):
                 return original_read(path)
             libc = SimpleNamespace(inotify_init1=Mock(return_value=55),inotify_add_watch=Mock(return_value=1))
             clock=itertools.count()
-            arguments = ["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk)]
+            arguments = ["smoke_native_room.py","--state",str(fs),"--output",str(output),"--vpk",str(vpk),"--appdir",str(appdir)]
             if after_wall_jump:
                 arguments.append("--after-climb" if after_climb else "--after-wall-jump")
-            with patch("sys.argv",arguments), \
+            with patch.dict("os.environ",{"DISPLAY":"unit-test-only.invalid:99.0"}), patch("sys.argv",arguments), \
                  patch("smoke_native_room.prepare",return_value=(fs,config)), patch("smoke_native_room.X11",return_value=x), \
                  patch("smoke_native_room.C.CDLL",return_value=libc), patch("smoke_native_room.subprocess.Popen",side_effect=start), \
                  patch("smoke_native_room.os.pidfd_open",side_effect=[201,202]), patch("smoke_native_room.os.close"), \
@@ -120,6 +125,13 @@ class SmokeCleanupTests(unittest.TestCase):
             self.assertEqual(x.keys,set())
             self.assertEqual(held,set())
             feedback = json.loads((output / "feedback.json").read_text())
+            host_events = json.loads((output / "events.json").read_text())
+            commands = [event["command"] for event in host_events if "command" in event]
+            self.assertEqual(len(commands),2)
+            for command in commands:
+                self.assertNotIn("--unshare-pid",command)
+                self.assertNotIn("--frontend",command)
+                self.assertIn("--unshare-net",command)
             self.assertTrue(feedback["stages"]["startup"])
             self.assertEqual(feedback["stages"]["native_image"],not after_wall_jump)
             return feedback

@@ -6,8 +6,23 @@ import math
 from pathlib import Path
 from convert_native_frame import ppm_to_png
 from native_room_revision import REPO_ROOT
+from native_room_dash_probe import validate_dash_probe
 
 RENDER_STAGE = "after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap"
+
+
+def native_capture_policy(animated_player, guest_replay=False, after_wall_jump=False, after_climb=False, dash_probe=False):
+    if dash_probe:
+        if not animated_player or guest_replay or after_wall_jump or after_climb:
+            raise ValueError('Dash requires animated Player and its exclusive capture policy')
+        return 'dash_trails'
+    if after_wall_jump and after_climb:
+        raise ValueError("Native capture overrides are mutually exclusive")
+    if after_climb:
+        return "climb"
+    if after_wall_jump:
+        return "wall_jump"
+    return "initial_respawn" if animated_player and not guest_replay else "spawn"
 
 
 def save_feedback(path, feedback):
@@ -138,25 +153,38 @@ def validate_animated_pixels(pixels, metadata, player, capture):
                     hits.add((x, y))
     if capture == "climb" and not hits:
         raise ValueError("Actual native framebuffer lacks visible source-red fill near simulated hair nodes")
+    if capture == "initial_respawn" and (color != [172, 50, 50, 255] or not hits):
+        raise ValueError("Initial Respawn framebuffer lacks live source-red simulated hair")
     return {"animation":metadata["animation"], "frame":frame, "texture":metadata["source_texture"], "nodes":nodes,
             "color":color, "native_hair_color_pixels_near_nodes":len(hits),
             "claim":"Bounded native color/location evidence plus source-bank identity; not a full compositing reference or semialpha proof"}
 
 
 def collect_native_frame(filesystem, output, revision, capture="spawn", visual_provenance=None, player_provenance=None, decal_provenance=None):
-    if capture not in {"spawn", "wall_jump", "climb"}:
+    if capture not in {"spawn", "wall_jump", "climb", "initial_respawn", "dash_trails"}:
         raise ValueError("Unsupported explicit native capture policy")
-    guest_path = f"ux0:data/celeste_native_room-{revision}.ppm"
+    if capture == "dash_trails" and (visual_provenance is None or player_provenance is None or decal_provenance is None or
+                                      visual_provenance.get("spike_textures") is None):
+        raise ValueError("Dash capture requires exact animated/textured/spike/decal provenance")
+    if capture == "initial_respawn" and (visual_provenance is None or player_provenance is None or
+                                         not player_provenance.get("death_animation_extension")):
+        raise ValueError("Initial Respawn capture requires exact animated death-profile visual/player provenance")
+    guest_path = f"ux0:data/celeste_native_room-{revision}" + ("-dash-probe.ppm" if capture == "dash_trails" else ".ppm")
     source = filesystem / "ux0/data" / guest_path.split(":data/",1)[1]
     receipt_path = Path(str(source)+".txt")
     if not source.is_file() or not receipt_path.is_file():
         return None
-    if receipt_path.stat().st_size > 2048 or source.stat().st_size > 960*544*3+64:
+    if receipt_path.stat().st_size > (8192 if capture == "dash_trails" else 2048) or source.stat().st_size > 960*544*3+64:
         raise ValueError("Native export/receipt exceeds bound")
     receipt = receipt_path.read_text()
     if not receipt.startswith("frame_saved ") or not receipt.endswith("\n"):
         raise ValueError("Native export has no complete frame_saved receipt")
-    metadata = dict(field.split("=",1) for field in receipt.split()[1:])
+    fields = [field.split("=",1) for field in receipt.split()[1:]]
+    metadata = dict(fields)
+    if capture in {"initial_respawn", "dash_trails"} and len(metadata) != len(fields):
+        raise ValueError("Duplicate native capture receipt fields")
+    if capture == "dash_trails" and len(receipt.splitlines()) != 1:
+        raise ValueError("Dash capture requires one closed receipt line")
     expected = {"path":guest_path,"revision":revision,"width":"960","height":"544","stage":RENDER_STAGE,
                 "format":"P6_RGB_top_down"}
     if capture == "spawn":
@@ -165,11 +193,20 @@ def collect_native_frame(filesystem, output, revision, capture="spawn", visual_p
         expected.update(capture=capture, state="1" if capture == "climb" else "0", dead="0", resets="0")
         if capture == "wall_jump":
             expected["jump_kind"] = "WallJump"
-        else:
+        elif capture == "climb":
             expected.update(ground="0", grab="1")
+        elif capture == "initial_respawn":
+            expected.update(lifecycle="source_first_room", phase="live", automatic_reloads="0", loads="1",
+                            respawn_callbacks="1", wipe_callbacks="0", pending_corpses="0", committed_corpses="0",
+                             wipe_active="0", legacy_manual_replay="false", body_draws="1", render_style="animated_player_partial")
+        elif capture == "dash_trails":
+            expected.update(lifecycle="source_first_room", phase="live", pending_corpses="0", committed_corpses="0",
+                            wipe_active="0", legacy_manual_replay="false", body_draws="1", render_style="animated_player_partial")
         frame = metadata.get("frame", "")
         if not frame.isascii() or not frame.isdecimal() or str(int(frame)) != frame or int(frame) <= 0:
             raise ValueError("Deferred export must record an actual positive frame")
+        if capture == "dash_trails" and not 40 < int(frame) < 360:
+            raise ValueError("Dash capture must follow the Up+Dash input within the 360-sample fixture")
     if any(metadata.get(key) != value for key,value in expected.items()):
         raise ValueError("Native export receipt does not match revision/path/stage/dimensions")
     frame_state = {key:float(metadata[key]) for key in ("frame","x","y","vx","vy","ground","dead","resets")}
@@ -177,6 +214,9 @@ def collect_native_frame(filesystem, output, revision, capture="spawn", visual_p
         raise ValueError("Nonfinite native frame state")
     if "state" in metadata:
         frame_state["state"] = int(metadata["state"])
+    if capture == "initial_respawn":
+        for key in ("automatic_reloads", "loads", "respawn_callbacks", "wipe_callbacks", "pending_corpses", "committed_corpses", "wipe_active"):
+            frame_state[key] = int(metadata[key])
     if capture == "climb":
         frame_state["stamina"] = float(metadata["stamina"])
         frame_state["grab"] = int(metadata["grab"])
@@ -186,20 +226,37 @@ def collect_native_frame(filesystem, output, revision, capture="spawn", visual_p
     if not ppm.startswith(b"P6\n960 544\n255\n"):
         raise ValueError("Native export dimensions are not the full framebuffer")
     png = ppm_to_png(ppm)
+    pixels = ppm.split(b"\n",3)[3]
+    dash_probe, raw = None, None
+    if capture == "dash_trails":
+        raw_path = Path(str(source)+".trail.rgba")
+        if not raw_path.is_file() or raw_path.stat().st_size != 512*512*4:
+            raise ValueError("Closed Dash receipt lacks its exact raw FBO attachment")
+        raw = raw_path.read_bytes()
+        dash_probe = validate_dash_probe(pixels,metadata,raw)
     artifacts = {}
-    for name,data in (("native-frame.ppm",ppm),("native-frame.png",png),("native-frame.txt",receipt.encode())):
+    exports = [("native-frame.ppm",ppm),("native-frame.png",png),("native-frame.txt",receipt.encode())]
+    if raw is not None:
+        exports.append(("native-trail.rgba",raw))
+        for name, _ in exports:
+            if (output / name).exists():
+                raise FileExistsError("Native artifact already exists: " + str(output / name))
+    for name,data in exports:
         destination = output / name
         with destination.open("xb") as stream:
             if stream.write(data) != len(data):
                 raise OSError(f"Incomplete native artifact copy: {destination}")
         artifacts[name] = {"path":str(destination),"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()}
-    pixels = ppm.split(b"\n",3)[3]
     black_bars = pixels[:960*2*3] == bytes(960*2*3) and pixels[-960*2*3:] == bytes(960*2*3)
     textured = validate_textured_pixels(pixels,metadata,visual_provenance,capture,player_provenance,decal_provenance) if visual_provenance is not None else None
     if visual_provenance is None and metadata.get("render_style","debug") != "debug":
         raise ValueError("Textured export requires its exact staged visual provenance, not debug intent")
-    return {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,
+    result = {"guest_path":guest_path,"original_guest_file":str(source),"receipt":str(receipt_path),"revision":revision,
             "render_stage":RENDER_STAGE,"dimensions":[960,544],
             "frame_state":frame_state,"jump_kind":metadata.get("jump_kind","None"),"capture":capture,
             "black_letterbox_rows":black_bars,"nonzero_rgb_bytes":sum(value != 0 for value in pixels),"artifacts":artifacts,
-            "render_style":metadata.get("render_style","debug"),"camera":metadata.get("camera","0,0"),"textured_content":textured}
+             "render_style":metadata.get("render_style","debug"),"camera":metadata.get("camera","0,0"),"textured_content":textured}
+    if dash_probe is not None:
+        result["dash_probe"] = dash_probe
+        result['receipt_fields'] = metadata
+    return result
