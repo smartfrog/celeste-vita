@@ -32,8 +32,8 @@ class DirectionalInputSourceContractTests(unittest.TestCase):
         self.assertIn("controller.sample_analog", match.group(2))
 
     def test_normalization_assumption_and_invalid_contract_are_explicit(self):
-        header = (ROOT / "src/native/directional_input.hpp").read_text()
-        source = (ROOT / "src/native/directional_input.cpp").read_text()
+        header = (ROOT / "src/core/directional_input.hpp").read_text()
+        source = (ROOT / "src/core/directional_input.cpp").read_text()
         self.assertIn("NATIVE VITA FIXTURE ASSUMPTION", header)
         self.assertIn("bool valid = false;", header)
         self.assertIn("/ 128.0f", source)

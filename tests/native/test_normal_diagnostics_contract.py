@@ -16,7 +16,7 @@ class NormalDiagnosticsContractTests(unittest.TestCase):
         for flags, enabled in cases:
             with self.subTest(flags=flags):
                 source = '#include "capture_policy.hpp"\nstatic_assert(celeste::diagnostic::normal_initial_respawn_profile == ' + str(enabled).lower() + ');\n'
-                result = subprocess.run(["c++", "-std=c++17", "-fsyntax-only", "-x", "c++", "-Isrc/native", "-Isrc/vita",
+                result = subprocess.run(["c++", "-std=c++17", "-fsyntax-only", "-x", "c++", "-Isrc/core", "-Isrc/vita",
                                          *["-D" + flag for flag in flags], "-"], input=source, text=True, capture_output=True, cwd=ROOT)
                 self.assertEqual(result.returncode, 0, result.stderr)
 

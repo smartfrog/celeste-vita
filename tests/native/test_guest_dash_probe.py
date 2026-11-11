@@ -33,7 +33,7 @@ class DashProbeStagingTests(unittest.TestCase):
             flags = ["-DCELESTE_ROOM_ANIMATED_PLAYER"] + (["-DCELESTE_ROOM_DASH_PROBE"] if probe_mode else []) + list(extra_flags)
             phase = ["-E", "-P"] if preprocess else ["-fsyntax-only"]
             return subprocess.run(["c++", "-std=c++17", *phase, "-Wall", "-Wextra", "-Wpedantic", "-Werror",
-                                   "-I" + directory, "-Isrc/native", "-Isrc/vita", "-Itests/native/vita_stub", *flags, source],
+                                   "-I" + directory, "-Isrc/core", "-Isrc/vita", "-Itests/native/vita_stub", *flags, source],
                                   cwd=ROOT, text=True, capture_output=True)
 
     def test_probe_asset_pins_carry_the_input_header_hash(self):

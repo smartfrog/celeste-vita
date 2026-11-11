@@ -181,7 +181,7 @@ class AutomaticIntentTests(unittest.TestCase):
 class SessionProfileTests(unittest.TestCase):
     def compile_profile(self, flags, automatic):
         source = '#include "session_profile.hpp"\nstatic_assert(celeste::diagnostic::automatic_session_profile == ' + str(automatic).lower() + ');\n'
-        return subprocess.run(["c++", "-std=c++17", "-fsyntax-only", "-x", "c++", "-Isrc/native", "-Isrc/vita", *flags, "-"],
+        return subprocess.run(["c++", "-std=c++17", "-fsyntax-only", "-x", "c++", "-Isrc/core", "-Isrc/vita", *flags, "-"],
                               input=source, text=True, capture_output=True, cwd=ROOT)
 
     def test_production_and_automatic_select_the_same_constructor_parameterized(self):
@@ -222,7 +222,7 @@ class ApplicationModeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=parent) as directory:
             (Path(directory) / "asset_pins.hpp").write_text(asset_pins_text(manifest))
             return subprocess.run(["c++", "-std=c++17", "-fsyntax-only", "-Wall", "-Wextra", "-Wpedantic", "-Werror",
-                                   "-I" + directory, "-Isrc/native", "-Isrc/vita", "-Itests/native/vita_stub", *flags, source],
+                                   "-I" + directory, "-Isrc/core", "-Isrc/vita", "-Itests/native/vita_stub", *flags, source],
                                   text=True, capture_output=True, cwd=ROOT)
 
     def test_application_compiles_in_separate_modes_parameterized(self):

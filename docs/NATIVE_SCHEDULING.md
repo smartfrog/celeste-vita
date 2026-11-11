@@ -1,6 +1,6 @@
 # Native scheduling compatibility
 
-`src/native/scheduling.hpp` adds headless C++17 `Coroutine` and `StateMachine`
+`src/core/scheduling.hpp` adds headless C++17 `Coroutine` and `StateMachine`
 beside the [movement kernel](NATIVE_KERNEL.md). It needs no Mono, CLR, .NET,
 game files or third-party library at runtime. It is not a game loop or Player.
 

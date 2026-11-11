@@ -57,6 +57,22 @@ class ExactSourceStateTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "exact source"):
                     revision.validate_source_state(state, root)
 
+    def test_identical_bytes_at_relocated_path_fail_expected_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "before/kernel.cpp"
+            relocated = root / "after/kernel.cpp"
+            original.parent.mkdir()
+            original.write_text("unchanged kernel\n")
+            with patch.object(revision, "source_state", return_value=("base", [])), \
+                 patch.object(revision.subprocess, "check_output", return_value=b"before/kernel.cpp\0") as files:
+                state = revision.source_identity(root)
+                relocated.parent.mkdir()
+                original.rename(relocated)
+                files.return_value = b"after/kernel.cpp\0"
+                with self.assertRaisesRegex(ValueError, "exact source"):
+                    revision.validate_source_state(state, root)
+
 
 if __name__ == "__main__":
     unittest.main()

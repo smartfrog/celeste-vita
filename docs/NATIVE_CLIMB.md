@@ -1,6 +1,6 @@
 # Bounded static Climb
 
-`src/native/player_climb.cpp` supports coherent Climb (1), ClimbJump, Slip,
+`src/core/player_climb.cpp` supports coherent Climb (1), ClimbJump, Slip,
 ClimbHop, blocked ledges and delayed hop motion alongside Normal (0), Dash (2)
 and the jump family. Worlds remain ordered, immutable Hitbox/Grid solids and
 JumpThrus with static Up/Left spikes. This is not full Player/Engine, original

@@ -1,6 +1,6 @@
 # Native sampled-button compatibility
 
-`src/native/input.hpp` adds a headless C++17 `VirtualButton` to the existing
+`src/core/input.hpp` adds a headless C++17 `VirtualButton` to the existing
 native library. No game files, .NET or third-party dependencies are required by
 the native library or standalone tests.
 
@@ -60,7 +60,7 @@ round-to-nearest environment, not fast math or an epsilon comparison.
 
 ## Vita analog direction profile
 
-`src/native/directional_input.hpp` adds a bounded, host-testable resolver without
+`src/core/directional_input.hpp` adds a bounded, host-testable resolver without
 changing `Controller::sample(Controls)` or the 250-frame guest fixture. The
 source order is `Celeste.Input.cs` 145-151/331-373, `Monocle.Binding.cs` 204-222,
 `Monocle.VirtualIntegerAxis.cs` 51-98 and `Monocle.VirtualJoystick.cs` 71-233,

@@ -1,6 +1,6 @@
 # Bounded native Player locomotion
 
-`src/native/player.hpp` composes the accepted Actor, StateMachine and
+`src/core/player.hpp` composes the accepted Actor, StateMachine and
 VirtualButton. This is Normal locomotion plus ground/coyote Jump on synthetic
 ordered static Hitboxes, now also immutable target Grids (see
 [native static tilemap](NATIVE_TILEMAP.md)). It is **not full Player.Update,

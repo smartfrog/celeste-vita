@@ -84,6 +84,13 @@ are in [the setup guide](docs/SETUP.md).
 files.** They contain material derived from your copy of Celeste. The repository
 is intended to share our code and preparation recipes, not the game.
 
+## Source layout
+
+`src/core/` contains the portable C++17 kernel; `src/vita/` contains the Vita
+adapter and room diagnostic. The existing `celeste::native` namespace, build
+targets and test names are unchanged. Directory moves change exact source
+bindings; historical packages and evidence retain their original identities.
+
 ## Test without the game
 
 Requires CMake 3.16+, Make and a GNU/Clang C++17 compiler, in addition to Python:

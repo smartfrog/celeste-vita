@@ -4,7 +4,7 @@ The subsequent [static Climb extension](NATIVE_CLIMB.md) supports held Grab,
 stamina use and wall boost; exclusion/invariant statements below describe this
 jump-family checkpoint, not the current extended native API.
 
-`src/native/player_jumps.cpp` adds SuperJump, WallJump and SuperWallJump to the
+`src/core/player_jumps.cpp` adds SuperJump, WallJump and SuperWallJump to the
 existing Normal (0)/Dash (2) static Hitbox/Grid/Up/Left-spike profile. It does not
 add Climb, movers, nonzero lift, full Player/Engine, presentation parity or
 original CIL execution. Existing input/world APIs are unchanged. Grab still

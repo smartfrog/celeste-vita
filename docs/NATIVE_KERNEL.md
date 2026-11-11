@@ -1,6 +1,6 @@
 # Native movement kernel
 
-`src/native/movement.hpp` is the first native C++17 code, independent of Mono,
+`src/core/movement.hpp` is the first native C++17 code, independent of Mono,
 CLR, FNA and the game runtime. This is a host-tested static-collision subset,
 not a playable port. The earlier [feasibility audit](FEASIBILITY.md) remains
 historical evidence, not a native execution claim.
