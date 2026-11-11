@@ -51,7 +51,9 @@ def prepare(source, output):
         return extract(source / name, ranges, VISUAL_SOURCES[name])
 
     def existing(name, ranges):
-        if name in {"Celeste.MapData.cs", "Celeste.LevelLoader.cs"}:
+        if (source / name).is_file():
+            path = source / name
+        elif name in {"Celeste.MapData.cs", "Celeste.LevelLoader.cs"}:
             path = ROOT / ".audit/native-static-tilemap" / name
         elif name == "Monocle.Calc.cs":
             path = ROOT / ".audit/native-wall-jumps/closure" / name
@@ -95,6 +97,7 @@ def main():
     parser.add_argument("--source", type=Path, default=ROOT / ".audit/native-room-visuals/source-closure-01")
     parser.add_argument("--prepared", type=Path, default=ROOT / ".audit/native-static-tilemap/prepared")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--inputs", type=Path, default=ROOT / ".audit/ilspy/inputs")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(ROOT / ".audit") or output.exists():
@@ -103,7 +106,7 @@ def main():
     input_identities = {}
     for name in ("Celeste.exe", "FNA.dll", "mscorlib.dll", "Content/Graphics/Atlases/Gameplay.meta",
                  "Content/Graphics/ForegroundTiles.xml", "Content/Graphics/BackgroundTiles.xml", "Content/Graphics/AnimatedTiles.xml", "Content/Graphics/Sprites.xml"):
-        path = ROOT / ".audit/ilspy/inputs" / name if "/" not in name else args.source / name.rsplit("/", 1)[-1]
+        path = args.inputs / name if "/" not in name else args.source / name.rsplit("/", 1)[-1]
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != MEMBERS[name]:
             raise ValueError("Changed independent source input: " + name)

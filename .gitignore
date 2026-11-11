@@ -1,3 +1,10 @@
 /game/
 /.audit/
+/.opencode/memory/
+/build/
+/dist/
+*.vpk
+*.elf
+*.velf
+*.self
 __pycache__/

@@ -117,18 +117,19 @@ def compose(discovery, pins, archive, output):
 
 
 def prepare(discovery, pins, archive, raw_room, corrections, output):
-    discovery, pins, archive, raw_room, corrections, output = map(
-        Path.resolve, (discovery, pins, archive, raw_room, corrections, output))
+    discovery, pins, archive, raw_room, output = map(
+        Path.resolve, (discovery, pins, archive, raw_room, output))
+    corrections = corrections.resolve() if corrections is not None else None
     if not output.is_relative_to(ROOT / ".audit") or output.exists():
         raise ValueError("Decal oracle output must be fresh and private below .audit")
     if hashlib.sha256(raw_room.read_bytes()).hexdigest() != RAW_ROOM_SHA:
         raise ValueError("Raw room placement identity changed")
-    if hashlib.sha256(corrections.read_bytes()).hexdigest() != CORRECTIONS_SHA:
+    if corrections is not None and hashlib.sha256(corrections.read_bytes()).hexdigest() != CORRECTIONS_SHA:
         raise ValueError("Corrected source-contract supplement identity changed")
     output.mkdir(parents=True)
     manifest = compose(discovery, pins, archive, output)
     manifest["raw_room"] = {"path": str(raw_room), "sha256": RAW_ROOM_SHA}
-    manifest["corrections"] = {"path": str(corrections), "sha256": CORRECTIONS_SHA}
+    manifest["corrections"] = {"path": str(corrections), "sha256": CORRECTIONS_SHA} if corrections else None
     manifest["provenance_labels"] = {
         "raw_room_fields": {"level_name": "lvl_1", "bounds": [0, 0, 320, 184]},
         "runtime_normalization": {"level_name": "1", "load_seed": 49, "logical_size": [320, 180],
@@ -177,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--pins", type=Path, required=True, help="Existing private pinned framework source directory")
     parser.add_argument("--archive", type=Path, default=ROOT / "game/celeste-linux.zip")
     parser.add_argument("--raw-room", type=Path, required=True, help="Verified raw-room.json from actual room probe")
-    parser.add_argument("--corrections", type=Path, required=True, help="Corrected source-contract supplement")
+    parser.add_argument("--corrections", type=Path, help="Optional historical source-discovery supplement; not an oracle input")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     prepare(args.discovery, args.pins, args.archive, args.raw_room, args.corrections, args.output)

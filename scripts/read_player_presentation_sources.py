@@ -6,11 +6,11 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
-import zipfile
 
 from check_native_oracle import ROOT, oracle_environment
 from native_oracle_sdk import sdk_path
 from prepare_room_visuals import MEMBERS
+from game_input import archive_identity, read_members
 
 SOURCE_PINS = {
     "System.Random.cs": "4d50e548631225ad23a4f2fbc48e6263e8424ed9033f2e5a4a1fe33c95060c52",
@@ -45,15 +45,17 @@ SOURCE_PINS = {
     "Celeste.Spikes.cs": "fb485592822286d316d93fe029acf92b83e4a0b119492dd3d2fa77f6b5e11901",
 }
 ILSPY_SHA = "58ef1a86bea09f2e5a114720b607dd0bdaaf91cfe498c6b7a3412bd960d0f57d"
-ARCHIVE_SHA = "a613430411dbef3c0c45a0474f90f4845122964c7d177d69e88965bcb84741bf"
 
 
 def source_type(filename):
     name = filename.removesuffix(".cs").replace("_1", "`1")
+    if name == "Monocle.VirtualMap":
+        name += "`1"
     return ("FNA.dll" if name.startswith("Microsoft.") else "mscorlib.dll" if name == "System.Random" else "Celeste.exe"), name
 
 
-def extract(inputs, archive_path, output):
+def extract(inputs, archive_path, output, source_pins=None):
+    source_pins = SOURCE_PINS if source_pins is None else source_pins
     output = output.resolve()
     if not output.is_relative_to(ROOT / ".audit") or output.exists():
         raise ValueError("Source output must be fresh and private below .audit")
@@ -67,13 +69,10 @@ def extract(inputs, archive_path, output):
         if hashlib.sha256(data).hexdigest() != MEMBERS[name]:
             raise ValueError("Original private executable/framework identity changed: " + name)
         identities[name] = {"path": str(inputs / name), "bytes": len(data), "sha256": MEMBERS[name]}
-    if archive_path.stat().st_size != 883881658:
-        raise ValueError("Original private archive length changed")
-    with archive_path.open("rb") as stream:
-        if hashlib.file_digest(stream, "sha256").hexdigest() != ARCHIVE_SHA:
-            raise ValueError("Original private archive identity changed")
+    names = ("Content/Graphics/Sprites.xml", "Content/Graphics/Atlases/Gameplay.meta")
+    metadata = read_members(archive_path, {name: MEMBERS[name] for name in names})
     output.mkdir(parents=True)
-    receipt = {"inputs": identities, "tool_sha256": ILSPY_SHA, "archive": {"path": str(archive_path), "bytes": 883881658, "sha256": ARCHIVE_SHA}, "sources": [], "commands": []}
+    receipt = {"inputs": identities, "tool_sha256": ILSPY_SHA, "archive": archive_identity(archive_path), "sources": [], "commands": []}
 
     def run(command, stdout, stderr=None):
         command = list(map(str, command))
@@ -92,7 +91,7 @@ def extract(inputs, archive_path, output):
     run([sdk, "--list-runtimes"], output / "runtime.log")
     if (output / "sdk.log").read_text().strip() != "8.0.425" or "Microsoft.NETCore.App 8.0.31 [" not in (output / "runtime.log").read_text():
         raise ValueError("Pinned offline SDK/runtime changed")
-    for filename, expected in SOURCE_PINS.items():
+    for filename, expected in source_pins.items():
         assembly, name = source_type(filename)
         path = output / filename
         run([sdk, tool, "--disable-updatecheck", "-r", inputs, "-t", name, inputs / assembly], path, output / (filename + ".stderr"))
@@ -100,12 +99,8 @@ def extract(inputs, archive_path, output):
         if hashlib.sha256(data).hexdigest() != expected:
             raise ValueError("Pinned decompiled source identity changed: " + filename)
         receipt["sources"].append({"type": name, "assembly": assembly, "file": filename, "bytes": len(data), "sha256": expected})
-    with zipfile.ZipFile(archive_path) as archive:
-        for name in ("Content/Graphics/Sprites.xml", "Content/Graphics/Atlases/Gameplay.meta"):
-            data = archive.read(name)
-            if hashlib.sha256(data).hexdigest() != MEMBERS[name]:
-                raise ValueError("Original sprite/atlas member changed")
-            (output / name.rsplit("/", 1)[1]).write_bytes(data)
+    for name, data in metadata.items():
+        (output / name.rsplit("/", 1)[1]).write_bytes(data)
     receipt["recipe_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     (output / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
     return receipt

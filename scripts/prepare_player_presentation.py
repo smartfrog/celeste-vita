@@ -6,7 +6,6 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
-import zipfile
 
 from check_native_oracle import ROOT, verify_extraction
 from native_player_assets import pack_player_crops, extend_death_bank, player_metadata
@@ -14,6 +13,7 @@ from native_room_textures import atlas_metadata, decode_crops
 from prepare_room_visuals import MEMBERS
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA
 from stage_native_room import checksum
+from game_input import archive_identity, read_members
 
 
 def prepare(oracle, archive_path, output, death=False, source_root=None):
@@ -27,16 +27,9 @@ def prepare(oracle, archive_path, output, death=False, source_root=None):
         raise ValueError("Source default-profile identity changed")
     if len(bank["animations"]) != 24 or len(bank["bangs"]) != 3:
         raise ValueError("Unexpected bounded source closure")
-    members = {}
-    with zipfile.ZipFile(archive_path) as archive:
-        if archive_path.stat().st_size != 883881658:
-            raise ValueError("Private Linux archive length changed")
-        for name in ("Celeste.exe", "FNA.dll", "mscorlib.dll", "Content/Graphics/Sprites.xml",
-                     "Content/Graphics/Atlases/Gameplay.meta", "Content/Graphics/Atlases/Gameplay0.data"):
-            data = archive.read(name)
-            if hashlib.sha256(data).hexdigest() != MEMBERS[name]:
-                raise ValueError("Pinned private member changed: " + name)
-            members[name] = data
+    names = ("Celeste.exe", "FNA.dll", "mscorlib.dll", "Content/Graphics/Sprites.xml",
+             "Content/Graphics/Atlases/Gameplay.meta", "Content/Graphics/Atlases/Gameplay0.data")
+    members = read_members(archive_path, {name: MEMBERS[name] for name in names})
     metadata = atlas_metadata(members["Content/Graphics/Atlases/Gameplay.meta"])
     if death:
         bank = extend_death_bank(bank, members["Content/Graphics/Sprites.xml"], metadata)
@@ -71,9 +64,7 @@ def prepare(oracle, archive_path, output, death=False, source_root=None):
               "alpha_counts": dict(Counter(alpha for rgba in decoded.values() for alpha in rgba[3::4])),
               "crop_sha256": {name: hashlib.sha256(rgba).hexdigest() for name, rgba in decoded.items()},
               "layout": layout,
-              "archive": {"path": str(archive_path), "bytes": 883881658,
-                          "sha256": "a613430411dbef3c0c45a0474f90f4845122964c7d177d69e88965bcb84741bf",
-                          "hash_source": "Accepted archive identity; every used member independently re-read and hashed here"}}
+               "archive": archive_identity(archive_path)}
     (output / "provenance.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 
