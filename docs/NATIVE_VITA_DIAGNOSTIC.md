@@ -349,6 +349,28 @@ fails because it cannot satisfy the required fresh export. The normal interactiv
 profile instead claims the fresh per-run namespace described above; it never
 uses an older pair as a successful capture.
 
+Normal interactive logging owns a separate non-standard `FILE*`, opened in append
+mode only after the exclusive run claim. Bootstrap/calibration, asset-ready,
+input, capture, metrics and fatal lines all use that same stream, with checked
+format/newline/flush and a checked single close. It never redirects or closes
+global `stderr`. On the inspected VitaSDK newlib build, the first ordinary asset
+`fopen` can reinitialize global `stderr` after a `freopen` redirect; checked writes
+can then succeed on the wrong destination. The owned-stream repair is covered by
+a host global-reset test double and real asset-stdio churn, not yet by a new
+physical/Vita3K run. Fatal log/close errors still reach the independent SCE
+failure receipt, including operation/path context. Legacy profiles keep their
+existing checked `stderr` and completion contracts.
+If that independent receipt also fails, the caller reports the complete composed
+error through checked, non-recursive default-stderr emergency output before
+returning status 2. If the emergency output fails too, the full-context exception
+propagates and execution stops instead of claiming the report succeeded.
+
+Readiness is event-driven, not a heartbeat: the initial `.ready` can remain
+`pending` at frame 0 if no later input/death/reset/dash-done signal occurs, even
+after a fresh capture at frame 36 and many periodic log summaries. That is not a
+logging or simulation failure. The owned-stream repair does not change readiness
+format, frequency, input or gameplay.
+
 Legacy/scripted guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
 completion receipt with `frame_saved`, dimensions, revision, render stage and
 actual initial Player state. This receipt remains available independently of a

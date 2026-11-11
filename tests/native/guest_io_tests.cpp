@@ -3,6 +3,7 @@
 #include "normal_outputs.hpp"
 #include "capture_policy.hpp"
 #include "lifecycle_fixture.hpp"
+#include "guest_file_fixture.hpp"
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -16,36 +17,7 @@
 using namespace celeste::diagnostic;
 
 namespace {
-struct StoredFile { std::string data; };
-struct OpenFile { std::string path; std::string data; };
-
-std::map<std::string,StoredFile> stored;
-std::map<SceUID,OpenFile> open_files;
-int next_fd = 10;
-int stat_error = 0;
-std::string stat_fail_path,race_path;
-int write_error = 0;
-int close_error = 0;
-int open_error = 0;
-unsigned fail_open = 0;
-unsigned opens = 0, closes = 0, stats = 0;
-int last_open_flags = 0;
-
-void reset() {
-    stored.clear();
-    open_files.clear();
-    next_fd = 10;
-    stat_error = 0;
-    stat_fail_path.clear();race_path.clear();
-    write_error = 0;
-    close_error = 0;
-    open_error = 0;
-    fail_open = 0;
-    opens = closes = stats = 0;
-    last_open_flags = 0;
-}
-
-constexpr int error(int code) { return static_cast<int>(0x80010000u | static_cast<unsigned>(code)); }
+using namespace guest_test;
 
 void expect(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
 template<class F> void rejects(F action, const std::string& text) {
@@ -265,42 +237,6 @@ void sweep_formats_are_strict_parameterized() {
     }
 }
 #include "normal_outputs_cases.hpp"
-}
-
-extern "C" int sceIoGetstat(const char* path, SceIoStat*) {
-    ++stats;
-    if (stat_error && (stat_fail_path.empty() || stat_fail_path==path)) return stat_error;
-    return stored.find(path) == stored.end() ? error(2) : 0;
-}
-
-extern "C" SceUID sceIoOpen(const char* path, int flags, SceMode) {
-    ++opens;
-    last_open_flags = flags;
-    if(race_path==path) stored[path]={"racing-writer-bytes"};
-    if(open_error && opens==fail_open) return open_error;
-    const auto found = stored.find(path);
-    if ((flags & SCE_O_EXCL) && found != stored.end()) return error(17);
-    if (!(flags & SCE_O_CREAT) && found == stored.end()) return error(2);
-    const int fd = next_fd++;
-    open_files[fd] = {path,(flags & SCE_O_TRUNC) || found == stored.end() ? "" : found->second.data};
-    return fd;
-}
-
-extern "C" int sceIoClose(SceUID fd) {
-    ++closes;
-    const auto found = open_files.find(fd);
-    if (found == open_files.end()) return error(9);
-    stored[found->second.path] = {found->second.data};
-    open_files.erase(found);
-    return close_error;
-}
-
-extern "C" SceSSize sceIoWrite(SceUID fd, const void* buffer, SceSize size) {
-    const auto found = open_files.find(fd);
-    if (found == open_files.end()) return error(9);
-    const auto bytes = static_cast<const char*>(buffer);
-    found->second.data.append(bytes,size);
-    return write_error ? static_cast<SceSSize>(size)-write_error : static_cast<SceSSize>(size);
 }
 
 int main() {

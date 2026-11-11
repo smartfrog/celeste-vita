@@ -7,6 +7,7 @@
 #include "capture_policy.hpp"
 #include "normal_outputs.hpp"
 #include "platform_diagnostics.hpp"
+#include "app_log.hpp"
 #ifdef CELESTE_ROOM_DASH_PROBE
 #include "guest_dash_probe_observer.hpp"
 #endif
@@ -48,19 +49,24 @@ static_assert(guest_automatic!=nullptr,"Automatic guest build requires matching 
 #else
 static_assert(guest_automatic==nullptr,"Production or legacy build cannot use automatic guest staging");
 #endif
-const char* log_path = "ux0:data/celeste_native_room.log";
+constexpr const char* log_path = "ux0:data/celeste_native_room.log";
 NormalOutputPaths normal_outputs;
 bool normal_ready_written=false,normal_capture_closed=false;
 FrameMetrics frame_metrics;
 bool measuring_frame=false;
+FILE* normal_log=nullptr;
 void log(const char* format, ...) {
     const bool measured=normal_initial_respawn_profile && measuring_frame;
     const auto begin=measured ? process_now_us() : 0;
+    auto* stream=normal_initial_respawn_profile ? normal_log : stderr;
+    if constexpr(normal_initial_respawn_profile)
+        if(!stream) throw std::runtime_error("Normal app log is not open: "+normal_outputs.log);
     va_list args;
     va_start(args, format);
-    const auto result = std::vfprintf(stderr, format, args);
+    const auto result = std::vfprintf(stream, format, args);
     va_end(args);
-    if (result < 0 || std::fputc('\n', stderr) == EOF || std::fflush(stderr))
+    if constexpr(normal_initial_respawn_profile) finish_app_log_line(stream,normal_outputs.log.c_str(),result);
+    else if (result < 0 || std::fputc('\n', stderr) == EOF || std::fflush(stderr))
         throw std::runtime_error("Guest log write/flush failed");
     if(measured) frame_metrics.log_success(begin,process_now_us());
 }
@@ -450,25 +456,64 @@ void run() {
     log("%s",automatic_completion.c_str());
 #endif
 }
+int finish_normal_log(std::string failure) {
+    measuring_frame=false;
+    int status=failure.empty() ? 0 : 1;
+    if(!failure.empty() && normal_log) {
+        try {log("FATAL: %s",failure.c_str());}
+        catch(const std::exception& error) {failure+="; fatal log also failed: "+std::string(error.what());status=2;}
+    }
+    try {close_app_log(normal_log,normal_outputs.log.c_str());}
+    catch(const std::exception& error) {
+        if(!failure.empty()) failure+="; ";
+        failure+=error.what();status=2;
+    }
+    if(!failure.empty()) {
+        try {
+            write_guest_file(normal_outputs.failure.c_str(),normal_outputs.record("FATAL",normal_capture_closed ? "fresh_closed" : "failed")+"cause="+failure+"\n",SCE_O_EXCL);
+            signal("failed",0);
+        } catch(const std::exception& error) {
+            throw std::runtime_error(failure+"; independent failure receipt also failed: "+error.what());
+        }
+    }
+    return status;
+}
+int normal_application() {
+    try {
+        normal_outputs=claim_normal_outputs(revision,sceKernelGetProcessTimeWide());
+    } catch(const std::exception& error) {
+        if(std::fprintf(stderr,"Normal output startup failed: %s\n",error.what())<0 || std::fflush(stderr)) return 2;
+        return 1;
+    }
+    std::string failure;
+    try {
+        normal_log=open_app_log(normal_outputs.log.c_str());
+        run();
+    } catch(const std::exception& error) {failure=error.what();}
+    try {return finish_normal_log(failure);}
+    catch(const std::exception& error) {
+        close_app_log(normal_log,normal_outputs.log.c_str());
+        const std::string failure=error.what();
+        auto* emergency=stderr;
+        if(!emergency) throw std::runtime_error(failure+"; emergency stderr is unavailable");
+        if(std::fprintf(emergency,"EMERGENCY: %s",failure.c_str())<0)
+            throw std::runtime_error(failure+"; emergency stderr format failed");
+        if(std::fputc('\n',emergency)==EOF)
+            throw std::runtime_error(failure+"; emergency stderr newline failed");
+        if(std::fflush(emergency)) throw std::runtime_error(failure+"; emergency stderr flush failed");
+        return 2;
+    }
+}
 }
 int main() {
     if constexpr(normal_initial_respawn_profile) {
-        try {
-            normal_outputs=claim_normal_outputs(revision,sceKernelGetProcessTimeWide());
-            log_path=normal_outputs.log.c_str();
-        } catch(const std::exception& error) {
-            std::fprintf(stderr,"Normal output startup failed: %s\n",error.what());
-            sceKernelExitProcess(1);return 1;
-        }
+        const int status=normal_application();
+        sceKernelExitProcess(status);return status;
     }
-    if constexpr(!normal_initial_respawn_profile) {
     FILE* initial = std::fopen(log_path,"w");
     if (!initial) { sceKernelExitProcess(1); return 1; }
     if (std::fclose(initial) || !std::freopen(log_path,"w",stderr) || std::setvbuf(stderr,nullptr,_IONBF,0)) {
         sceKernelExitProcess(1); return 1;
-    }
-    } else if(!std::freopen(log_path,"a",stderr) || std::setvbuf(stderr,nullptr,_IONBF,0)) {
-        sceKernelExitProcess(1);return 1;
     }
     int status = 0;
     try { run(); }
@@ -480,7 +525,7 @@ int main() {
 #ifdef CELESTE_ROOM_DASH_PROBE
                 dash_probe_receipt_path("failure",revision);
 #else
-                normal_initial_respawn_profile ? normal_outputs.failure : std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
+                std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
 #endif
             if (celeste::diagnostic::guest_file_exists(failure_path.c_str())) {
                 if (std::fprintf(stderr,"Failure receipt preserved: %s; original: %s\n",failure_path.c_str(),error.what()) < 0 || std::fflush(stderr))
@@ -490,7 +535,6 @@ int main() {
 #ifdef CELESTE_ROOM_DASH_PROBE
                     dash_failure_record(error.what()),
 #else
-                    normal_initial_respawn_profile ? normal_outputs.record("FATAL",normal_capture_closed ? "fresh_closed" : "failed")+"cause="+error.what()+"\n" :
                     std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",
 #endif
                     SCE_O_EXCL);
