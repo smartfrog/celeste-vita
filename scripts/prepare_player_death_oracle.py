@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from prepare_player_presentation_oracle import source_block
 from read_player_death_sources import SOURCE_PINS, EXTRA_PINS, PRESENTATION_PINS, ILSPY_SHA
 from prepare_room_visuals import MEMBERS
@@ -147,7 +148,7 @@ def prepare(source, output, probe_load_level=False):
     constants = "DEATH_SOURCE_GATE" + (";PROBE_LOAD_LEVEL" if probe_load_level else "")
     (output / "Oracle.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><UseAppHost>false</UseAppHost><AllowUnsafeBlocks>true</AllowUnsafeBlocks><DefineConstants>' + constants + '</DefineConstants><NuGetAudit>false</NuGetAudit></PropertyGroup></Project>')
     (output / "NuGet.Config").write_text('<configuration><packageSources><clear/></packageSources></configuration>')
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
     for args, log in ((["--version"], "sdk.log"), (["--list-runtimes"], "runtime.log"),
                       (["restore", output / "Oracle.csproj", "--configfile", output / "NuGet.Config"], "restore.log"),

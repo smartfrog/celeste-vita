@@ -11,6 +11,7 @@ import sys
 
 sys.dont_write_bytecode = True
 from compare_native_traces import compare
+from native_oracle_sdk import sdk_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,7 +96,7 @@ def main():
         field_count = len(FIELDS)
     else:
         compare_domain, field_count = compare, 16
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     if not sdk.is_file():
         parser.error("Private SDK missing; run scripts/bootstrap_native_oracle.py first")
     evidence = private / "verification"

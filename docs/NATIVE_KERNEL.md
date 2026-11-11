@@ -116,23 +116,29 @@ python3 scripts/bootstrap_native_oracle.py
 python3 scripts/check_native_oracle.py --native .audit/native-kernel-host/native_trace_runner
 ```
 
-Bootstrap downloads official SDK **8.0.425 linux-arm64** (212188361 bytes), paired
+Bootstrap downloads the official SDK **8.0.425** for the current Linux host:
+linux-x64 (216833108 bytes) or legacy linux-arm64 (212188361 bytes), paired
 with runtime **8.0.31**, using Microsoft's published release metadata URL and
-SHA512. All downloads/extraction stay in `.audit/native-oracle/tools`; there
-is no PATH/profile/global install or change to the shared Cloudpunk runtime.
-The check invokes that exact SDK, disables telemetry, uses private CLI/cache
-directories, clears NuGet sources, and restores/builds package-free net8.0
-offline. Once bootstrapped, checks need no network. All original C#, binaries,
-reference build artifacts and traces remain ignored under `.audit`.
+SHA512. Each host artifact is pinned independently. On x64 the bootstrap
+metadata, receipt, CLI home and NuGet cache live under
+`.audit/native-oracle/tools/bootstrap-linux-x64`; the ARM layout remains at the
+tools root. All downloads/extraction stay in `.audit/native-oracle/tools`;
+there is no PATH/profile/global install or change to the shared Cloudpunk
+runtime. The check invokes the exact host SDK,
+disables telemetry, uses private CLI/cache directories, clears NuGet sources,
+and restores/builds package-free net8.0 offline. Once bootstrapped, checks need
+no network. All original C#, binaries, reference build artifacts and traces
+remain ignored under `.audit`.
 
 Metadata reads are capped at 2 MiB. Both streamed downloads and existing SDK
-archives must be exactly 212188361 bytes and match the pinned published SHA512;
-a changed metadata hash fails explicitly. Oversized/short downloads fail before
-extraction or SDK execution. Only a uniquely owned unverified partial is cleaned
-on failure; existing caches and unrelated files are not deleted. Regression
-tests mock network/extraction/execution, use tiny archives for filesystem
-checks, and simulate the oversized 230686720-byte response without allocating
-or writing it. The SDK is not downloaded by tests.
+archives must be exactly the pinned host artifact's byte count and match its
+pinned published SHA512; a changed metadata hash fails explicitly.
+Oversized/short downloads fail before extraction or SDK execution. Only a
+uniquely owned unverified partial is cleaned on failure; existing caches and
+unrelated files are not deleted. Regression tests mock
+network/extraction/execution, use tiny archives for filesystem checks, and
+simulate the oversized 230686720-byte response without allocating or writing
+it. The SDK is not downloaded by tests.
 
 `tests/native/movement.fixtures` defines the same operations for both runners.
 Each TSV row carries case/step/event/return value, position/remainder bits,

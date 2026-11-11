@@ -9,7 +9,8 @@ import re
 import subprocess
 import zipfile
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from native_room_revision import source_state
 from native_room_textures import atlas_metadata
 from prepare_player_death_oracle import prepare
@@ -33,7 +34,7 @@ def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs
 
 
 def compile_project(output, identity, before, execution=None):
-    sdk = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+    sdk = sdk_path(ROOT)
     commands = []
     actions = [(['restore', output / 'Oracle.csproj', '--configfile', output / 'NuGet.Config'], 'restore.log'),
         (['build', output / 'Oracle.csproj', '--no-restore', '-c', 'Release', '-p:UseSharedCompilation=false', '--disable-build-servers'], 'build.log')]
@@ -56,7 +57,7 @@ def compile_project(output, identity, before, execution=None):
 
 
 def native_abi_audit(output):
-    sdk = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+    sdk = sdk_path(ROOT)
     generated = output / 'bin/Release/net8.0/Oracle.dll'
     report = output / 'native-abi-identity.json'
     command = [str(sdk), str(generated), 'native-abi-metadata-audit', str(generated), str(report),
@@ -269,21 +270,21 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.SFX.cs': [(1590, 1595)],
         'Celeste.Audio.cs': [(66, 66), (68, 68), (132, 161), (265, 274), (291, 308), (389, 395), (397, 404), (406, 420), (422, 441), (579, 585), (596, 617), (619, 638), (640, 647), (648, 662)],
         'FMOD.Studio.HandleBase.cs': [(49, 65)],
-        'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (251, 260)],
+        'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (220, 249), (251, 260)],
         'Celeste.PlayerCollider.cs': [(16, 22), (24, 50)],
         'Celeste.Input.cs': [(79, 94), (96, 135), (137, 187), (189, 271), (292, 303), (326, 329), (331, 373)],
         'Celeste.SaveData.cs': [(10, 136), (362, 369), (414, 418)],
         'Celeste.UserIO.cs': [(36, 40), (40, 69)],
         'Monocle.VirtualInput.cs': [(19, 27)],
-        'Monocle.VirtualButton.cs': [(29, 65), (79, 105)],
-        'Monocle.VirtualIntegerAxis.cs': [(40, 49), (100, 103)],
+        'Monocle.VirtualButton.cs': [(29, 65), (67, 77), (79, 105), (107, 146)],
+        'Monocle.VirtualIntegerAxis.cs': [(40, 49), (51, 98), (100, 103)],
         'Monocle.VirtualJoystick.cs': [(41, 41), (45, 69), (235, 238)],
-        'Monocle.Binding.cs': [(30, 76), (224, 260)],
+        'Monocle.Binding.cs': [(30, 76), (204, 260), (262, 279)],
         'Celeste.LedgeBlocker.cs': [(14, 18)],
         'SDL2.SDL.cs': [],
         'Monocle.Engine.cs': [(52, 52), (58, 58), (81, 85), (89, 99)],
-        'Monocle.MInput.cs': [(16, 18), (38, 62), (303, 307), (476, 479), (1353, 1369)],
-        'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(76, 79), (130, 145)],
+        'Monocle.MInput.cs': [(16, 18), (38, 62), (64, 75), (303, 307), (476, 479), (1353, 1369)],
+        'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(37, 54), (76, 79), (130, 145), (147, 177)],
         'Monocle.Tracker.cs': [(10, 143), (162, 165), (185, 193), (212, 215), (235, 285)],
         'Monocle.Tracked.cs': [(9, 12)],
         'Monocle.Calc.cs': [(19, 23), (263, 272), (323, 349), (371, 394), (405, 445), (480, 495), (542, 572),
