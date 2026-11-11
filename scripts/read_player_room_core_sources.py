@@ -16,13 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from binary_map import Reader
 from prepare_static_tilemap import MEMBER, MAP_SHA
-from check_native_oracle import PRIVATE, oracle_environment
+from check_native_oracle import oracle_environment
+from native_oracle_sdk import sdk_path
 from read_player_presentation_sources import ILSPY_SHA, source_type
 from prepare_room_visuals import MEMBERS
 from extract_native_oracle import SOURCE_HASHES
 from prepare_room_visual_oracle import VISUAL_SOURCES
 
-SDK = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+SDK = sdk_path(ROOT)
 TOOL = ROOT / '.audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll'
 INPUTS = ROOT / '.audit/ilspy/inputs'
 SOURCE_PINS = {

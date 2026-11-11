@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 
 from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from native_oracle_sdk import sdk_path
 from compare_loader_traces import compare as compare_loader
 from compare_grid_traces import compare as compare_grid
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA, build_mask, read_mask
@@ -23,7 +24,7 @@ def main():
     if not args.output.resolve().is_relative_to(ROOT / ".audit"):
         parser.error("Private evidence must stay under .audit")
     args.output.mkdir(parents=True, exist_ok=True)
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     oracle = args.oracle / "bin/Release/net8.0/Oracle.dll"
     manifest = json.loads((args.oracle / "source-manifest.json").read_text())
     if manifest["input_sha256"] != INPUT_SHA:

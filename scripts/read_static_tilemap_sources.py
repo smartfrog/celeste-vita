@@ -5,7 +5,8 @@ import hashlib
 import json
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from check_native_oracle import ROOT, oracle_environment
+from native_oracle_sdk import sdk_path
 from extract_native_oracle import INPUT_SHA, SOURCE_HASHES
 
 
@@ -13,7 +14,7 @@ def retain_sources(output, names):
     exe = ROOT / ".audit/ilspy/inputs/Celeste.exe"
     if hashlib.sha256(exe.read_bytes()).hexdigest() != INPUT_SHA:
         raise ValueError("Unexpected private executable hash")
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     ilspy = ROOT / ".audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll"
     output.mkdir(parents=True, exist_ok=True)
     for name in names:

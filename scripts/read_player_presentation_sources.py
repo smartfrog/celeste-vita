@@ -8,7 +8,8 @@ from pathlib import Path
 import subprocess
 import zipfile
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment
+from check_native_oracle import ROOT, oracle_environment
+from native_oracle_sdk import sdk_path
 from prepare_room_visuals import MEMBERS
 
 SOURCE_PINS = {
@@ -56,7 +57,7 @@ def extract(inputs, archive_path, output):
     output = output.resolve()
     if not output.is_relative_to(ROOT / ".audit") or output.exists():
         raise ValueError("Source output must be fresh and private below .audit")
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     tool = ROOT / ".audit/ilspy/tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll"
     if hashlib.sha256(tool.read_bytes()).hexdigest() != ILSPY_SHA:
         raise ValueError("Existing offline ILSpy identity changed")

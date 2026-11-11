@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from compare_dash_traces import fixture_operations, validate_trace
 from check_native_oracle import verify_extraction
+import native_oracle_sdk
 import prepare_dash_oracle
 
 
@@ -81,7 +82,6 @@ class HelperPreparationTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.source = self.root / ".audit/ilspy"
-        self.private = self.root / ".audit/native-oracle"
         self.output = self.root / ".audit/native-dash/closure"
         self.calc = self.root / ".audit/native-wall-jumps/closure/Monocle.Calc.cs"
         self.receipt = self.calc.with_suffix(".preparation.json")
@@ -90,7 +90,7 @@ class HelperPreparationTests(unittest.TestCase):
         self.hashes = {name+".cs": hashlib.sha256(body).hexdigest() for name,body in self.bodies.items()}
         executable = b"synthetic executable"
         self.input_hash = hashlib.sha256(executable).hexdigest()
-        for path,data in ((self.private / "tools/dotnet-8.0.425/dotnet",b""),
+        for path,data in ((native_oracle_sdk.sdk_path(self.root, "Linux", "x86_64"),b""),
                           (self.source / "tools/ilspycmd-9.1.0.7988/tools/net8.0/any/ilspycmd.dll",b""),
                           (self.source / "inputs/Celeste.exe",executable)):
             path.parent.mkdir(parents=True,exist_ok=True)
@@ -112,7 +112,9 @@ class HelperPreparationTests(unittest.TestCase):
                 kwargs["stderr"].write(b"synthetic extraction failure\n")
                 raise failure
 
-        with patch.multiple(prepare_dash_oracle,ROOT=self.root,PRIVATE=self.private,INPUT_SHA=self.input_hash,SOURCE_HASHES=self.hashes), \
+        with patch.object(native_oracle_sdk.platform, "system", return_value="Linux"), \
+             patch.object(native_oracle_sdk.platform, "machine", return_value="x86_64"), \
+             patch.multiple(prepare_dash_oracle,ROOT=self.root,INPUT_SHA=self.input_hash,SOURCE_HASHES=self.hashes), \
              patch.object(prepare_dash_oracle,"oracle_environment",return_value={"SYNTHETIC":"1"}), \
              patch.object(prepare_dash_oracle.subprocess,"run",side_effect=decompile) as run, \
              redirect_stdout(io.StringIO()):

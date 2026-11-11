@@ -181,6 +181,7 @@ def main():
     import subprocess
 
     from check_native_oracle import ROOT, oracle_environment, verify_extraction
+    from native_oracle_sdk import sdk_path
     from native_room_revision import source_state
     from native_room_textures import atlas_metadata
     from prepare_room_visuals import MEMBERS
@@ -216,7 +217,7 @@ def main():
         if completed.returncode:
             raise RuntimeError("Source/native command failed: " + str(output / (label + ".log")))
 
-    sdk = ROOT / ".audit/native-oracle/tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     try:
         identity = verify_extraction(args.oracle)
         manifest = json.loads((args.oracle / "source-manifest.json").read_text())

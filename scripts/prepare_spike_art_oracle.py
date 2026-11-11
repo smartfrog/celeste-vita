@@ -8,7 +8,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from prepare_room_visuals import MEMBERS
 from read_player_presentation_sources import SOURCE_PINS
 from native_room_textures import atlas_metadata
@@ -110,7 +111,7 @@ def prepare(source, hazards, output):
         raise ValueError("Spike oracle consumes the prepared hazards.json")
     output.mkdir(parents=True)
     manifest = compose(source, output)
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
 
     def run(label, argv):

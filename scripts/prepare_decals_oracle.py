@@ -9,7 +9,8 @@ import shutil
 import subprocess
 import zipfile
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from native_room_textures import atlas_metadata
 
 DISCOVERY_PINS = {
@@ -134,7 +135,7 @@ def prepare(discovery, pins, archive, raw_room, corrections, output):
                                   "source": "Celeste.LevelData.cs:113-122 strips the raw prefix; :99-110 sums the runtime Name; source height normalization is not a raw-map field"},
         "note": "room level/bounds are RAW map fields. Decal positions use raw x/y through the unchanged Decal constructor; this is not a runtime LevelData/height-184/seed-478 claim"}
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    sdk = PRIVATE / "tools/dotnet-8.0.425/dotnet"
+    sdk = sdk_path(ROOT)
     commands = []
 
     def run(label, argv):
