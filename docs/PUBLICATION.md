@@ -62,12 +62,26 @@ Keep these local:
 - Decompiled sources, extracted method bodies and generated reference assemblies.
 - Converted maps, textures, animation banks, placement data and other game-derived
   outputs, even if their format differs from the original.
-- Diagnostic VPKs containing those assets, screenshots/captures and private logs.
+- Diagnostic VPKs containing those assets, private logs and captures other than
+  the reviewed README images below.
 - All project memory, snapshots and database sidecars.
 
 The existing `/game/` and `/.audit/` ignore rules, plus the memory/build ignore
 rules, reduce accidental additions. **Ignore rules do not protect already tracked
 files**, nor prevent forced additions. Inspect the index before any future commit.
+
+### Reviewed README media exception
+
+The owner approved only the two presentation images documented in
+[media provenance and attribution](images/README.md): the generated fan-art logo
+and the unchanged historical Vita3K frame. These are documentation media, not
+runtime assets. The checker pins their exact paths and SHA-256 hashes across
+candidate files, the index and reachable history; other captures and changed
+image bytes remain blocked, and secret detection still applies to approved media.
+
+This exception does not permit publishing `.audit/`, private logs, raw game art,
+textures, sprites, maps, VPKs or memory. It does not grant copyright or trademark
+clearance, authorize additional images or change the repository's visibility.
 
 ## Licensing and attribution
 

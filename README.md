@@ -1,9 +1,22 @@
+<p align="center">
+  <img src="docs/images/celeste-vita-logo.png" alt="Unofficial Celeste Vita fan-art logo featuring Madeline" width="720">
+</p>
+
 # Celeste Vita
 
 Experimental native C++ port of a **bounded Celeste PC 1.4.0.0 diagnostic** to
 PlayStation Vita. This is **not the complete game**. No original game assets,
 assemblies or decompiled implementation files belong in the public repository.
 You must supply your own legally obtained compatible game files.
+
+## Historical Vita3K preview
+
+![Historical first-room diagnostic rendered in Vita3K](docs/images/vita3k-first-room-historical.png)
+
+Historical native framebuffer capture from diagnostic revision `702e7f2`,
+rendered in Vita3K. This is **not the current build** or a physical Vita screenshot;
+it does not establish hardware performance or full-game compatibility.
+See [media provenance and attribution](docs/images/README.md).
 
 ## License and original game ownership
 

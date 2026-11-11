@@ -2,6 +2,7 @@
 """Check candidate files and optionally reachable Git history without exposing secret values."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -10,6 +11,10 @@ import subprocess
 PRIVATE_PREFIXES = ("game/", ".audit/", ".opencode/memory/")
 PAYLOAD_SUFFIXES = {".exe", ".dll", ".zip", ".pkg", ".vpk", ".bank", ".ogg", ".rgba", ".mask", ".data", ".db"}
 SECRET = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}")
+REVIEWED_MEDIA = {
+    "docs/images/celeste-vita-logo.png": "2828604412478686feec5687deec012006743f933c0bcca245c007504b88f517",
+    "docs/images/vita3k-first-room-historical.png": "3b60a3c05b2427e669fae5259935c8d6d38fc053b2cdbdeef438a660f2d9d34c",
+}
 
 
 def git(root, *arguments, input=None):
@@ -27,9 +32,13 @@ def path_findings(name):
     return []
 
 
-def content_findings(data):
+def content_findings(data, name=""):
     findings = []
-    if data.startswith((b"MZ", b"\x7fELF", b"\x89PNG\r\n\x1a\n", b"OggS", b"SQLite format 3\0")) or b"\0" in data:
+    expected_hash = REVIEWED_MEDIA.get(name)
+    reviewed = expected_hash is not None and hashlib.sha256(data).hexdigest() == expected_hash
+    if expected_hash is not None and not reviewed:
+        findings.append("reviewed documentation media hash mismatch")
+    if not reviewed and (data.startswith((b"MZ", b"\x7fELF", b"\x89PNG\r\n\x1a\n", b"OggS", b"SQLite format 3\0")) or b"\0" in data):
         findings.append("binary payload requires provenance review")
     if SECRET.search(data):
         findings.append("possible secret; value redacted")
@@ -59,9 +68,9 @@ def check_blobs(root, objects, scope, record):
             if header[:2] != [oid.encode(), b"blob"]:
                 raise ValueError("Unexpected Git object response")
             size = int(header[2])
-            reasons = content_findings(batch[end + 1:end + 1 + size])
+            data = batch[end + 1:end + 1 + size]
             for name in objects[oid]:
-                record(scope, name, reasons)
+                record(scope, name, content_findings(data, name))
             offset = end + size + 2
     return len(selected)
 
@@ -83,7 +92,7 @@ def audit(root, history=False):
             elif path.stat().st_size > 4 * 1024 * 1024:
                 reasons = ["large candidate requires manual provenance review"]
             else:
-                reasons = content_findings(path.read_bytes())
+                reasons = content_findings(path.read_bytes(), name)
         record("candidate", name, reasons)
     indexed = {}
     for row in git(root, "ls-files", "--stage", "-z").decode().split("\0"):
