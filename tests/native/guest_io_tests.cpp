@@ -1,5 +1,8 @@
 #include "guest_io.hpp"
 #include "guest_dash_probe_diagnostic.hpp"
+#include "normal_outputs.hpp"
+#include "capture_policy.hpp"
+#include "lifecycle_fixture.hpp"
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -20,9 +23,12 @@ std::map<std::string,StoredFile> stored;
 std::map<SceUID,OpenFile> open_files;
 int next_fd = 10;
 int stat_error = 0;
+std::string stat_fail_path,race_path;
 int write_error = 0;
 int close_error = 0;
-unsigned opens = 0, closes = 0;
+int open_error = 0;
+unsigned fail_open = 0;
+unsigned opens = 0, closes = 0, stats = 0;
 int last_open_flags = 0;
 
 void reset() {
@@ -30,9 +36,12 @@ void reset() {
     open_files.clear();
     next_fd = 10;
     stat_error = 0;
+    stat_fail_path.clear();race_path.clear();
     write_error = 0;
     close_error = 0;
-    opens = closes = 0;
+    open_error = 0;
+    fail_open = 0;
+    opens = closes = stats = 0;
     last_open_flags = 0;
 }
 
@@ -255,16 +264,20 @@ void sweep_formats_are_strict_parameterized() {
         expect(opens==0,"Wrong RGB/RGBA byte formats must fail before opening outputs");
     }
 }
+#include "normal_outputs_cases.hpp"
 }
 
 extern "C" int sceIoGetstat(const char* path, SceIoStat*) {
-    if (stat_error) return stat_error;
+    ++stats;
+    if (stat_error && (stat_fail_path.empty() || stat_fail_path==path)) return stat_error;
     return stored.find(path) == stored.end() ? error(2) : 0;
 }
 
 extern "C" SceUID sceIoOpen(const char* path, int flags, SceMode) {
     ++opens;
     last_open_flags = flags;
+    if(race_path==path) stored[path]={"racing-writer-bytes"};
+    if(open_error && opens==fail_open) return open_error;
     const auto found = stored.find(path);
     if ((flags & SCE_O_EXCL) && found != stored.end()) return error(17);
     if (!(flags & SCE_O_CREAT) && found == stored.end()) return error(2);
@@ -299,10 +312,14 @@ int main() {
           partial_write_is_reported_after_close, close_failure_is_reported,
           diagnostic_bytes_and_all_expected_and_mirrored_channels_are_reported,diagnostic_write_failures_are_fatal_parameterized,
           invalid_diagnostic_size_is_rejected_before_open,sentinel_pair_classification_parameterized,
-          sweep_exports_exactly_three_distinct_untouched_raw_artifacts,all_sweep_raw_io_failures_preserve_prior_files_parameterized,sweep_formats_are_strict_parameterized}) {
+          sweep_exports_exactly_three_distinct_untouched_raw_artifacts,all_sweep_raw_io_failures_preserve_prior_files_parameterized,sweep_formats_are_strict_parameterized,
+          legacy_collision_composes_to_strict_capture_failure,two_launches_preserve_all_prior_outputs,
+          normal_orphan_collisions_parameterized,normal_namespace_exhaustion,normal_stat_failure_parameterized,
+          normal_claim_failures_parameterized,normal_wrong_binding_parameterized,normal_invalid_inputs_parameterized,
+          full_revision_does_not_expand_normal_filenames,normal_receipt_binding_corruption_parameterized}) {
         try { test(); }
         catch (const std::exception& error) { std::cerr << error.what() << '\n'; ++failed; }
     }
-    std::cout << "guest io cases=17 failed=" << failed << "; synthetic diagnostic bytes are not GPU proof\n";
+    std::cout << "guest io cases=27 failed=" << failed << "; synthetic diagnostic bytes are not GPU proof\n";
     return failed ? 1 : 0;
 }

@@ -4,6 +4,7 @@
 #include "guest_io.hpp"
 #include "asset_pins.hpp"
 #include "capture_policy.hpp"
+#include "normal_outputs.hpp"
 #include "trail_target.hpp"
 #ifdef CELESTE_ROOM_DASH_PROBE
 #include "guest_dash_probe_diagnostic.hpp"
@@ -137,7 +138,8 @@ void decal_layer(const DecalAssets& decals, bool background) {
     glEnd();
 }
 #endif
-std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
+std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals,const NormalOutputPaths* normal_outputs) {
+    if(normal_outputs) normal_outputs->validate_capture(path,revision);
     const auto* lifecycle=animated ? animated->lifecycle : nullptr;
     if(room_capture_policy==CapturePolicy::initial_respawn && (!lifecycle || !initial_respawn_ready(*lifecycle,frame,resets,false)))
         throw std::runtime_error("Initial respawn export requires the live initial Normal Player without a wipe");
@@ -207,7 +209,8 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         (decal_art ? " static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7 decal_art=source_static_decal_cut decal_page_bytes=32768" : "")+
         " submitted_rgba_bytes="+std::to_string(visuals ? room_rgba_bytes(*visuals,decals)+player_uploaded*128*64*4 : 0)+
         " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(animated ? "source_animated_with_simulated_hair" : visuals ? "idle00_static_no_animation" : "hitboxes")+
-        presentation+lifecycle_receipt+" "+trail_probe_receipt+probe_identity+" format=P6_RGB_top_down\n";
+        presentation+lifecycle_receipt+" "+trail_probe_receipt+probe_identity+
+        (normal_outputs ? " "+normal_outputs->capture_identity() : "")+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
     return receipt;
 }
@@ -270,7 +273,9 @@ void load_decal_textures(const DecalAssets& decals) {
     throw std::logic_error("Static decals require the CELESTE_ROOM_DECALS build intent");
 #endif
 }
-std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
+std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals,const NormalOutputPaths* normal_outputs) {
+    if(normal_outputs && !normal_initial_respawn_profile) throw std::invalid_argument("Per-run outputs require the normal initial-respawn profile");
+    if(export_path && normal_initial_respawn_profile && !normal_outputs) throw std::invalid_argument("Normal export requires claimed per-run output binding");
     if(animated && !visuals) throw std::invalid_argument("Animated player requires source-baked room layers");
     auto* trails=animated ? (animated->trails ? animated->trails : animated->lifecycle ? &animated->lifecycle->trails() : nullptr) : nullptr;
     if(trails) trail_target.capture(*trails,animated->presentation,animated->projection,
@@ -358,7 +363,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
         glEnd();
     }
     check("room draw");
-    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated,decals) : std::string{};
+    const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated,decals,normal_outputs) : std::string{};
     vglSwapBuffers(GL_FALSE);
     check("buffer swap");
     return exported;

@@ -140,6 +140,32 @@ Triangle performs the diagnostic manual reset, Start exits. Normal death/respawn
 uses the bounded native lifecycle when animated-player mode is enabled. It is
 not a claim of complete original-game lifecycle parity.
 
+The normal interactive `initial_respawn` profile claims a fresh output namespace
+before opening its log. Files share the prefix
+`ux0:data/celeste_native_room-run-<16-hex-process-token>-<2-hex-candidate>`:
+`.log`, `.ready`, `.ppm`, `.ppm.txt`, and `-failure.txt` on failure. The token is
+an opaque run identifier, not elapsed time or game RNG. Up to 32 candidates are
+checked across all five destinations; occupied candidates are preserved and
+skipped. A racing exclusive claim or other IO error is fatal. Partial claims
+remain for recovery; do not delete old files to make a repeated launch work.
+This profile never writes the legacy fixed log/readiness paths. The claim,
+readiness, capture sidecar and failure records bind the run ID and full source
+revision; an older image cannot satisfy the required fresh initial-respawn export.
+
+This is an **instrumented diagnostic**, not a performance benchmark. Before any
+graphics, session, player or input construction, clock calibration requests
+three 100 ms waits and one 1 s wait (about 1.3 s, plus scheduler overshoot).
+There are no calibration waits after gameplay starts. Successful calibration
+checks blocked elapsed time against a separate RTC API; it does not establish
+independent hardware accuracy, suspend behavior or clock-read overhead.
+Fixed-storage duration summaries are emitted every 300 sampled frames and on
+Start. They cover loop intervals, step calls, rendering including swap/capture,
+and successful in-loop log calls. Capture and summary frames remain in measured
+totals but are excluded from the separately labeled steady series. No GPU-time,
+full-session FPS, uninstrumented-performance or hardware-performance claim is made.
+Guest automatic/replay, Dash-probe and explicit legacy capture profiles keep
+their existing output and completion contracts.
+
 Vita3K may be used with an independently provisioned installation. There is no
 portable one-command emulator launch in this recipe. Older `feedback_native_room.py`
 and smoke-launcher documentation describes historical development environments;

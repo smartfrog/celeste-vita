@@ -47,7 +47,76 @@ Both buffered buttons update during the bounded Dash freeze; its crossing tick
 still skips simulation. No wall-clock catch-up, full Engine/GameTime conversion
 parity or lifecycle rendering is claimed.
 `vglWaitVblankStart(GL_TRUE)` enables vsync once; frames use
-`vglSwapBuffers(GL_FALSE)`. Any observed FPS is an emulator diagnostic measurement.
+`vglSwapBuffers(GL_FALSE)`. That argument is `has_commondialog`, not a vsync
+disable switch. The normal profile reports instrumented durations, not FPS.
+
+### Repeatable normal interactive runs
+
+Only the interactive animated-player default `initial_respawn` profile uses
+per-run files. Guest automatic, guest replay, Dash probe, spawn, explicit
+WallJump and Climb retain their existing contracts. Before any truncating/opening
+operation, the normal path checks log, readiness, PPM, sidecar and failure
+destinations together, then exclusively writes a closed log claim. A short opaque
+process-clock token plus a candidate suffix creates the prefix
+`ux0:data/celeste_native_room-run-<16hex>-<2hex>`. The suffix is bounded to 32
+candidates. Files end in `.log`, `.ready`, `.ppm`, `.ppm.txt`, `-failure.txt`;
+there is no new normal completion file. No normal run writes
+`celeste_native_room.log` or `celeste_native_room.ready`. Full source revision,
+run ID, capture outcome and `instrumented=1` are recorded together. Repeated clock
+tokens and orphan/partial outputs occupy a candidate; they are never reused or
+removed. Stat errors, racing claims, failed writes/closes and namespace exhaustion
+are fatal, retaining partial files and all earlier runs. A destination occupied
+after claim is fatal rather than waiving the strict fresh-export requirement.
+
+### Clock calibration and passive metrics
+
+The installed VitaSDK newlib mapping uses `sceKernelGetProcessTimeWide` for
+`CLOCK_MONOTONIC`, converting microseconds to seconds/nanoseconds. This is not a
+CPU-clock inference from its name. The normal run checks 64 consecutive reads
+for regression and reports the maximum adjacent read gap, **not** guaranteed
+read-call overhead. After the namespace/log claim and before graphics, session,
+player, controls or gameplay RNG construction, calibration requests
+`sceKernelDelayThread` waits of 100000, 100000, 100000 and 1000000 microseconds.
+Startup therefore adds roughly 1.3 s; scheduler overshoot is allowed without an
+upper target-duration bound. There are no waits in gameplay.
+
+Each endpoint brackets checked UTC `sceRtcGetCurrentClock` / `sceRtcGetTime_t`
+conversion between process-clock reads. Nonnegative seconds, microseconds below
+1000000, overflow, nondecreasing clocks and brackets at most 1000 us are required.
+RTC elapsed must lie inside `[P1_lo-P0_hi, P1_hi-P0_lo]`, allowing an explicitly
+chosen `floor(RTC_elapsed/100)+2 us` tolerance. Process lower-bound and RTC elapsed
+must also reach `requested-floor(requested/100)-2 us`. This 1%+2 us policy is a
+diagnostic criterion, not a hardware accuracy specification. A single bounded
+record binds criteria, all endpoints/deltas, run ID, revision and result.
+Calibration/API/IO failure aborts through the normal fatal path before gameplay.
+`blocked_elapsed_check=passed suspend_validated=0 hardware_perf_proof=0` means
+only that check passed; the RTC is a separate API, not independent hardware proof,
+and its microsecond representation does not prove physical microsecond resolution.
+
+Metrics reanchor after startup. Fixed-storage unsigned-64 counters retain counts,
+sums, maximum duration and its earliest zero-based **sample-frame index**. The
+microsecond buckets are `<=16667`, `16668..20000`, `20001..33334`,
+`33335..50000`, `50001..100000`, `>100000`; strict threshold counts are `>20000`,
+`>33334`, `>50000`, `>100000`. Loop intervals cover the **prior sample frame**,
+including its capture/summary tags. Step is the session step call; render includes
+the existing swap and any synchronous capture/export; log is the sum of successful
+in-loop formatted-write/newline/flush calls in that frame. Nothing feeds timing
+back into the fixed `1/60` step, input, RNG or renderer ordering. The hot metrics
+path performs no allocations or IO. Every 300 samples and on Start, bounded
+summaries show measured `all_` and separately tagged `steady_` series. Steady
+excludes capture/summary/intercepted samples, not merely long durations.
+The periodic snapshot precedes its own log duration (retained in the next
+summary); startup/teardown and the final summary's own log are outside the sample
+window. Arithmetic overflow, clock regression, excluded samples and invalid
+status are explicit rather than wrapped or silently converted to valid zeroes.
+The existing controller sample's `SCE_CTRL_INTERCEPTED` flag (the SDK's
+`SCE_CTRL_PSBUTTON` alias) excludes the affected frame and reanchors before its
+interval is accepted. Input still follows the unchanged controller path; no
+interception mode is set. No suspension is inferred from gap length. Signals
+that occur entirely between samples may be missed; detection completeness and
+physical suspend behavior remain separately unverified. No full-session FPS,
+GPU execution-time or uninstrumented/hardware
+performance result follows from these records.
 
 The full black 960×544 buffer is cleared before setting viewport `(0,2,960,540)`:
 integer 3× logical 320×180, with two black pixels above/below. Blue-gray quads
@@ -275,10 +344,12 @@ retry on every frame for both spawn and deferred policies. New outputs still use
 `SCE_O_EXCL`; unexpected stat/write errors fail fast instead of being treated as
 missing. An existing failure receipt is likewise preserved without masking the
 primary error, and stale artifacts never satisfy a current-run capture claim.
-The `initial_respawn` policy preserves an existing pair too, but fails because
-that pair cannot satisfy its required fresh export.
+The legacy/scripted `initial_respawn` path preserves an existing pair too, but
+fails because it cannot satisfy the required fresh export. The normal interactive
+profile instead claims the fresh per-run namespace described above; it never
+uses an older pair as a successful capture.
 
-Guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
+Legacy/scripted guest files are `ux0:data/celeste_native_room-<revision>.ppm` and a closed `.ppm.txt`
 completion receipt with `frame_saved`, dimensions, revision, render stage and
 actual initial Player state. This receipt remains available independently of a
 buffered running guest log. Failures emit a closed revision-specific error receipt

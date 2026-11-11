@@ -108,7 +108,8 @@ set_property(TARGET celeste_native_room APPEND PROPERTY LINK_DEPENDS "${CMAKE_CU
 target_link_libraries(celeste_native_room PRIVATE celeste_room_diagnostic
     "${CELESTE_VITAGL_LIBRARY}" vitashark SceShaccCgExt SceShaccCg_stub_weak taihen_stub_weak
     SceCtrl_stub_weak SceDisplay_stub_weak SceGxm_stub_weak SceAppMgr_stub_weak SceSysmodule_stub_weak
-    SceProcessmgr_stub_weak SceKernelDmacMgr_stub_weak SceCommonDialog_stub_weak mathneon m stdc++)
+    SceProcessmgr_stub_weak SceRtc_stub_weak SceKernelThreadMgr_stub_weak
+    SceKernelDmacMgr_stub_weak SceCommonDialog_stub_weak mathneon m stdc++)
 vita_create_self(eboot.bin celeste_native_room)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
 set(binding_expected)

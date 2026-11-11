@@ -40,6 +40,12 @@ inline constexpr auto room_capture_policy=CapturePolicy::dash_trails;
 inline constexpr auto room_capture_policy=select_capture_policy(automatic_session_profile,capture_after_wall_jump,capture_after_climb);
 #endif
 
+#if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
+inline constexpr bool normal_initial_respawn_profile=room_capture_policy==CapturePolicy::initial_respawn;
+#else
+inline constexpr bool normal_initial_respawn_profile=false;
+#endif
+
 inline bool initial_respawn_ready(const FirstRoomSession& life,unsigned frame,unsigned resets,bool reset) {
     const auto& stats=life.stats();
     return frame>0 && !reset && resets==0 && life.player().state_machine().state()==0 && !life.player().death().dead &&

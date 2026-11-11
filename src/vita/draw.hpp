@@ -3,6 +3,7 @@
 #include "lifecycle.hpp"
 
 namespace celeste::diagnostic {
+struct NormalOutputPaths;
 struct TexturedQuad {
     float x, y, width, height, u0, v0, u1, v1;
 };
@@ -24,6 +25,7 @@ void load_textures(const VisualAssets& visuals);
 void load_decal_textures(const DecalAssets& decals);
 void load_player_textures(const PlayerAssets& assets);
 std::string draw(const Room& room, const Player& player, const char* export_path = nullptr, unsigned frame = 0, unsigned resets = 0,
-                 const VisualAssets* visuals = nullptr, PlayerRender* animated = nullptr, const DecalAssets* decals = nullptr);
+                 const VisualAssets* visuals = nullptr, PlayerRender* animated = nullptr, const DecalAssets* decals = nullptr,
+                 const NormalOutputPaths* normal_outputs = nullptr);
 void finish_graphics();
 }

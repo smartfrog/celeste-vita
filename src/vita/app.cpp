@@ -5,6 +5,8 @@
 #include "guest_io.hpp"
 #include "session_profile.hpp"
 #include "capture_policy.hpp"
+#include "normal_outputs.hpp"
+#include "platform_diagnostics.hpp"
 #ifdef CELESTE_ROOM_DASH_PROBE
 #include "guest_dash_probe_observer.hpp"
 #endif
@@ -46,16 +48,42 @@ static_assert(guest_automatic!=nullptr,"Automatic guest build requires matching 
 #else
 static_assert(guest_automatic==nullptr,"Production or legacy build cannot use automatic guest staging");
 #endif
-constexpr const char* log_path = "ux0:data/celeste_native_room.log";
+const char* log_path = "ux0:data/celeste_native_room.log";
+NormalOutputPaths normal_outputs;
+bool normal_ready_written=false,normal_capture_closed=false;
+FrameMetrics frame_metrics;
+bool measuring_frame=false;
 void log(const char* format, ...) {
+    const bool measured=normal_initial_respawn_profile && measuring_frame;
+    const auto begin=measured ? process_now_us() : 0;
     va_list args;
     va_start(args, format);
     const auto result = std::vfprintf(stderr, format, args);
     va_end(args);
     if (result < 0 || std::fputc('\n', stderr) == EOF || std::fflush(stderr))
         throw std::runtime_error("Guest log write/flush failed");
+    if(measured) frame_metrics.log_success(begin,process_now_us());
+}
+void metrics_summary(const char* reason) {
+    const auto summary=frame_metrics.summary(reason,normal_outputs.run_id,revision,process_clock_provenance);
+    log("%.*s",int(summary.size-1),summary.text.data());
+}
+void finish_metrics_frame(std::uint64_t step_begin,std::uint64_t step_end,bool rendered,std::uint64_t render_begin,std::uint64_t render_end,bool exiting) {
+    const bool periodic=frame_metrics.summary_due();
+    if(periodic || exiting) frame_metrics.mark_summary();
+    frame_metrics.record_span(MetricCategory::step,step_begin,step_end);
+    if(rendered) frame_metrics.record_span(MetricCategory::render_including_swap_capture,render_begin,render_end);
+    if(periodic) metrics_summary("periodic");
+    frame_metrics.finish_log();
+    measuring_frame=false;
 }
 void signal(const char* event, unsigned frame) {
+    if constexpr(normal_initial_respawn_profile) {
+        const auto text=normal_outputs.record(event,normal_capture_closed ? "fresh_closed" : "pending")+"frame="+std::to_string(frame)+"\n";
+        write_guest_file(normal_outputs.ready.c_str(),text,normal_ready_written ? SCE_O_TRUNC : SCE_O_EXCL);
+        normal_ready_written=true;
+        return;
+    }
     char text[128];
     const int length = std::snprintf(text,sizeof(text),"%s frame=%u\n",event,frame);
     if (length < 0 || length >= static_cast<int>(sizeof(text))) throw std::runtime_error("Readiness serialization failed");
@@ -72,6 +100,12 @@ void state(const char* event, unsigned frame, const Session& session) {
 }
 void run() {
     log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle jump=Cross dash=Square aim=DPad exit=Start", revision);
+    if constexpr(normal_initial_respawn_profile) {
+        const auto calibration=calibrate_platform_clock();
+        const auto record=calibration_record(normal_outputs,calibration);
+        log("%.*s",int(record.size),record.text.data());
+        log("normal diagnostics run_id=%s revision=%s instrumented=1 metric_frame_index=sample_frame loop_interval_covers=prior_sample_frame render_includes=swap_and_capture log_duration=sum_successful_in_loop_calls steady_excludes=capture_summary_intercept intercept_signal=SCE_CTRL_INTERCEPTED_from_existing_sample detection_completeness_verified=0 startup_teardown_and_final_summary_log_excluded=1 suspend_validated=0 hardware_perf_proof=0",normal_outputs.run_id.c_str(),revision);
+    }
 #if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
     log("input profile=standard_analog center=128 range=0..255 fixture_assumption=true hardware_calibrated=false move=LeftStick/DPad aim=LeftStick/DPad");
 #endif
@@ -157,12 +191,13 @@ void run() {
         log("lifecycle source_first_room automatic_corpse_wipe_reload_respawn14 seed=0 original_startup_rng_parity=false Triangle=manual_diagnostic_restart");
     else log("lifecycle legacy_manual_diagnostic Triangle=fresh_Normal_player automatic_reload=false");
     const auto render=[&](const char* path,unsigned frame) {
+        const auto* outputs=normal_initial_respawn_profile ? &normal_outputs : nullptr;
         const auto projection=session.projection();
         if(player_assets) {
             PlayerRender animated{*player_assets,*session.presentation(),projection,session.lifecycle(),&session.trails()};
-            return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated,decal_assets);
+            return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated,decal_assets,outputs);
         }
-        return draw(room,session.player(),path,frame,session.resets(),visual_assets,nullptr,decal_assets);
+        return draw(room,session.player(),path,frame,session.resets(),visual_assets,nullptr,decal_assets,outputs);
     };
     Controller controller;
 #ifdef CELESTE_ROOM_GUEST_REPLAY
@@ -177,7 +212,7 @@ void run() {
     unsigned previous_lx = 0, previous_ly = 0;
 #endif
     unsigned previous = 0, frame = 0;
-    const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+
+    const std::string frame_path = normal_initial_respawn_profile ? normal_outputs.frame : std::string("ux0:data/celeste_native_room-")+revision+
 #ifdef CELESTE_ROOM_DASH_PROBE
         "-dash-probe.ppm";
 #else
@@ -196,6 +231,7 @@ void run() {
     const auto capture_path = [&]() -> const char* {
         capture_resolved = true;
         if (guest_capture_exists(frame_path.c_str())) {
+            if constexpr(normal_initial_respawn_profile) throw std::runtime_error("Normal run capture destination occupied after claim: "+frame_path);
             log("capture_skipped_existing path=%s prior_capture_preserved=ppm_and_receipt current_run_capture=false",frame_path.c_str());
             return nullptr;
         }
@@ -237,6 +273,10 @@ void run() {
         ly = pad.ly;
         const auto sample = controller.sample_analog({held_buttons, {lx, ly, true}});
 #endif
+        if constexpr(normal_initial_respawn_profile) {
+            frame_metrics.begin_frame(process_now_us(),{},(buttons&SCE_CTRL_INTERCEPTED)!=0);
+            measuring_frame=true;
+        }
         const bool changed = buttons != previous;
         if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d grab=%d",frame,
                          unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit,
@@ -255,14 +295,19 @@ void run() {
         const unsigned dash_events = session.player().state().dash_events;
         const unsigned jumps = session.jump_count();
         const unsigned reloads = session.lifecycle() ? session.lifecycle()->stats().reloads : 0;
+        const auto step_begin=normal_initial_respawn_profile ? process_now_us() : 0;
         session.step(sample);
+        const auto step_end=normal_initial_respawn_profile ? process_now_us() : 0;
 #ifdef CELESTE_ROOM_GUEST_AUTOMATIC
         log("%s",automatic_observer.observe(frame,sample,session).c_str());
 #endif
 #ifdef CELESTE_ROOM_DASH_PROBE
         log("%s",dash_observer.observe(frame,controls,sample,session).c_str());
 #endif
-        if (session.exiting()) break;
+        if (session.exiting()) {
+            if constexpr(normal_initial_respawn_profile) finish_metrics_frame(step_begin,step_end,false,0,0,true);
+            break;
+        }
         ++frame;
         const auto& player = session.player();
         const bool jumped = !sample.reset && session.jump_count() > jumps;
@@ -288,7 +333,14 @@ void run() {
                player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
 #endif
         if (capture_event) capture_observed = true;
+        if constexpr(normal_initial_respawn_profile) if(capture_event) frame_metrics.mark_capture();
+        const auto render_begin=normal_initial_respawn_profile ? process_now_us() : 0;
         const auto exported = render(capture_event ? capture_path() : nullptr,frame);
+        const auto render_end=normal_initial_respawn_profile ? process_now_us() : 0;
+        if constexpr(normal_initial_respawn_profile) if(capture_event) {
+            normal_outputs.confirm_export(exported,revision);
+            normal_capture_closed=true;
+        }
 #ifdef CELESTE_ROOM_DASH_PROBE
         if(capture_event) dash_observer.confirm_export(exported,session);
 #endif
@@ -356,6 +408,7 @@ void run() {
         } else if (died || sample.reset || changed) signal(died ? "dead" : sample.reset ? "reset" : "sampled",frame);
         else if (old_state == 2 && new_state == 0) signal("dash_done",frame);
         previous = buttons;
+        if constexpr(normal_initial_respawn_profile) finish_metrics_frame(step_begin,step_end,true,render_begin,render_end,false);
     }
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     if(frame!=guest_replay_frames-1 || !capture_observed || !climbed || !climb_held || !climb_released || !climb_landed ||
@@ -379,7 +432,8 @@ void run() {
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     log("guest replay completed samples=%u",guest_replay_frames);
 #endif
-    log("diagnostic measurement frames=%u elapsed_us=%llu observed_fps=%.3f not_a_hardware_estimate",frame,
+    if constexpr(normal_initial_respawn_profile) metrics_summary("Start_final");
+    else log("diagnostic measurement frames=%u elapsed_us=%llu observed_fps=%.3f not_a_hardware_estimate",frame,
          static_cast<unsigned long long>(elapsed),elapsed ? frame*1e6/double(elapsed) : 0);
     } catch (const std::exception& error) {
         try { finish_graphics(); }
@@ -398,10 +452,23 @@ void run() {
 }
 }
 int main() {
+    if constexpr(normal_initial_respawn_profile) {
+        try {
+            normal_outputs=claim_normal_outputs(revision,sceKernelGetProcessTimeWide());
+            log_path=normal_outputs.log.c_str();
+        } catch(const std::exception& error) {
+            std::fprintf(stderr,"Normal output startup failed: %s\n",error.what());
+            sceKernelExitProcess(1);return 1;
+        }
+    }
+    if constexpr(!normal_initial_respawn_profile) {
     FILE* initial = std::fopen(log_path,"w");
     if (!initial) { sceKernelExitProcess(1); return 1; }
     if (std::fclose(initial) || !std::freopen(log_path,"w",stderr) || std::setvbuf(stderr,nullptr,_IONBF,0)) {
         sceKernelExitProcess(1); return 1;
+    }
+    } else if(!std::freopen(log_path,"a",stderr) || std::setvbuf(stderr,nullptr,_IONBF,0)) {
+        sceKernelExitProcess(1);return 1;
     }
     int status = 0;
     try { run(); }
@@ -413,7 +480,7 @@ int main() {
 #ifdef CELESTE_ROOM_DASH_PROBE
                 dash_probe_receipt_path("failure",revision);
 #else
-                std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
+                normal_initial_respawn_profile ? normal_outputs.failure : std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
 #endif
             if (celeste::diagnostic::guest_file_exists(failure_path.c_str())) {
                 if (std::fprintf(stderr,"Failure receipt preserved: %s; original: %s\n",failure_path.c_str(),error.what()) < 0 || std::fflush(stderr))
@@ -423,6 +490,7 @@ int main() {
 #ifdef CELESTE_ROOM_DASH_PROBE
                     dash_failure_record(error.what()),
 #else
+                    normal_initial_respawn_profile ? normal_outputs.record("FATAL",normal_capture_closed ? "fresh_closed" : "failed")+"cause="+error.what()+"\n" :
                     std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",
 #endif
                     SCE_O_EXCL);
