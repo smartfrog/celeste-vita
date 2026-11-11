@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include "presentation.hpp"
 
 #include <algorithm>
 
@@ -62,6 +63,7 @@ void Player::climb_hop() {
     s.speed.y = std::min(s.speed.y, -120.0f);
     s.force_move_x = 0;
     s.force_move_x_timer = 0.2f;
+    cosmetic(PlayerCosmeticPhase::climb_hop);
 }
 
 int Player::climb_update() {

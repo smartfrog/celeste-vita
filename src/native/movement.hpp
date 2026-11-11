@@ -75,6 +75,9 @@ public:
     bool ignore_jump_thrus = false;
 
     Vec2 position_remainder() const;
+    Vec2 exact_position() const;
+    void zero_remainder();
+    void move_towards(Vec2 target,float amount);
     bool move_h(float amount, Collision on_collide = {}, Body* pusher = nullptr);
     bool move_v(float amount, Collision on_collide = {}, Body* pusher = nullptr);
     bool move_h_exact(std::int32_t amount, Collision on_collide = {}, Body* pusher = nullptr);

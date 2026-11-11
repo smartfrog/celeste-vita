@@ -1,5 +1,6 @@
 #include "player.hpp"
 #include "presentation.hpp"
+#include "source_math.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,11 +30,14 @@ int sign(float value) { return (value > 0.0f) - (value < 0.0f); }
 }
 
 float Player::approach(float value, float target, float max_move) {
-    return value > target ? std::max(value - max_move, target) : std::min(value + max_move, target);
+    return source_math::approach(value,target,max_move);
 }
 
-Player::Player(const PlayerWorld& world, Vec2 spawn, Vec2 initial_speed, PlayerProfile profile)
-    : world_(world), actor_(world.collision, truncated_spawn(spawn), standing) {
+Player::Player(const PlayerWorld& world, Vec2 spawn, Vec2 initial_speed, PlayerProfile profile, PlayerFrameContext* context)
+    : world_(world), actor_(world.collision, truncated_spawn(spawn), standing),
+      jump_(context ? context->jump : owned_context_.jump), dash_(context ? context->dash : owned_context_.dash),
+      clock_(context ? context->clock : owned_context_.clock), borrowed_context_(context != nullptr),
+      last_sampled_frame_(clock_.frame_counter) {
     if (profile != PlayerProfile::default_static) throw std::invalid_argument("Unsupported Player profile");
     finite(initial_speed);
     validate_world();
@@ -44,8 +48,32 @@ Player::Player(const PlayerWorld& world, Vec2 spawn, Vec2 initial_speed, PlayerP
     machine_.set_callbacks(1, {[this] { return climb_update(); }, {},
                                [this] { climb_begin(); }, [this] { climb_end(); }});
     machine_.set_callbacks(2, {[this] { const int state = dash_update(); emit("dash_update"); return state; }, [this] { return dash_coroutine(); },
-                               [this] { dash_begin(); }, [this] { dash_end(); }});
+                                [this] { dash_begin(); }, [this] { dash_end(); }});
+    machine_.set_callbacks(14, {{}, {}, {}, [this] { dead_offset_ = {}; }});
     machine_.added(true);
+}
+
+void Player::begin_respawn() {
+    if (updating_ || death_.dead || respawn_tween_) throw std::logic_error("Invalid respawn entry");
+    if (!borrowed_context_ || world_.bounds_left!=0 || world_.bounds_right!=320)
+        throw std::invalid_argument("Respawn14 requires the first-room Session context");
+    machine_.set_state(14);
+    intro_ease_ = 1;
+    const auto position = actor_.body.position;
+    dead_offset_ = {std::clamp(position.x,40.f,280.f),std::clamp(position.y,40.f,140.f)};
+    const Vec2 from{dead_offset_.x-position.x,dead_offset_.y-position.y};
+    respawn_tween_ = std::make_unique<Tween>(0.6f);
+    respawn_tween_->on_update = [this,from](const Tween& tween) {
+        dead_offset_ = {from.x + (0.f-from.x)*tween.eased,from.y + (0.f-from.y)*tween.eased};
+        intro_ease_ = 1.f-tween.eased;
+    };
+    respawn_tween_->on_complete = [this](const Tween&) {
+        if (machine_.state() == 14) {
+            machine_.set_state(0);
+            cosmetic(PlayerCosmeticPhase::respawn_complete);
+            ++respawn_completions_;
+        }
+    };
 }
 
 void Player::validate_world() const {
@@ -87,6 +115,7 @@ bool Player::die(Vec2 direction) {
 
 bool Player::die_immediate(Vec2 direction) {
     if (death_.dead) return false;
+    if (!world_.death_supported) throw std::runtime_error("Unsupported Room2 death/reload");
     death_.dead = true;
     death_.depth = -1000000;
     state_.speed = {};
@@ -114,10 +143,14 @@ bool Player::jump_thru_boost_blocked_check() const {
 bool Player::check_hazards() {
     const auto saved = actor_.body.collider;
     actor_.body.collider = hurtbox();
-    for (std::size_t i = 0; i < world_.spikes.size(); ++i) {
+    struct RestoreCollider {
+        Body& body;std::optional<Hitbox> collider;
+        ~RestoreCollider() { body.collider=collider; }
+    } restore{actor_.body,saved};
+    const auto check_spike=[this](std::size_t i) {
         hazard_frame_.checked.push_back(i);
         const auto& spike = *world_.spikes[i];
-        if (!collide_check(actor_.body, spike.body(), actor_.body.position)) continue;
+        if (!collide_check(actor_.body, spike.body(), actor_.body.position)) return false;
         hazard_frame_.overlaps.push_back(i);
         const auto& box = *actor_.body.collider;
         const auto& target = *spike.body().collider;
@@ -126,12 +159,22 @@ bool Player::check_hazards() {
                 spike.body().position.y + (target.offset.y + target.height)
             : state_.speed.x >= 0.0f;
         if (lethal) die_immediate(spike.direction() == SpikeDirection::up ? Vec2{0.0f, -1.0f} : Vec2{-1.0f, 0.0f});
-        if (death_.dead) {
-            actor_.body.collider = saved;
-            return true;
+        return death_.dead;
+    };
+    if(world_.ordered_colliders.empty()) {
+        for(std::size_t i=0;i<world_.spikes.size();++i) if(check_spike(i)) return true;
+    } else {
+        for(const auto& collider:world_.ordered_colliders) {
+            if(collider.spike) {
+                const auto found=std::find(world_.spikes.begin(),world_.spikes.end(),collider.spike);
+                if(found==world_.spikes.end()) throw std::logic_error("Ordered spike is not registered in the Player world");
+                if(check_spike(std::size_t(found-world_.spikes.begin()))) return true;
+            } else {
+                if(!collider.unsupported_body || !collider.unsupported_member) throw std::logic_error("Invalid ordered Player collider");
+                if(collide_check(actor_.body,*collider.unsupported_body,actor_.body.position)) throw std::runtime_error(collider.unsupported_member);
+            }
         }
     }
-    actor_.body.collider = saved;
     return false;
 }
 
@@ -350,7 +393,32 @@ void Player::collide_v(CollisionData data) {
     emit("collided_v", &data);
 }
 
+void PlayerFrameContext::sample(float raw_delta_time, const PlayerInput& input) {
+    if (input.x < -1 || input.x > 1 || input.y < -1 || input.y > 1 ||
+        input.aim_x < -1 || input.aim_x > 1 || input.aim_y < -1 || input.aim_y > 1 ||
+        input.dash || input.jump.debug_override_pressed || input.dash_button.debug_override_pressed)
+        throw std::invalid_argument("Invalid Player frame input");
+    clock.sample(raw_delta_time);
+    jump.sample = input.jump;
+    jump.update(clock.delta);
+    dash.sample = input.dash_button;
+    dash.sample.disabled = input.jump.disabled;
+    dash.update(clock.delta);
+}
+
 void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer, PlayerCosmeticObserver cosmetic_observer) {
+    if (borrowed_context_) throw std::logic_error("Borrowed Player must use its Session frame context");
+    frame_impl(delta_time,input,std::move(observer),std::move(cosmetic_observer),false);
+}
+
+void Player::update_sampled(PlayerInput input, PlayerCosmeticObserver cosmetic_observer) {
+    if (!borrowed_context_) throw std::logic_error("Sampled update requires a borrowed frame context");
+    if (clock_.frame_counter==last_sampled_frame_) throw std::logic_error("Player frame context was not advanced");
+    last_sampled_frame_=clock_.frame_counter;
+    frame_impl(clock_.delta,input,{},std::move(cosmetic_observer),true);
+}
+
+void Player::frame_impl(float delta_time, PlayerInput input, PlayerObserver observer, PlayerCosmeticObserver cosmetic_observer, bool sampled) {
     if (updating_) throw std::logic_error("Recursive Player frame is unsupported");
     if (death_.removed) throw std::invalid_argument("Removed Player cannot simulate another frame");
     if (!std::isfinite(delta_time) || delta_time < 0.0f || !std::isfinite(1000.0f * delta_time) ||
@@ -366,19 +434,14 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer,
     observer_ = std::move(observer);
     cosmetic_ = std::move(cosmetic_observer);
     try {
-        clock_.sample(delta_time);
+        if (!sampled) owned_context_.sample(delta_time,input);
         delta_ = clock_.delta;
         hazard_frame_ = {};
         input_ = input;
         auto& s = state_;
         auto& pos = actor_.body.position;
-        jump_.sample = input.jump;
-        jump_.update(delta_);
-        dash_.sample = input.dash_button;
-        dash_.sample.disabled = input.jump.disabled;
-        dash_.update(delta_);
         emit("input");
-        if (!clock_.simulate()) {
+        if (!sampled && !clock_.simulate()) {
             emit("freeze");
             observer_ = {};
             cosmetic_ = {};
@@ -440,7 +503,7 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer,
         else if (s.climb_hop_solid && (s.climb_hop_solid->position.x != s.climb_hop_solid_position.x ||
                                       s.climb_hop_solid->position.y != s.climb_hop_solid_position.y))
             throw std::invalid_argument("Hop solid moved outside the static Player profile");
-        if (s.move_x != 0 && machine_.state() != 1) {
+        if (s.move_x != 0 && machine_.state() != 1 && machine_.state() != 14) {
             if (s.facing!=s.move_x && s.ducking) cosmetic(PlayerCosmeticPhase::duck_turn);
             s.facing = s.move_x;
         }
@@ -466,7 +529,8 @@ void Player::frame(float delta_time, PlayerInput input, PlayerObserver observer,
         }
         emit("preamble");
         cosmetic(PlayerCosmeticPhase::components);
-        machine_.update(delta_, delta_);
+        machine_.update(delta_, clock_.raw_delta);
+        if (respawn_tween_) respawn_tween_->update(delta_);
         emit("normal");
         if (!s.on_ground && s.speed.y <= 0.0f) {
             for (const Body* platform : world_.collision.jump_thrus) {

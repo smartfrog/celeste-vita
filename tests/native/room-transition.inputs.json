@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "seed": 1,
+  "runs": [
+    {"frames": 70, "keys": []},
+    {"frames": 13, "keys": ["Right"]},
+    {"frames": 40, "keys": ["Right", "C"]},
+    {"frames": 5, "keys": []},
+    {"frames": 35, "keys": ["Right", "C", "Z"]},
+    {"frames": 57, "keys": ["Right", "Up", "Z"]},
+    {"frames": 35, "keys": ["Right", "C", "Z"]},
+    {"frames": 64, "keys": ["Right", "Up", "Z"]},
+    {"frames": 5, "keys": []},
+    {"frames": 17, "keys": ["C"]},
+    {"frames": 12, "keys": ["Right", "C"]},
+    {"frames": 5, "keys": []},
+    {"frames": 40, "keys": ["C"]},
+    {"frames": 70, "keys": []},
+    {"frames": 6, "keys": ["Left", "C"]},
+    {"frames": 40, "keys": []}
+  ]
+}

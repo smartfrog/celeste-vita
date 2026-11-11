@@ -25,14 +25,15 @@ def oracle_environment(sdk):
     }
 
 
-def verify_extraction(private):
+def verify_extraction(private, source_root=None):
+    source_root = ROOT if source_root is None else source_root
     manifest = json.loads((private / "source-manifest.json").read_text())
     extracted = (private / "Extracted.cs").read_bytes()
     if hashlib.sha256(extracted).hexdigest() != manifest["extracted_sha256"]:
         raise ValueError("Generated extraction changed after its source manifest")
     blocks = 0
     for entry in manifest["extractions"]:
-        source = (ROOT / entry["source_path"]).read_bytes()
+        source = (source_root / entry["source_path"]).read_bytes()
         if hashlib.sha256(source).hexdigest() != entry["source_sha256"]:
             raise ValueError("Source hash changed: " + entry["file"])
         lines = source.decode().splitlines(keepends=True)

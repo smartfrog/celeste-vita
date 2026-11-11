@@ -3,7 +3,13 @@
 #include "frame.hpp"
 #include "guest_io.hpp"
 #include "asset_pins.hpp"
+#include "capture_policy.hpp"
+#include "trail_target.hpp"
+#ifdef CELESTE_ROOM_DASH_PROBE
+#include "guest_dash_probe_diagnostic.hpp"
+#endif
 #include <vitaGL.h>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -13,6 +19,8 @@ std::array<GLuint,8> textures{};
 unsigned uploaded = 0;
 std::array<GLuint,10> player_textures{};
 unsigned player_uploaded=0;
+TrailTarget trail_target;
+std::string trail_probe_receipt;
 #ifdef CELESTE_ROOM_DECALS
 GLuint decal_texture=0;
 bool decal_uploaded=false;
@@ -77,9 +85,7 @@ void tile_layer(const VisualAssets& visuals, bool background) {
     }
     if (active_texture != -1) glEnd();
 }
-void player_layer(PlayerRender& animated) {
-    if(player_uploaded!=animated.assets.bank.pages) throw std::logic_error("Incomplete player texture ownership");
-    const auto draws=animated.presentation.draw(animated.projection);
+void player_draws(PlayerRender& animated,const std::vector<PlayerDraw>& draws) {
     for(const auto& d:draws) {
         const auto& f=animated.assets.bank.frames[d.frame];
         glBindTexture(GL_TEXTURE_2D,player_textures.at(f.page));
@@ -88,6 +94,13 @@ void player_layer(PlayerRender& animated) {
         for(const auto& v:player_vertices(f,d)) {glTexCoord2f(v.u,v.v);glVertex2f(v.x,v.y);}
         glEnd();
     }
+}
+void player_layer(PlayerRender& animated) {
+    if(player_uploaded!=animated.assets.bank.pages) throw std::logic_error("Incomplete player texture ownership");
+    player_draws(animated,animated.lifecycle ? animated.lifecycle->draw() : animated.presentation.draw(animated.projection));
+}
+bool foreground_player(const PlayerRender* animated) {
+    return animated && animated->lifecycle && animated->lifecycle->foreground_owner();
 }
 void hazard_markers(const Room& room) {
     glDisable(GL_TEXTURE_2D);
@@ -125,6 +138,9 @@ void decal_layer(const DecalAssets& decals, bool background) {
 }
 #endif
 std::string export_back_buffer(const char* path, const Player& player, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
+    const auto* lifecycle=animated ? animated->lifecycle : nullptr;
+    if(room_capture_policy==CapturePolicy::initial_respawn && (!lifecycle || !initial_respawn_ready(*lifecycle,frame,resets,false)))
+        throw std::runtime_error("Initial respawn export requires the live initial Normal Player without a wipe");
     glReadBuffer(GL_BACK);
     glFinish();
     check("frame export GPU finish");
@@ -133,7 +149,15 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
     check("frame export glReadPixels GL_BACK RGBA CPU");
     const auto ppm = encode_frame_ppm(960,544,rgba);
     write_guest_file(path,ppm,SCE_O_EXCL);
-    const auto position = player.actor().body.position;
+#ifdef CELESTE_ROOM_DASH_PROBE
+    const auto trail_rgba=trail_target.read_rgba();
+    write_guest_file((std::string(path)+".trail.rgba").c_str(),
+        std::string_view(reinterpret_cast<const char*>(trail_rgba.data()),trail_rgba.size()),SCE_O_EXCL);
+    const auto probe_identity=std::string(" probe_fixture=")+guest_dash_probe+" probe_fixture_sha256="+guest_dash_probe_sha256+" native_probe_checks=1";
+#else
+    const std::string probe_identity;
+#endif
+    const auto position = lifecycle ? lifecycle->projection().position : player.actor().body.position;
     unsigned bg_count = 0, fg_count = 0;
     if (visuals) for (const auto& command : visuals->commands) command.background ? ++bg_count : ++fg_count;
     std::string presentation;
@@ -147,24 +171,43 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
         const auto c=pose.hair_color;
         presentation+=" hair_color="+std::to_string(c.r)+","+std::to_string(c.g)+","+std::to_string(c.b)+","+std::to_string(c.a)+
             " diagnostic_rng_seed="+std::to_string(animated->presentation.diagnostic_seed())+" rng_calls="+std::to_string(animated->presentation.random_calls())+
-            " original_startup_rng_parity=false source_phase=level_after_update_then_render";
+             " original_startup_rng_parity=false source_phase=level_after_update_then_render";
+        const auto* trails=animated->trails ? animated->trails : lifecycle ? &lifecycle->trails() : nullptr;
+        if(trails) {
+            presentation+=" trail_depth=1 trail_target_logical_RGBA_bytes="+std::to_string(trail_target.texture() ? 512*512*4 : 0)+" trail_snapshots=";
+            for(auto slot:trails->render_order()) {
+                const auto& snapshot=trails->slots()[slot];const auto tint=PlayerTrails::faded_color(snapshot);
+                presentation+=std::to_string(slot)+","+std::to_string(snapshot.percent)+","+std::to_string(snapshot.position.x)+","+std::to_string(snapshot.position.y)+","+
+                    std::to_string(tint.r)+","+std::to_string(tint.g)+","+std::to_string(tint.b)+","+std::to_string(tint.a)+";";
+            }
+        }
     }
     const bool spike_art = visuals && visuals->spike_art();
     const bool decal_art = decals != nullptr;
+    const std::string lifecycle_phase=lifecycle ? lifecycle->phase() : "legacy_manual";
+    const bool body_visible=!lifecycle || lifecycle_phase=="live" || lifecycle_phase=="corpse";
+    std::string lifecycle_receipt;
+    if(lifecycle) {
+        const auto& stats=lifecycle->stats();
+        lifecycle_receipt=" lifecycle=source_first_room phase="+lifecycle_phase+" automatic_reloads="+std::to_string(stats.reloads)+
+            " loads="+std::to_string(stats.loads)+" respawn_callbacks="+std::to_string(stats.respawn_callbacks)+
+            " wipe_callbacks="+std::to_string(stats.wipe_callbacks)+" pending_corpses="+std::to_string(lifecycle->pending_corpse())+
+            " committed_corpses="+std::to_string(lifecycle->committed_corpse())+" wipe_active="+std::to_string(lifecycle->wipe()!=nullptr)+" legacy_manual_replay=false";
+    }
     const std::string receipt = std::string("frame_saved path=")+path+" width=960 height=544 revision="+revision+
         " stage=after_draw_glFinish_GL_BACK_RGBA_CPU_before_swap frame="+std::to_string(frame)+" x="+std::to_string(position.x)+" y="+std::to_string(position.y)+
         " vx="+std::to_string(player.state().speed.x)+" vy="+std::to_string(player.state().speed.y)+
         " ground="+std::to_string(player.state().on_ground)+" dead="+std::to_string(player.death().dead)+
         " resets="+std::to_string(resets)+" state="+std::to_string(player.state_machine().state())+
         " stamina="+std::to_string(player.state().stamina)+" grab="+std::to_string(player.grab_held())+
-        " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+(frame == 0 ? "spawn" : player.state_machine().state() == 1 ? "climb" : "wall_jump")+
+        " jump_kind="+jump_kind_name(player.jump_kind())+" capture="+capture_policy_name(room_capture_policy)+
         " render_style="+(animated ? "animated_player_partial" : visuals ? "textured_partial" : "debug")+" camera=0,0 bg_draws="+std::to_string(bg_count)+" fg_draws="+std::to_string(fg_count)+
-        " body_draws="+(visuals ? "1" : "0")+" diagnostic_spike_markers="+(spike_art ? "0" : "5")+
+        " body_draws="+(visuals && body_visible ? "1" : "0")+" diagnostic_spike_markers="+(spike_art ? "0" : "5")+
         (spike_art ? " physical_spikes=5 draw_pieces="+std::to_string(visuals->spike_pieces.size())+" diagnostic_red_markers=0 spike_art=source_static_19" : "")+
         (decal_art ? " static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7 decal_art=source_static_decal_cut decal_page_bytes=32768" : "")+
         " submitted_rgba_bytes="+std::to_string(visuals ? room_rgba_bytes(*visuals,decals)+player_uploaded*128*64*4 : 0)+
         " alpha="+(visuals ? "premultiplied_ONE_ONE_MINUS_SRC_ALPHA" : "disabled")+" body_pose="+(animated ? "source_animated_with_simulated_hair" : visuals ? "idle00_static_no_animation" : "hitboxes")+
-        presentation+" format=P6_RGB_top_down\n";
+        presentation+lifecycle_receipt+" "+trail_probe_receipt+probe_identity+" format=P6_RGB_top_down\n";
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
     return receipt;
 }
@@ -229,6 +272,14 @@ void load_decal_textures(const DecalAssets& decals) {
 }
 std::string draw(const Room& room, const Player& player, const char* export_path, unsigned frame, unsigned resets, const VisualAssets* visuals, PlayerRender* animated, const DecalAssets* decals) {
     if(animated && !visuals) throw std::invalid_argument("Animated player requires source-baked room layers");
+    auto* trails=animated ? (animated->trails ? animated->trails : animated->lifecycle ? &animated->lifecycle->trails() : nullptr) : nullptr;
+    if(trails) trail_target.capture(*trails,animated->presentation,animated->projection,
+        [&](unsigned,const std::vector<PlayerDraw>& draws) { player_draws(*animated,draws); });
+#ifdef CELESTE_ROOM_DASH_PROBE
+    if(export_path) trail_target.diagnostic_sweep(*trails,[&](auto phase,const auto& pixels) {
+        write_dash_probe_sweep_read(phase,pixels,revision,frame,stderr);
+    },[&](const auto& event) {write_dash_probe_sweep_event(event,revision,frame,stderr);});
+#endif
     glViewport(0,0,960,544);
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -239,6 +290,10 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     glOrtho(0,320,180,0,-1,1);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    if(animated && animated->lifecycle) {
+        const auto camera=animated->lifecycle->camera(),shake=animated->lifecycle->shake();
+        glTranslatef(-std::floor(camera.x+shake.x),-std::floor(camera.y+shake.y),0);
+    }
     glColor3f(0.035f,0.045f,0.07f);
     rectangle(0,0,320,180);
     if (visuals) {
@@ -252,8 +307,9 @@ std::string draw(const Room& room, const Player& player, const char* export_path
 #ifdef CELESTE_ROOM_DECALS
         if (decals) decal_layer(*decals,true);
 #endif
-        if(animated) player_layer(*animated);
-        else textured_quad(body_quad(visuals->textures[VisualAssets::body_texture],player.actor().body.position,static_cast<int>(player.state().facing)),VisualAssets::body_texture);
+        if(trails) trail_target.render(*trails);
+        if(animated && !foreground_player(animated)) player_layer(*animated);
+        else if(!animated) textured_quad(body_quad(visuals->textures[VisualAssets::body_texture],player.actor().body.position,static_cast<int>(player.state().facing)),VisualAssets::body_texture);
 #ifdef CELESTE_ROOM_SPIKE_ART
         if (visuals->spike_art()) spike_layer(*visuals);
         else hazard_markers(room);
@@ -266,6 +322,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
 #ifdef CELESTE_ROOM_DECALS
         if (decals) decal_layer(*decals,false);
 #endif
+        if(foreground_player(animated)) player_layer(*animated);
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_BLEND);
     } else {
@@ -286,6 +343,20 @@ std::string draw(const Room& room, const Player& player, const char* export_path
     const auto position = player.actor().body.position;
     rectangle(position.x+hurtbox.offset.x,position.y+hurtbox.offset.y,hurtbox.width,hurtbox.height);
     }
+#ifdef CELESTE_ROOM_DASH_PROBE
+    if(export_path) trail_target.render_probe();
+#endif
+    if(animated && animated->lifecycle && animated->lifecycle->wipe()) {
+        glLoadIdentity();
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_BLEND);
+        glBegin(GL_TRIANGLES);
+        for(const auto& vertex:animated->lifecycle->wipe()->vertices()) {
+            glColor4ub(vertex.color.r,vertex.color.g,vertex.color.b,vertex.color.a);
+            glVertex2f(vertex.position.x/6.f,vertex.position.y/6.f);
+        }
+        glEnd();
+    }
     check("room draw");
     const auto exported = export_path ? export_back_buffer(export_path,player,frame,resets,visuals,animated,decals) : std::string{};
     vglSwapBuffers(GL_FALSE);
@@ -295,6 +366,7 @@ std::string draw(const Room& room, const Player& player, const char* export_path
 void finish_graphics() {
     glFinish();
     const auto finish_error = glGetError();
+    trail_target.dispose();
     glDeleteTextures(uploaded,textures.data());
     glDeleteTextures(player_uploaded,player_textures.data());
 #ifdef CELESTE_ROOM_DECALS

@@ -23,9 +23,10 @@ class DirectionalInputSourceContractTests(unittest.TestCase):
     def test_guest_replay_keeps_the_legacy_controls_path(self):
         text = (ROOT / "src/vita/app.cpp").read_text()
         match = re.search(
-            r"#ifdef CELESTE_ROOM_GUEST_REPLAY\s+const auto controls = replay\.next\(frame\);(.*?)#else(.*?)#endif",
+            r"#if defined\(CELESTE_ROOM_GUEST_REPLAY\) \|\| defined\(CELESTE_ROOM_GUEST_AUTOMATIC\) \|\| defined\(CELESTE_ROOM_DASH_PROBE\)(.*?)#else\s+unsigned lx = 0(.*?)#endif",
             text, re.S)
         self.assertIsNotNone(match)
+        self.assertIn("const auto controls = replay.next(frame);", match.group(1))
         self.assertIn("controller.sample(controls)", match.group(1))
         self.assertNotIn("sample_analog", match.group(1))
         self.assertIn("controller.sample_analog", match.group(2))

@@ -3,8 +3,16 @@
 #include "diagnostic.hpp"
 #include "draw.hpp"
 #include "guest_io.hpp"
+#include "session_profile.hpp"
+#include "capture_policy.hpp"
+#ifdef CELESTE_ROOM_DASH_PROBE
+#include "guest_dash_probe_observer.hpp"
+#endif
 #ifdef CELESTE_ROOM_GUEST_REPLAY
 #include "guest_replay.hpp"
+#endif
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+#include "guest_automatic_observer.hpp"
 #endif
 #include <psp2/ctrl.h>
 #include <psp2/io/fcntl.h>
@@ -15,20 +23,28 @@
 
 namespace {
 using namespace celeste::diagnostic;
+#if defined(CELESTE_ROOM_DASH_PROBE) != defined(CELESTE_STAGED_DASH_PROBE)
+#error "Dash probe mode requires matching staging; production cannot use probe staging"
+#endif
+#ifdef CELESTE_ROOM_DASH_PROBE
+static_assert(std::string_view(guest_dash_probe)==guest_dash_probe_id && guest_dash_probe_samples==guest_dash_probe_frames &&
+              guest_dash_probe_exit_frame==guest_dash_probe_frames-1,"Dash probe staging fixture differs from its source header");
+GuestDashProbeCompletion dash_completion;
+std::string dash_failure_record(const char* cause) {
+    return bounded_guest_record<2048>("Dash probe failure receipt exceeds bound",
+        "FATAL revision=%s fixture=%s fixture_sha256=%s capture=dash_trails cause=%s\n",
+        revision,guest_dash_probe_id,guest_dash_probe_sha256,cause);
+}
+#endif
 #ifdef CELESTE_ROOM_GUEST_REPLAY
 static_assert(guest_replay_enabled,"Replay build requires matching staging intent");
 #else
 static_assert(!guest_replay_enabled,"Manual build cannot use replay staging");
 #endif
-#ifdef CELESTE_ROOM_CAPTURE_AFTER_WALL_JUMP
-constexpr bool capture_after_wall_jump = true;
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+static_assert(guest_automatic!=nullptr,"Automatic guest build requires matching staging intent");
 #else
-constexpr bool capture_after_wall_jump = false;
-#endif
-#ifdef CELESTE_ROOM_CAPTURE_AFTER_CLIMB
-constexpr bool capture_after_climb = true;
-#else
-constexpr bool capture_after_climb = false;
+static_assert(guest_automatic==nullptr,"Production or legacy build cannot use automatic guest staging");
 #endif
 constexpr const char* log_path = "ux0:data/celeste_native_room.log";
 void log(const char* format, ...) {
@@ -56,12 +72,20 @@ void state(const char* event, unsigned frame, const Session& session) {
 }
 void run() {
     log("Celeste native room DIAGNOSTIC boot revision=%s fixed_step=1/60 manual_reset=Triangle jump=Cross dash=Square aim=DPad exit=Start", revision);
-#ifndef CELESTE_ROOM_GUEST_REPLAY
+#if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
     log("input profile=standard_analog center=128 range=0..255 fixture_assumption=true hardware_calibrated=false move=LeftStick/DPad aim=LeftStick/DPad");
+#endif
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    log("guest automatic fixture=%s fixture_sha256=%s input_source=scripted_guest_controls samples=%u exit_frame=%u physical_controller_verified=false host_input_injected=false",
+        guest_automatic,guest_automatic_sha256,guest_automatic_samples,guest_automatic_exit_frame);
 #endif
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     log("guest replay fixture=%s fixture_sha256=%s input_source=scripted_guest_controls max_frames=%u physical_controller_verified=false host_input_injected=false",
         guest_replay_id,guest_replay_sha256,guest_replay_frames);
+#endif
+#ifdef CELESTE_ROOM_DASH_PROBE
+    log("guest dash probe fixture=%s fixture_sha256=%s input_source=scripted_guest_controls samples=%u exit_frame=%u physical_controller_verified=false host_input_injected=false capture_policy=dash_trails instrumented=1 uninstrumented_proof=0 diagnostic_sweep=1 acceptance_disabled=1",
+        guest_dash_probe,guest_dash_probe_sha256,guest_dash_probe_samples,guest_dash_probe_exit_frame);
 #endif
     Room room(parse_mask(read_asset("app0:assets/native-room/global.mask",4'000'512),mask_checksum),
               parse_spikes(read_asset("app0:assets/native-room/hazards.txt",8192),spike_checksum));
@@ -117,19 +141,25 @@ void run() {
 #endif
 #endif
     initialize_graphics();
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    std::string automatic_completion;
+#endif
     try {
     if (visual_assets) load_textures(*visual_assets);
     if (decal_assets) load_decal_textures(*decal_assets);
     if (player_assets) load_player_textures(*player_assets);
-#ifndef CELESTE_ROOM_GUEST_REPLAY
+#if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
     const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
 #endif
-    Session session(room.world,{19,144},player_assets ? &player_assets->bank : nullptr,0);
+    auto session=make_session(room.world,player_assets ? &player_assets->bank : nullptr);
+    if constexpr(automatic_session_profile)
+        log("lifecycle source_first_room automatic_corpse_wipe_reload_respawn14 seed=0 original_startup_rng_parity=false Triangle=manual_diagnostic_restart");
+    else log("lifecycle legacy_manual_diagnostic Triangle=fresh_Normal_player automatic_reload=false");
     const auto render=[&](const char* path,unsigned frame) {
         const auto projection=session.projection();
         if(player_assets) {
-            PlayerRender animated{*player_assets,*session.presentation(),projection};
+            PlayerRender animated{*player_assets,*session.presentation(),projection,session.lifecycle(),&session.trails()};
             return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated,decal_assets);
         }
         return draw(room,session.player(),path,frame,session.resets(),visual_assets,nullptr,decal_assets);
@@ -138,15 +168,31 @@ void run() {
 #ifdef CELESTE_ROOM_GUEST_REPLAY
     GuestReplay replay;
     bool replay_jumped=false,replay_frozen=false,replay_thawed=false,replay_launched=false,replay_dash_done=false,replay_died=false,replay_reset=false;
+#elif defined(CELESTE_ROOM_GUEST_AUTOMATIC)
+    GuestAutomaticReplay replay;
+    GuestAutomaticObserver automatic_observer(session);
+#elif defined(CELESTE_ROOM_DASH_PROBE)
+    GuestDashProbeObserver dash_observer(session,revision,guest_dash_probe_sha256);
 #else
     unsigned previous_lx = 0, previous_ly = 0;
 #endif
     unsigned previous = 0, frame = 0;
-    const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+".ppm";
-    bool capture_resolved = false, capture_observed = !capture_after_wall_jump && !capture_after_climb;
+    const std::string frame_path = std::string("ux0:data/celeste_native_room-")+revision+
+#ifdef CELESTE_ROOM_DASH_PROBE
+        "-dash-probe.ppm";
+#else
+        ".ppm";
+#endif
+    bool capture_resolved = false, capture_observed = room_capture_policy==CapturePolicy::spawn;
+    InitialRespawnCapture initial_capture;
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    bool fresh_exported=false;
+#endif
     bool wall_near = false, wall_forced = false;
     bool climb_near = false, climbed = false, climb_held = false, climb_released = false, climb_landed = false;
+#ifndef CELESTE_ROOM_DASH_PROBE
     float climb_entry_y = 0.0f;
+#endif
     const auto capture_path = [&]() -> const char* {
         capture_resolved = true;
         if (guest_capture_exists(frame_path.c_str())) {
@@ -157,13 +203,21 @@ void run() {
     };
     const auto exported = render(capture_observed ? capture_path() : nullptr,0);
     if (!exported.empty()) log("%s",exported.c_str());
-    log("capture policy=%s",capture_after_climb ? "climb" : capture_after_wall_jump ? "wall_jump" : "spawn");
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    fresh_exported=!exported.empty();
+#endif
+    log("capture policy=%s",capture_policy_name(room_capture_policy));
     state("frame ready",frame,session);
     signal("ready",frame);
     const auto start_time = sceKernelGetProcessTimeWide();
     while (!session.exiting()) {
-#ifdef CELESTE_ROOM_GUEST_REPLAY
+#if defined(CELESTE_ROOM_GUEST_REPLAY) || defined(CELESTE_ROOM_GUEST_AUTOMATIC) || defined(CELESTE_ROOM_DASH_PROBE)
+#ifdef CELESTE_ROOM_DASH_PROBE
+        auto controls=dash_probe_controls(frame);
+        controls.start=frame==guest_dash_probe_frames-1;
+#else
         const auto controls = replay.next(frame);
+#endif
         const auto bit=[](bool held,unsigned flag) { return held?flag:0u; };
         const unsigned buttons = bit(controls.left,SCE_CTRL_LEFT)|bit(controls.right,SCE_CTRL_RIGHT)|
             bit(controls.up,SCE_CTRL_UP)|bit(controls.down,SCE_CTRL_DOWN)|bit(controls.cross,SCE_CTRL_CROSS)|
@@ -187,7 +241,7 @@ void run() {
         if (changed) log("input frame=%u buttons=%08x x=%d y=%d cross_held=%d cross_pressed=%d reset=%d exit=%d square_held=%d square_pressed=%d grab=%d",frame,
                          unsigned(buttons),sample.player.x,sample.player.y,sample.player.jump.held,sample.player.jump.pressed,sample.reset,sample.exit,
                           sample.player.dash_button.held,sample.player.dash_button.pressed,sample.player.grab);
-#ifndef CELESTE_ROOM_GUEST_REPLAY
+#if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
         const bool analog_changed = lx != previous_lx || ly != previous_ly;
         if (changed || analog_changed || frame % 120 == 0)
             log("input analog frame=%u buttons=%08x valid=1 lx=%u ly=%u move_x=%d move_y=%d aim_x=%d aim_y=%d",frame,
@@ -199,27 +253,56 @@ void run() {
         const int old_state = session.player().state_machine().state();
         const bool frozen = session.player().clock().freeze_timer > 0.0f;
         const unsigned dash_events = session.player().state().dash_events;
-        const unsigned jumps = session.player().jump_count();
+        const unsigned jumps = session.jump_count();
+        const unsigned reloads = session.lifecycle() ? session.lifecycle()->stats().reloads : 0;
         session.step(sample);
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+        log("%s",automatic_observer.observe(frame,sample,session).c_str());
+#endif
+#ifdef CELESTE_ROOM_DASH_PROBE
+        log("%s",dash_observer.observe(frame,controls,sample,session).c_str());
+#endif
         if (session.exiting()) break;
         ++frame;
         const auto& player = session.player();
-        const bool jumped = !sample.reset && player.jump_count() != jumps;
+        const bool jumped = !sample.reset && session.jump_count() > jumps;
         const bool wall_jumped = jumped && player.jump_kind() == celeste::JumpKind::wall_jump;
+#ifndef CELESTE_ROOM_DASH_PROBE
         const auto* presentation=session.presentation();
         const bool animated_climb_ready=!presentation ||
             ((presentation->pose().animation=="climbUp" || presentation->pose().animation=="climbup") &&
              presentation->pose().animation_frame>0 && player.state().speed.y<0 &&
              presentation->pose().hair_nodes[0].x>=0 && presentation->pose().hair_nodes[0].x<320 &&
-             presentation->pose().hair_nodes[0].y>=0 && presentation->pose().hair_nodes[0].y<180);
+              presentation->pose().hair_nodes[0].y>=0 && presentation->pose().hair_nodes[0].y<180);
+#endif
+#ifndef CELESTE_ROOM_DASH_PROBE
         if (capture_after_climb && !climbed && player.state_machine().state() == 1) climb_entry_y = player.actor().body.position.y;
-        const bool capture_event = !capture_resolved && ((capture_after_wall_jump && wall_jumped) ||
+#endif
+        const bool capture_event = !capture_resolved && (
+#ifdef CELESTE_ROOM_DASH_PROBE
+            session.trails().count()==3 && session.trails().render_order().size()==3);
+#else
+            (room_capture_policy==CapturePolicy::initial_respawn && initial_capture.request(session,frame,sample.reset)) ||
+            (capture_after_wall_jump && wall_jumped) ||
             (capture_after_climb && player.state_machine().state() == 1 && !player.state().on_ground &&
-              player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
+               player.state().stamina < 109.0f && player.grab_held() && sample.player.y == -1 && player.actor().body.position.y < climb_entry_y && animated_climb_ready));
+#endif
         if (capture_event) capture_observed = true;
         const auto exported = render(capture_event ? capture_path() : nullptr,frame);
+#ifdef CELESTE_ROOM_DASH_PROBE
+        if(capture_event) dash_observer.confirm_export(exported,session);
+#endif
+        if(capture_event && room_capture_policy==CapturePolicy::initial_respawn) initial_capture.confirm_export(exported);
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+        fresh_exported=fresh_exported || !exported.empty();
+#endif
         if (!exported.empty()) log("%s",exported.c_str());
         if (jumped) state("jump",frame,session);
+        if(session.lifecycle() && session.lifecycle()->stats().reloads>reloads) {
+            const auto& stats=session.lifecycle()->stats();
+            log("automatic reload frame=%u reloads=%u state=%d session_deaths=%u room_deaths=%u save_deaths=%u source_profile=first_room Triangle=false",
+                frame,stats.reloads,player.state_machine().state(),stats.session_deaths,stats.room_deaths,stats.save_deaths);
+        }
         const int new_state = player.state_machine().state();
         if (!sample.reset && old_state != new_state)
             log("dash transition frame=%u from=%d to=%d freeze=%.9f dashes=%d",frame,old_state,new_state,player.clock().freeze_timer,player.state().dashes);
@@ -279,6 +362,18 @@ void run() {
        !replay_jumped || !replay_frozen || !replay_thawed || !replay_launched || !replay_dash_done || !replay_died || !replay_reset)
         throw std::runtime_error("Guest replay ended without all observed native checkpoints");
 #endif
+    if(room_capture_policy==CapturePolicy::initial_respawn) initial_capture.require_complete();
+#ifdef CELESTE_ROOM_DASH_PROBE
+    dash_completion.record_run(dash_observer,session);
+#endif
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    if(!fresh_exported) throw std::runtime_error("Guest automatic ended without a fresh closed native frame export");
+    automatic_completion=automatic_observer.completion_record(session);
+    if(!automatic_observer.complete(session)) {
+        log("%s",automatic_completion.c_str());
+        throw std::runtime_error("Guest automatic ended without observed initial respawn, two automatic cycles and three actual Jumps");
+    }
+#endif
     const auto elapsed = sceKernelGetProcessTimeWide()-start_time;
     state("clean exit",frame,session);
 #ifdef CELESTE_ROOM_GUEST_REPLAY
@@ -292,6 +387,14 @@ void run() {
         throw;
     }
     finish_graphics();
+#ifdef CELESTE_ROOM_DASH_PROBE
+    dash_completion.graphics_finished();
+    log("%s",dash_completion.log_record().c_str());
+    dash_completion.logged();
+#endif
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+    log("%s",automatic_completion.c_str());
+#endif
 }
 }
 int main() {
@@ -306,12 +409,23 @@ int main() {
         status = 1;
         if (std::fprintf(stderr,"FATAL: %s\n",error.what()) < 0 || std::fflush(stderr)) status = 2;
         try {
-            const auto failure_path = std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
+            const auto failure_path =
+#ifdef CELESTE_ROOM_DASH_PROBE
+                dash_probe_receipt_path("failure",revision);
+#else
+                std::string("ux0:data/celeste_native_room-failure-")+celeste::diagnostic::revision+".txt";
+#endif
             if (celeste::diagnostic::guest_file_exists(failure_path.c_str())) {
                 if (std::fprintf(stderr,"Failure receipt preserved: %s; original: %s\n",failure_path.c_str(),error.what()) < 0 || std::fflush(stderr))
                     status = 2;
             } else {
-                celeste::diagnostic::write_guest_file(failure_path.c_str(),std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",SCE_O_EXCL);
+                celeste::diagnostic::write_guest_file(failure_path.c_str(),
+#ifdef CELESTE_ROOM_DASH_PROBE
+                    dash_failure_record(error.what()),
+#else
+                    std::string("FATAL revision=")+celeste::diagnostic::revision+" cause="+error.what()+"\n",
+#endif
+                    SCE_O_EXCL);
             }
             signal("failed",0);
         } catch (const std::exception& diagnostic_error) {
@@ -320,16 +434,42 @@ int main() {
         }
     }
     if (std::fclose(stderr)) status = 2;
-#ifdef CELESTE_ROOM_GUEST_REPLAY
+#if defined(CELESTE_ROOM_GUEST_REPLAY) || defined(CELESTE_ROOM_GUEST_AUTOMATIC) || defined(CELESTE_ROOM_DASH_PROBE)
     if(status==0) {
         try {
-            const auto complete_path=std::string("ux0:data/celeste_native_room-complete-")+celeste::diagnostic::revision+".txt";
+            const auto complete_path=
+#ifdef CELESTE_ROOM_DASH_PROBE
+                dash_probe_receipt_path("complete",revision);
+            dash_completion.log_closed();
+            celeste::diagnostic::write_guest_file(complete_path.c_str(),dash_completion.closed_receipt(),SCE_O_EXCL);
+#else
+                std::string("ux0:data/celeste_native_room-complete-")+celeste::diagnostic::revision+".txt";
+#ifdef CELESTE_ROOM_GUEST_AUTOMATIC
+            const auto* fixture=celeste::diagnostic::guest_automatic_id;
+#else
+            const auto* fixture=celeste::diagnostic::guest_replay_id;
+#endif
             celeste::diagnostic::write_guest_file(complete_path.c_str(),std::string("complete revision=")+celeste::diagnostic::revision+
-                " input_source=scripted_guest_controls fixture="+celeste::diagnostic::guest_replay_id+" status=0\n",SCE_O_EXCL);
+                " input_source=scripted_guest_controls fixture="+fixture+" status=0\n",SCE_O_EXCL);
+#endif
         } catch(const std::exception& error) {
             status=2;
+#ifdef CELESTE_ROOM_DASH_PROBE
+            std::string failure_cause=error.what();
+            try {
+                const auto failure_path=dash_probe_receipt_path("failure",revision);
+                if(!guest_file_exists(failure_path.c_str())) write_guest_file(failure_path.c_str(),dash_failure_record(error.what()),SCE_O_EXCL);
+            } catch(const std::exception& receipt_error) {
+                failure_cause+="; failure receipt also failed: "+std::string(receipt_error.what());
+            }
+#endif
             if(FILE* failure_log=std::fopen(log_path,"a")) {
-                std::fprintf(failure_log,"FATAL: completion receipt failed: %s\n",error.what());
+                std::fprintf(failure_log,"FATAL: completion receipt failed: %s\n",
+#ifdef CELESTE_ROOM_DASH_PROBE
+                    failure_cause.c_str());
+#else
+                    error.what());
+#endif
                 std::fclose(failure_log);
             }
         }

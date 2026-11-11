@@ -9,7 +9,8 @@ import re
 import subprocess
 import zipfile
 
-from check_native_oracle import ROOT, PRIVATE, oracle_environment, verify_extraction
+from check_native_oracle import ROOT, oracle_environment, verify_extraction
+from native_oracle_sdk import sdk_path
 from native_room_revision import source_state
 from native_room_textures import atlas_metadata
 from prepare_player_death_oracle import prepare
@@ -20,9 +21,47 @@ from room_core_frontier import build_tool, emit as emit_frontier
 
 GUI_META = "Content/Graphics/Atlases/Gui.meta"
 GUI_META_SHA = "884ea39e604e34e3a45b005d164a5249de9a985e58fde7ef730193c47363525b"
+TILE_LEVELLOADER_SHA = 'b35b6f5c0479b0eccaf5d5a1c6affaca388c6733a585248b910208a354c6af7f'
+TILE_SOURCE = ROOT / '.audit/native-player-death-respawn/room-core-probe-46/source'
+TILE_XML_PINS = {
+    'ForegroundTiles.xml': '1d31280a6ef0a81909186954648aa3e47e30de036404e3117916dbcdd0dfee65',
+    'BackgroundTiles.xml': 'fa2c03e2b41f72778bacbe2498927a5bfce81112e9645748d371606bd4ed016b',
+}
+CANONICAL_EVIDENCE = '/home/fred/projects/celeste-vita/.audit/native-player-death-respawn/'
 
 
-def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
+def lifecycle_contract_matrix():
+    evidence = {
+        'up-direction': ('up-spike-reviewed-61a06869', '61a06869c3a796ed0410cbaf4099a647e4fc73dae0be54d5b64174a74171c6ab', '78e173cb7604d1ada13ed271e686c9f87f50bc4f5354feaf0ebcb9abafd6d2e1', ['lethal', 'nonlethal']),
+        'up-boundary': ('up-boundary-reviewed-bc542489', 'bc542489027c03d4a116bfe4d4b639d30774d7852ca7fb80d78064e581ae5b73', '4b1cff3f04257aefbd40dc5889a71d418ccfd44f863c25ab121ecb52c858c2c0', ['geometry-nonlethal', 'zero-lethal']),
+        'up-plane': ('up-plane-equality-reviewed-6779d5af', '6779d5af3258b236a42dbe51dd4b44a8cf04da4d47a5e635f55043f4c7d45338', '102175ebb3ca19f4b61f243744649b1a39364e71cf6d5f7376e47cb627c5d397', ['plane-equality-lethal']),
+        'left-direction': ('left-spike-reviewed-df5bd06f', 'df5bd06fdf72738c404642ed88e940924d317d972f2b5ba55fc6c97749655812', 'fbe3af269afd6fe1603a4fa3d47c324f415f49abda92384300ba254de7eeabc3', ['left-lethal', 'left-nonlethal']),
+        'left-zero': ('left-zero-x-reviewed-68563e5b', '68563e5b5dd0dfb43adedd5262a697e6d12a93ee6af998164dbb5f70aa10c10f', 'fb3dc275230b6bcd7c421994149e0453fa6c9aa19163ff83240a53fe83ae42da', ['left-zero-lethal']),
+        'simultaneous': ('simultaneous-reviewed-172d78fb', '172d78fbf7cd691d2c949b5063cb87fb14a8404ea357f4beb8a27977ee55dc38', '336a697c9846931a36ddac89a1e4b162313e4cf703f6c122221ab619b7eee825', ['simultaneous-fixture-lethal']),
+        'buffer': ('jump-buffer-reviewed-dfb3cc07', 'dfb3cc0763708c95034f782b623fb9a5826565aa7d1314e5ac5fbbc956d5c14a', 'fcc17f10b99a4a9f66d42c0958c32e3f06b4f1ea99aa30eecf6ac00534a99ce1', ['room-core-input-jump-buffer']),
+        'ground': ('ground-query-reviewed-4309dadc', '4309dadc36d66a5473de49611ae7458c93ef47164f5261422e75e1659c559fe6', '1893d64facc35b30c24b091b5eb3ef6f2ab2ac39b0e4340378b39677ca88e1fa', ['room-core-ground-query']),
+        'natural': ('functional-lifecycle-reviewed-24dd0113', '24dd01137bab6a698605ccc14781d729c78643d35857bfd15193a4496758ff97', '1720ad33c48c5bb704e2b2ae388489ff947bf80337f5ec11409806a9703e0278', ['room-core-natural-lifecycle repeat', 'room-core-natural-lifecycle checkpoint-repeat']),
+    }
+    families = {
+        'up': (['up-direction', 'up-boundary', 'up-plane', 'natural'], 'Accepted seeded directional/predicate/equality cells compose with natural grounded raw-Up deaths; seeded cells are not relabeled natural.'),
+        'left': (['left-direction', 'left-zero'], 'Accepted seeded Left sign/equality cells and source-derived precontact motion suffice for this bounded directional contract; no new natural-Left route is required.'),
+        'ordering': (['simultaneous', 'natural'], 'Accepted declared simultaneous fixture proves first eligible Up/early return and one corpse, NOT a second callback. Separate pinned Die !Dead guard proves repeated-call exclusion by source reachability, not runtime double invocation.'),
+        'corpse': (['natural'], 'Same live lifecycle instances execute original render math for live/14/corpse/hair/effect/wipe, original geometry recording and Level hair/shake RNG phase witnesses.'),
+        'boundaries': (['simultaneous', 'natural'], 'Pinned required first-room EntityAdded -> Player.Added14/StartHair -> Awake; observed deferred ownership; actual tween/wipe delegates observed once; source End/Completed/ending guards plus unique wipe/reconstruction witnesses.'),
+        'freeze-input': (['buffer', 'natural'], 'Natural corpse freeze skips Scene on positive/zero-crossing frames while raw keyboard sampling and original rendering continue; held/released/expired/first-action buffer cells retained.'),
+        'reload': (['ground', 'natural'], 'Automatic source Reload/LoadLevel14 -> Normal/actual first Jump, source callbacks and global tiles/Grid/input/RNG/clocks retained, no rebake.'),
+        'cycles': (['natural'], 'Two natural deaths/autoReloads plus third actual Jump for default and declared HitCheckpoint flag, not checkpoint acquisition/new spawn.'),
+    }
+    return {name: {'closed': False, 'eligibleForCoordinatorReview': True,
+        'acceptedEvidence': [{'archive': CANONICAL_EVIDENCE + evidence[key][0],
+            'sourceSnapshot': evidence[key][1], 'receiptSha256': evidence[key][2], 'scenarios': evidence[key][3]}
+            for key in references],
+        'newScenarios': ['room-core-source-contract repeat', 'room-core-source-contract checkpoint-repeat'] if name != 'left' else [],
+        'boundedContract': contract, 'remaining': 'Coordinator acceptance of this composed bounded SOURCE contract; completedLifecycleFamilies remains hardcoded 0.'}
+        for name, (references, contract) in families.items()}
+
+
+def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs', 'RoomCoreProbe.cs', 'RoomCoreGpu.cs', 'NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'RoomCoreLifecycle.cs', 'RoomCoreContract.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'), reference=None):
     referenced = '' if reference is None else f'<Reference Include="PrivateCheckpoint"><HintPath>{reference}</HintPath></Reference>'
     assembly = '' if reference is None else '<AssemblyName>RoomCoreHelpers</AssemblyName>'
     return ('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>'
@@ -33,7 +72,7 @@ def project_text(files=('Extracted.cs', 'Shared.cs', 'Geometry.cs', 'Services.cs
 
 
 def compile_project(output, identity, before, execution=None):
-    sdk = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+    sdk = sdk_path(ROOT)
     commands = []
     actions = [(['restore', output / 'Oracle.csproj', '--configfile', output / 'NuGet.Config'], 'restore.log'),
         (['build', output / 'Oracle.csproj', '--no-restore', '-c', 'Release', '-p:UseSharedCompilation=false', '--disable-build-servers'], 'build.log')]
@@ -56,7 +95,7 @@ def compile_project(output, identity, before, execution=None):
 
 
 def native_abi_audit(output):
-    sdk = PRIVATE / 'tools/dotnet-8.0.425/dotnet'
+    sdk = sdk_path(ROOT)
     generated = output / 'bin/Release/net8.0/Oracle.dll'
     report = output / 'native-abi-identity.json'
     command = [str(sdk), str(generated), 'native-abi-metadata-audit', str(generated), str(report),
@@ -170,12 +209,36 @@ def room_shared_support(text):
     return text
 
 
+def recording_leaves(frontier, inventory):
+    replacements = (
+        (r'public static SpriteBatch SpriteBatch \{ get\{ throw new DeathOracle.UnsupportedClosure\("Excluded source member: [^"\n]+/Monocle.Draw.cs:SpriteBatch.get"\); \}',
+         'public static PresentationOracle.RecordingBatch SpriteBatch { get => DeathOracle.LifecycleRecording.Batch;'),
+        (r'(public static void DrawVertices<T>\([^\n]+\) where T : struct, IVertexType\s*)\{ throw new DeathOracle.UnsupportedClosure\("Excluded source member: [^"\n]+/Celeste.GFX.cs:DrawVertices"\); \}',
+         r'\1{ DeathOracle.LifecycleRecording.Vertices(matrix, vertices, vertexCount, effect, blendState); }'),
+    )
+    for pattern, replacement in replacements:
+        frontier, count = re.subn(pattern, replacement, frontier)
+        if count != 1:
+            raise ValueError('Missing unique recording render leaf: ' + pattern)
+    leaves = [entry for entry in inventory['Declarations'] if
+        (entry['File'].endswith('/Monocle.Draw.cs') and entry['Name'] == 'SpriteBatch' and entry['Kind'] == 'property')
+        or (entry['File'].endswith('/Celeste.GFX.cs') and entry['Name'] == 'DrawVertices')]
+    if len(leaves) != 2:
+        raise ValueError('Recording leaf declaration inventory changed')
+    inventory['Declarations'] = [entry for entry in inventory['Declarations'] if entry not in leaves]
+    return frontier, leaves
+
+
 def build(source, room_source, output, helpers_only=False, declarations_source=None):
     source, room_source, output = source.resolve(), room_source.resolve(), output.resolve()
     if not output.is_relative_to(ROOT / '.audit/native-player-death-respawn') or output.exists():
         raise ValueError('Room-core probe output must be fresh and private')
     if not room_source.is_relative_to(ROOT / '.audit/native-player-death-respawn'):
         raise ValueError('Room-core discovery must remain private')
+    if not TILE_SOURCE.is_dir() or not TILE_SOURCE.resolve().is_relative_to(ROOT / '.audit/native-player-death-respawn'):
+        raise ValueError('Tile prefix source must remain private')
+    if not (TILE_SOURCE / 'Celeste.LevelLoader.cs').is_file():
+        raise ValueError('Pinned LevelLoader source missing')
     receipt = json.loads((room_source / 'provenance.json').read_text())
     discovered = {entry['file']: entry['sha256'] for entry in receipt['sources']}
     if len(receipt['sources']) != len(ROOM_PINS) or discovered != ROOM_PINS:
@@ -199,8 +262,10 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
                     room_core_provenance_sha256=hashlib.sha256((room_source / 'provenance.json').read_bytes()).hexdigest(),
                     room_profile_changes=changes)
     pins = SOURCE_PINS | discovered
-    locations = (source, source / 'presentation', room_source / 'source')
+    pins['Celeste.LevelLoader.cs'] = TILE_LEVELLOADER_SHA
+    locations = (source, source / 'presentation', room_source / 'source', TILE_SOURCE)
     declarations = {}
+    declaration_ranges = {}
     if declarations_source is not None:
         declaration_directories = tuple(path.resolve() for path in declarations_source)
         if any(not path.is_relative_to(ROOT / '.audit/native-player-death-respawn') for path in declaration_directories):
@@ -225,6 +290,14 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
             pins[name] = entry['sha256']
         locations += tuple(directory / 'source' for directory in declaration_directories)
         manifest['declaration_pin_manifest_sha256'] = hashlib.sha256(pin_path.read_bytes()).hexdigest()
+        declaration_ranges = {
+            'Microsoft.Xna.Framework.Game.cs': [(69, 83)],
+            'Microsoft.Xna.Framework.Content.ContentManager.cs': [(35, 35)],
+            'Microsoft.Xna.Framework.GraphicsDeviceManager.cs': [(49, 49)],
+        }
+        for name in declaration_ranges:
+            if not any((directory / 'source' / name).is_file() for directory in declaration_directories):
+                raise ValueError('Missing content-root getter source: ' + name)
 
     def extract(name, ranges):
         path = next((directory / name for directory in locations if (directory / name).is_file()), None)
@@ -269,21 +342,23 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Celeste.SFX.cs': [(1590, 1595)],
         'Celeste.Audio.cs': [(66, 66), (68, 68), (132, 161), (265, 274), (291, 308), (389, 395), (397, 404), (406, 420), (422, 441), (579, 585), (596, 617), (619, 638), (640, 647), (648, 662)],
         'FMOD.Studio.HandleBase.cs': [(49, 65)],
-        'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (251, 260)],
+        'Celeste.Spikes.cs': [(39, 73), (75, 78), (91, 138), (220, 249), (251, 260)],
         'Celeste.PlayerCollider.cs': [(16, 22), (24, 50)],
         'Celeste.Input.cs': [(79, 94), (96, 135), (137, 187), (189, 271), (292, 303), (326, 329), (331, 373)],
         'Celeste.SaveData.cs': [(10, 136), (362, 369), (414, 418)],
         'Celeste.UserIO.cs': [(36, 40), (40, 69)],
         'Monocle.VirtualInput.cs': [(19, 27)],
-        'Monocle.VirtualButton.cs': [(29, 65), (79, 105)],
-        'Monocle.VirtualIntegerAxis.cs': [(40, 49), (100, 103)],
+        'Monocle.VirtualButton.cs': [(29, 65), (67, 77), (79, 105), (107, 151)],
+        'Celeste.Dust.cs': [(9, 39)],
+        'Celeste.ParticleTypes.cs': [],
+        'Monocle.VirtualIntegerAxis.cs': [(40, 49), (51, 98), (100, 103)],
         'Monocle.VirtualJoystick.cs': [(41, 41), (45, 69), (235, 238)],
-        'Monocle.Binding.cs': [(30, 76), (224, 260)],
+        'Monocle.Binding.cs': [(30, 76), (204, 260), (262, 279)],
         'Celeste.LedgeBlocker.cs': [(14, 18)],
         'SDL2.SDL.cs': [],
-        'Monocle.Engine.cs': [(52, 52), (58, 58), (81, 85), (89, 99)],
-        'Monocle.MInput.cs': [(16, 18), (38, 62), (303, 307), (476, 479), (1353, 1369)],
-        'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(76, 79), (130, 145)],
+        'Monocle.Engine.cs': [(52, 54), (58, 58), (81, 85), (89, 99)],
+        'Monocle.MInput.cs': [(16, 18), (38, 62), (64, 75), (303, 307), (476, 479), (1353, 1369)],
+        'Microsoft.Xna.Framework.Input.KeyboardState.cs': [(37, 54), (76, 79), (130, 145), (147, 177)],
         'Monocle.Tracker.cs': [(10, 143), (162, 165), (185, 193), (212, 215), (235, 285)],
         'Monocle.Tracked.cs': [(9, 12)],
         'Monocle.Calc.cs': [(19, 23), (263, 272), (323, 349), (371, 394), (405, 445), (480, 495), (542, 572),
@@ -327,6 +402,8 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         'Monocle.Shaker.cs': [],
         'Celeste.ClutterCabinet.cs': [],
     }
+    frontier_ranges.update(declaration_ranges)
+    frontier_ranges['Celeste.LevelLoader.cs'] = []
     replacement = ''
     actor = (room_source / 'source/Celeste.Actor.cs').read_text().splitlines()
     replacement += 'namespace Celeste {\n' + extract('Celeste.Actor.cs', [(7, len(actor))]) + '\n'
@@ -365,6 +442,66 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     manifest['caller_area_input'] = 'First two original area object initializers plus declared Spike atlas id only; original AreaData.Load/global map loading is not executed or claimed'
     manifest['caller_runtime_profile'] = 'Declared 1920x1080 camera viewport, empty audio events with inert SFX cache, source Lighting/Bloom/Hud renderers, field-only room header, declared LevelLoader field subset for Particles/StrawberriesDisplay, pinned GUI atlas metadata, no-device rumble profile, and an Engine.Scene/Pooler driver fixture; no original startup, save-audio, full LevelLoader, or input-device parity'
     content += whole('Monocle.Collide.cs', 'Monocle')
+    tile_prefix = extract('Celeste.LevelLoader.cs', [(95, 274)])
+    content += ('namespace DeathOracle {\n'
+        'using global::System.Text.RegularExpressions;\n'
+        'using global::Microsoft.Xna.Framework;\n'
+        'using global::Monocle;\n'
+        'using global::Celeste;\n'
+        'static class RoomCoreTileBake {\n'
+        'public static void Build(Level Level, MapData mapData) {\n'
+        + tile_prefix + '\n}\n}\n}\n')
+    manifest['tile_bake_prefix'] = {
+        'file': 'Celeste.LevelLoader.cs',
+        'source_path': str(TILE_SOURCE / 'Celeste.LevelLoader.cs'),
+        'source_sha256': TILE_LEVELLOADER_SHA,
+        'lines_inclusive': [95, 274],
+        'rng_wrap': 'Unchanged lines 267-274 preserve Calc.PushRandom(mapData.LoadSeed) and Calc.PopRandom; 274 is the original closing pop one line beyond the requested 95-273 prefix.',
+        'xml_pins': TILE_XML_PINS,
+    }
+    content += ('namespace DeathOracle { using GFX = global::Celeste.GFX; using static global::Celeste.ParticleTypes; '
+        'static class RoomCoreParticleInput { public static void Configure() {\n'
+        + extract('Celeste.ParticleTypes.cs', [(22, 47)]) + '\n} } }\n')
+    manifest['particle_bootstrap_prefix'] = {
+        'file': 'Celeste.ParticleTypes.cs', 'lines_inclusive': [22, 47],
+        'claim': 'Unchanged original Dust/SparkyDust startup assignments only; declared prefix fixture, NOT whole ParticleTypes.Load or GFX.Load execution. Other particle setup stays guarded.'}
+    manifest['lifecycle_contract_matrix'] = lifecycle_contract_matrix()
+    phase_ranges = {
+        'Monocle.EntityList.cs': [(61, 141)],
+        'Monocle.Entity.cs': [(437, 482)],
+        'Monocle.Component.cs': [(29, 63)],
+        'Monocle.StateMachine.cs': [(28, 106)],
+        'Monocle.ComponentList.cs': [(33, 71), (99, 145), (199, 223)],
+        'Monocle.Tween.cs': [(117, 179)],
+        'Monocle.Scene.cs': [(63, 91)],
+        'Celeste.Player.cs': [(1277, 1329), (1985, 1994), (2855, 2908), (3531, 3534), (6121, 6154)],
+        'Celeste.Level.cs': [(1389, 1435), (1748, 2008), (2704, 2713)],
+        'Celeste.PlayerHair.cs': [(51, 91)],
+        'Celeste.PlayerDeadBody.cs': [(36, 154)],
+        'Celeste.ScreenWipe.cs': [(57, 87)],
+    }
+    render_order_ranges = {
+        'Monocle.Engine.cs': [(264, 276), (302, 334)],
+        'Celeste.GameplayRenderer.cs': [(18, 37)],
+        'Monocle.EntityList.cs': [(295, 304)],
+        'Celeste.Level.cs': [(2026, 2110)],
+    }
+    for key, witnesses in (('bounded_phase_sources', phase_ranges), ('bounded_render_order_sources', render_order_ranges)):
+        manifest[key] = []
+        for name, ranges in witnesses.items():
+            path = next(directory / name for directory in locations if (directory / name).is_file())
+            blocks = source_block(path.read_bytes(), ranges, pins[name])
+            manifest[key].append({'file': name, 'source_path': str(path),
+                'source_sha256': pins[name], 'lines_inclusive': ranges,
+                'blocks_sha256': [hashlib.sha256(block).hexdigest() for block in blocks]})
+    manifest['bounded_render_order_contract'] = 'REFERENCE-ONLY source order, not promotion/execution of Engine.Draw/RenderCore/GameplayRenderer/Level.Render: Engine freeze returns from Update but Draw/RenderCore has no FreezeTimer gate; GameplayRenderer projects visible non-HUD EntityList order, then Level renders its current Wipe. The probe executes only the live Player/corpse projection and Wipe.Render once each frame, omitting other world/GPU passes; source bodies and original sprite geometry remain unchanged.'
+    manifest['bounded_phase_contract'] = {
+        'added': 'EntityList commits once via current/adding sets; Entity.Added dispatches actual component EntityAdded before Player.Added switches to14 and guarded StartHair; toAwake runs afterward only if Scene matches. Runtime component override inventory and cleared pendingAwake prove required first-room reachability, not invented hook callbacks.',
+        'completion': 'Original tween invokes its completion before Oneshot deactivation/removal; original callback State14->0 invokes IntroRespawnEnd then NormalBegin(maxFall160), then squash(1.5,.5). Probe wraps only this existing delegate and death-wipe Reload delegate, invokes originals once and observes return state.',
+        'postUpdate': 'Level glitch RNG precedes base Scene entities/renderers; then actual PostUpdateHook list (empty in this room), active hair AfterUpdate, then interval-gated shake RNG. RNG leaf stack and current hair-head geometry witness this order; hair itself consumes no RNG.',
+        'exactlyOnce': 'Corpse coroutine reaches guarded End; finished suppresses later MenuConfirm End. ScreenWipe Completed then ending gates removal and OnComplete. Runtime observes one distinct death wipe and one actual Reload delegate invocation per corpse, reconstructing a new Player14; this is not a count of unobserved End calls.',
+        'repeatedDie': 'Separate source guard !Dead at Player.Die2859 dominates counters/corpse/list writes; subsequent call on this still-valid dead Player returns null without entering those writes. No runtime second callback or direct repeated Die is invoked/claimed.',
+        'limits': 'No arbitrary callback/ECS/list operations, full Engine/MInput/GPU startup, RNG startup parity, multiroom, checkpoint acquisition, hardware or pixels. completedLifecycleFamilies remains0 pending coordinator acceptance.'}
     selected_files = {entry['file'] for entry in manifest['extractions']}
     for name in declarations:
         if name not in selected_files:
@@ -387,6 +524,12 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
         selections.append(selection)
     tool = build_tool(output / 'frontier-tool')
     frontier, inventory = emit_frontier(tool, selections, output)
+    frontier, recording = recording_leaves(frontier, inventory)
+    manifest['recording_render_leaves'] = {
+        'original_declarations': recording,
+        'provider': 'tests/native/oracle/death/RoomCoreGpu.cs',
+        'boundary': 'Draw.SpriteBatch.get returns the existing RecordingBatch only during a scoped lifecycle render; GFX.DrawVertices accepts only the original screen-wipe VertexPositionColor geometry at the declared viewport. All other members remain guarded.',
+        'original_math': 'Unchanged MTexture/Player/PlayerHair/PlayerDeadBody/DeathEffect/AngledWipe bodies and existing original SpriteBatch.Draw/GenerateVertexInfo geometry extraction; no original GPU initialization, pixels or backend claim.'}
     frontier = remove_fixture_class(frontier, 'Distort')
     inventory['Declarations'] = [entry for entry in inventory['Declarations'] if not entry['File'].endswith('/Celeste.Distort.cs')]
     inventory['OutputSha256'] = hashlib.sha256(frontier.encode()).hexdigest()
@@ -447,13 +590,13 @@ def build(source, room_source, output, helpers_only=False, declarations_source=N
     (output / 'Services.cs').write_text(services)
     (output / 'RoomCoreProbe.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreProbe.cs').read_bytes())
     (output / 'RoomCoreGpu.cs').write_bytes((ROOT / 'tests/native/oracle/death/RoomCoreGpu.cs').read_bytes())
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'RoomCoreLifecycle.cs', 'RoomCoreContract.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         (output / name).write_bytes((ROOT / 'tests/native/oracle/death' / name).read_bytes())
     manifest['room_core_support_sha256'] = {'tests/native/oracle/death/RoomCoreProbe.cs': hashlib.sha256((output / 'RoomCoreProbe.cs').read_bytes()).hexdigest(),
         'Services.cs_after_fixture_removal': hashlib.sha256(services.encode()).hexdigest(),
         'scripts/read_player_room_core_sources.py': hashlib.sha256((ROOT / 'scripts/read_player_room_core_sources.py').read_bytes()).hexdigest()}
     manifest['room_core_support_sha256']['tests/native/oracle/death/RoomCoreGpu.cs'] = hashlib.sha256((output / 'RoomCoreGpu.cs').read_bytes()).hexdigest()
-    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
+    for name in ('NativeImportGuard.cs', 'NativeImportGuardProbe.cs', 'RoomCoreExecution.cs', 'RoomCoreLifecycle.cs', 'RoomCoreContract.cs', 'NativeAbiMetadataAudit.cs', 'PlatformIdentityFixture.cs', 'PlatformIdentityFixtureProbe.cs', 'RoomCoreRoomInput.cs', 'RoomCoreCaller.cs'):
         manifest['room_core_support_sha256']['tests/native/oracle/death/' + name] = hashlib.sha256((output / name).read_bytes()).hexdigest()
     for fixture in manifest['managed_platform_fixtures']:
         fixture['ReferencePlatform'] = 'Linux'
