@@ -1,4 +1,5 @@
 #include "draw_order.hpp"
+#include "decal_commands.hpp"
 #include "lifecycle_fixture.hpp"
 #include <algorithm>
 #include <iostream>
@@ -217,6 +218,72 @@ void visual_updates_leave_global_random_and_physical_simulation_unchanged() {
                 baseline.room_roster().size()==visual.room_roster().size(),"Visual owners must not enter or alter the physical simulation roster");
     }
 }
+AuthoredDecalOwners command_owners(const RoomDefinition& definition) {
+    auto metadata=visual_owners(definition,1,1);metadata.owners[1].banner=false;return metadata;
+}
+struct CommandFixture {
+    RoomDefinition definition=first_room();
+    AuthoredDecalOwners metadata=command_owners(definition);
+    StaticWorld collision;
+    RoomRuntime room{definition,collision,false,&metadata};
+    decal_commands::StaticDecalCatalog catalog;
+    DrawProjection drawn;
+    std::vector<const RoomRuntime*> rooms{&room};
+    CommandFixture() {
+        catalog.families.push_back({"fixture_sheet",16,24,6,2,-1,-1,8,5,"fixture_banner"});
+        const auto& banner=metadata.owners[0];const auto& still=metadata.owners[1];
+        catalog.owners.push_back({still.identity,definition.name,false,still.authored_id,0,still.texture});
+        catalog.deferred.push_back({banner.identity,definition.name,true,banner.authored_id,banner.texture});
+        catalog.banners.push_back({0,2.f,3.5f,2,0.05f,true,0.f,false,1});
+        drawn.live={banner,still};drawn.dispatch={0,1};
+    }
+    decal_commands::DecalProjection project() const { return decal_commands::project(drawn,catalog,&rooms); }
+};
+void logical_banner_strips_keep_zero_height_submissions() {
+    CommandFixture fixture;const auto result=fixture.project();
+    require(result.commands.size()==4 && result.deferred.empty(),"Every logical Banner strip must be retained and resolved in dispatch order");
+    require(result.commands[2].source_height==0,"Fully trimmed final strips must retain their zero source height");
+    const auto geometry=decal_commands::project_geometry(result.commands[2],4096,4096);
+    require(!geometry.finite,"Zero-height Source submission must retain nonfinite CPU geometry");
+}
+void banner_projection_is_read_only_and_repeatable() {
+    CommandFixture fixture;
+    const auto phase=fixture.room.banner_phase(fixture.metadata.owners[0].identity);
+    const auto random=fixture.room.scoped_random.state_words();
+    const auto first=fixture.project();const auto second=fixture.project();
+    for(unsigned index=0;index<first.commands.size();++index)
+        require(decal_commands::project_geometry(first.commands[index],4096,4096).vertices==
+                decal_commands::project_geometry(second.commands[index],4096,4096).vertices,"Repeated CPU command projection must preserve every geometry bit");
+    require(phase==fixture.room.banner_phase(fixture.metadata.owners[0].identity) && random==fixture.room.scoped_random.state_words(),
+        "Command projection must not advance phase or scoped random state");
+}
+void banner_projection_rejects_missing_phase() {
+    CommandFixture fixture;RoomRuntime uninitialized(fixture.definition,fixture.collision);fixture.rooms={&uninitialized};
+    try { fixture.project(); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Banner commands cannot guess missing phase");
+}
+void banner_projection_rejects_unsupported_parameters_parameterized() {
+    for(unsigned scenario=0;scenario<5;++scenario) {
+        CommandFixture fixture;
+        if(scenario==0) fixture.catalog.banners.clear();
+        if(scenario==1) fixture.catalog.banners[0].only_if_windy=true;
+        if(scenario==2) fixture.catalog.banners[0].frame_count=2;
+        if(scenario==3) fixture.rooms.clear();
+        if(scenario==4) fixture.catalog.families[0].frame_height=std::numeric_limits<int>::max();
+        try { fixture.project(); }
+        catch(const std::invalid_argument&) { continue; }
+        throw std::runtime_error("Missing/unsupported Banner metadata or room must reject");
+    }
+}
+void strip_trim_and_odd_frame_center_keep_source_integer_division() {
+    CommandFixture fixture;fixture.drawn.live[0].scale={-1,1};
+    const auto result=fixture.project();
+    require(result.commands[0].origin.x==3 && result.commands[0].origin.y==1 &&
+            result.commands[1].origin.y==0 && result.commands[2].origin.y==-2,"Source centers must use integer frame halves before trim adjustment");
+    require(result.commands[0].source_height==1 && result.commands[1].source_height==1 &&
+            result.commands[2].source_height==0 && result.commands[0].scale.x==-1,"Trimmed strips and signed scale must not normalize or drop submissions");
+}
 }
 int main() {
     try {
@@ -235,6 +302,11 @@ int main() {
         unknown_owner_kind_rejects();
         static_owners_do_not_consume_visual_random_draws();
         visual_updates_leave_global_random_and_physical_simulation_unchanged();
-        std::cout<<"15 Banner initialization/update behaviors passed\n";
+        logical_banner_strips_keep_zero_height_submissions();
+        banner_projection_is_read_only_and_repeatable();
+        banner_projection_rejects_missing_phase();
+        banner_projection_rejects_unsupported_parameters_parameterized();
+        strip_trim_and_odd_frame_center_keep_source_integer_division();
+        std::cout<<"20 Banner initialization/update/command behaviors passed\n";
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

@@ -1,9 +1,10 @@
-# Banner presentation state: independent increment
+# Bounded Banner CPU draw projection
 
-Status: initialization/update only. Logical Banner command projection is blocked
-on the reviewed static decal descriptor/shared-command dependency. No Banner
-commands, nonfinite geometry preservation, combined Decal parity, full Level,
-unstripped SOURCE RNG, GPU, pixels or Vita equivalence are claimed here.
+The native two-room CPU observer projects all 52 authored Decal owners: 41 static
+owners / 11,746 commands and 11 Banner owners / 38,108 commands over the accepted
+514-frame route. All 49,854 logical tuples and original pre-batch geometry float32
+bits compare exactly, including 5,929 zero-height/nonfinite geometry submissions.
+This is not full Level, unstripped SOURCE RNG, GPU, pixels or Vita equivalence.
 
 ## Initialization boundary
 
@@ -40,7 +41,6 @@ physical roster loop, only for nontransitioning simulated passes outside the
 committed-corpse branch. It adds the sampled `context_.clock.delta` using float
 arithmetic. The pinned eleven Banners all have `OnlyIfWindy=false` and multiplier
 one (SOURCE lines 28, 41–55); this is not a general windy/animated decal engine.
-Render wave/trim/strip math remains unimplemented pending the shared dependency.
 Original atlas metadata independently confirms all 27 authored families are
 singletons; SOURCE lines 505–510 therefore do not advance their frames.
 
@@ -49,7 +49,34 @@ transition; outgoing state belongs to `outgoing_room_` until unload. Reload
 creates fresh phases even when authored identities/definition names repeat.
 Drawing and phase lookup do not advance state. Missing phases fail loudly.
 
-## Checks and remaining work
+## Shared descriptors, strip math and geometry
+
+The reviewed static module and `DecalCommand` are extended, not replaced.
+The descriptor generator retains byte-compatible `CDSC1` static-only output and
+adds explicitly selected `CDSC2`: 27 original atlas frames, unchanged static and
+Banner owner bindings, plus four family parameter records extracted from the
+pinned original `MakeBanner` cases. Float parameters are serialized as bits.
+Inputs are pinned atlas/CDO1/Decal metadata, never expected draw frames or phases.
+Animated, windy, missing and aliased metadata are rejected rather than guessed.
+
+Banner wave evaluation retains float argument arithmetic, double sine/products,
+the final float cast, integer frame halves, original trim/subtexture clipping,
+signed scales and strip order. Source rectangles with zero height remain commands.
+The separate CPU-only `project_geometry` helper follows original SpriteBatch
+normalization and vertex arithmetic, serializing all four XYZ/UV vertices as
+signed float32 bit integers. Logical fields remain finite while zero-height
+normalization produces the original nonfinite vertex bits. No GPU finite guard
+is changed and these observations are not GPU-consumption or safety approval.
+
+The trace runner accepts `--decal-commands /private/CDSC2-catalog` with complete
+CDO1 positional inputs. It initializes phases before room load and emits ordered
+`decal-command` records, including `finiteGeometry` and `verticesFloat32Bits`.
+`--banner-phases` adds read-only lifetime observations. Existing
+`--static-decal-commands /private/CDSC1-catalog` still projects only the 41 static
+owners and explicitly defers the 11 Banners; its old flag/format remain intact.
+The two decal modes are mutually exclusive. Neither observer adds a Player draw.
+
+## Checks and review boundary
 
 `native_banner_unit` covers initialization order/physical RNG isolation, float
 accumulation, transition pause, actual session injection, repeat drawing, natural
@@ -59,10 +86,16 @@ it adds read-only observations without an additional `session.draw()`.
 `test_banner_phases.py` checks all 514 route frames and rejects phase-bit,
 identity, lifetime and missing-phase mutations when supplied a fresh trace via
 `CELESTE_NATIVE_BANNER_PHASE_TRACE`.
+`test_banner_commands.py` compares all ordered Source logical fields and geometry
+bits, and rejects missing/swapped owners, float/sign/Source-field/descriptor and
+nonfinite-bit mutations. Release and ASan/UBSan are checked separately, alongside
+the existing static, Player, Terrain, owner and stripped-CPU comparisons.
 
 Private evidence is retained under the canonical
 `.audit/native-banner-draw-projection-01/`. All raw failed attempts are retained.
 The aggregate Python run encountered existing hard-coded host `/tmp/opencode`
 quota errors and an unset host-temp fixture; it is not reported as passing.
-Independent simplifier/reviewer acceptance and the static dependency integration
-remain parent review gates. No commit or push is part of this increment.
+The phase-only prerequisite review is not full draw acceptance. Full working-diff
+simplifier/reviewer acceptance remains a parent gate. The only authorized commits
+are the phase WIP checkpoint and normal merge of reviewed development; no delivery
+commit, development update or push is part of this increment.

@@ -52,15 +52,16 @@ struct Dataset {
     std::string catalog;
 };
 
-std::vector<RoomSpec> authored_specs() {
+std::vector<RoomSpec> authored_specs(bool include_banners=false) {
     std::vector<RoomSpec> rooms;
     int static_index=0,banner_index=0;
     const auto add=[&](RoomSpec& room,bool background,int ordinal,bool banner) {
         OwnerSpec owner{background,ordinal,{},0,0,1,1,banner,0};
         owner.family=unsigned(static_index%23);
-        owner.texture=banner ? "synthetic/banner"+std::to_string(banner_index++)+".png"
+        const int banner_family=include_banners?banner_index%4:banner_index;
+        owner.texture=banner ? "synthetic/banner"+std::to_string(banner_family)+".png"
                              : "synthetic/static"+std::to_string(owner.family)+".png";
-        if(!banner) ++static_index;
+        if(banner) ++banner_index;else ++static_index;
         owner.x=10+ordinal*3+(background?0:40);
         owner.y=20+ordinal*2+(background?0:80);
         owner.scale_x=static_index%7==0?-1:1;
@@ -109,10 +110,12 @@ std::string family_row(unsigned index) {
            " synthetic/static"+std::to_string(index)+".png\n";
 }
 
-std::string catalog_text(const std::vector<RoomSpec>& rooms) {
-    std::string text=std::string("CDSC1\n")+input_sha+"\n"+map_sha+"\n"+decal_source_sha+"\n"+
-                     atlas_sha+"\n"+authored_sha+"\n23\n";
+std::string catalog_text(const std::vector<RoomSpec>& rooms,bool include_banners=false) {
+    std::string text=std::string(include_banners?"CDSC2\n":"CDSC1\n")+input_sha+"\n"+map_sha+"\n"+decal_source_sha+"\n"+
+                     atlas_sha+"\n"+authored_sha+(include_banners?"\n27\n":"\n23\n");
     for(unsigned index=0;index<23;++index) text+=family_row(index);
+    if(include_banners) for(unsigned index=0;index<4;++index)
+        text+=replace_once(family_row(index+23),"synthetic/static"+std::to_string(index+23),"synthetic/banner"+std::to_string(index));
     int owners=0,deferred=0;
     for(const auto& room:rooms) for(const auto& owner:room.owners) {
         if(owner.banner) ++deferred; else ++owners;
@@ -124,17 +127,22 @@ std::string catalog_text(const std::vector<RoomSpec>& rooms) {
     text+=std::to_string(deferred)+"\n";
     for(const auto& room:rooms) for(const auto& owner:room.owners) if(owner.banner)
         text+="D "+room.name+' '+(owner.background?"B ":"F ")+std::to_string(owner.ordinal)+' '+owner.texture+'\n';
+    if(include_banners) {
+        text+="4\n";
+        for(unsigned index=0;index<4;++index)
+            text+="A "+std::to_string(index+23)+" 1 40000000 40600000 2 3d4ccccd 1 00000000 0\n";
+    }
     return text;
 }
 
-Dataset dataset() {
-    const auto rooms=authored_specs();
+Dataset dataset(bool include_banners=false) {
+    const auto rooms=authored_specs(include_banners);
     const auto cdo1=cdo1_text(rooms);
     auto catalog=std::make_unique<RoomCatalog>(std::vector<RoomDefinition>{
         {"1",{0,0,320,180},49,{19,144},{}},
         {"2",{240,-184,320,180},50,{264,-24},{}}});
     auto authored=parse_authored_decals(cdo1,checksum(cdo1),*catalog);
-    auto descriptor=catalog_text(rooms);
+    auto descriptor=catalog_text(rooms,include_banners);
     return {std::move(catalog),std::move(authored),cdo1,descriptor};
 }
 
@@ -526,6 +534,35 @@ void parser_rejects_missing_deferred_coverage() {
     catch(const std::invalid_argument&) { return; }
     throw std::runtime_error("Missing Banner owner coverage was accepted");
 }
+void parser_accepts_complete_banner_descriptor_version() {
+    const auto data=dataset(true);
+    const auto parsed=parse_static_decal_catalog(data.catalog,checksum(data.catalog),data.authored,true);
+    require(parsed.families.size()==27 && parsed.banners.size()==4 && parsed.owners.size()==41 && parsed.deferred.size()==11,
+        "Complete descriptors must retain all static and Banner owner/family bindings");
+}
+void parser_rejects_unsupported_banner_fields_parameterized() {
+    const auto data=dataset(true);
+    const std::string valid="A 23 1 40000000 40600000 2 3d4ccccd 1 00000000 0\n";
+    for(const std::string mutation:{"A 23 2 40000000 40600000 2 3d4ccccd 1 00000000 0\n",
+        "A 23 1 40000000 40600000 2 3d4ccccd 1 00000000 1\n",
+        "A 23 1 40000000 40600000 0 3d4ccccd 1 00000000 0\n",
+        "A 23 1 40000000 40600000 2 7fc00000 1 00000000 0\n",
+        "A 23 1 40000000 40600000 2 3d4ccccd 2 00000000 0\n",
+        "A 99 1 40000000 40600000 2 3d4ccccd 1 00000000 0\n"}) {
+        const auto text=replace_once(data.catalog,valid,mutation);
+        try { parse_static_decal_catalog(text,checksum(text),data.authored,true); }
+        catch(const std::invalid_argument&) { continue; }
+        throw std::runtime_error("Unsupported Banner field was accepted");
+    }
+}
+void descriptor_modes_reject_cross_version_parameterized() {
+    for(const bool include_banners:{false,true}) {
+        const auto data=dataset(include_banners);
+        try { parse_static_decal_catalog(data.catalog,checksum(data.catalog),data.authored,!include_banners); }
+        catch(const std::invalid_argument&) { continue; }
+        throw std::runtime_error("Descriptor version must match its explicit observer mode");
+    }
+}
 }
 
 int main() {
@@ -559,7 +596,10 @@ int main() {
         {"parser_rejects_wrong_integrity",parser_rejects_wrong_integrity},
         {"legacy_authored_parser_still_accepts_the_bound_metadata",legacy_authored_parser_still_accepts_the_bound_metadata},
         {"parser_rejects_missing_static_coverage",parser_rejects_missing_static_coverage},
-        {"parser_rejects_missing_deferred_coverage",parser_rejects_missing_deferred_coverage}
+        {"parser_rejects_missing_deferred_coverage",parser_rejects_missing_deferred_coverage},
+        {"parser_accepts_complete_banner_descriptor_version",parser_accepts_complete_banner_descriptor_version},
+        {"parser_rejects_unsupported_banner_fields_parameterized",parser_rejects_unsupported_banner_fields_parameterized},
+        {"descriptor_modes_reject_cross_version_parameterized",descriptor_modes_reject_cross_version_parameterized}
     };
     for(const auto& [name,test]:tests) {
         try { test(); ++passed; }

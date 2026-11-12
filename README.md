@@ -59,6 +59,9 @@ The script regenerates collision data, source-backed tile selection, player/hair
 and death animation pages, spike art and the 22 supported static decals. Originals,
 local source extractions, converted assets and logs remain under `.audit/`.
 It never executes the original game or modifies the supplied installation.
+The separate [Banner CPU draw observer](docs/native-banner-draw-projection.md)
+also validates logical decal submissions and nonfinite vertex bits; it does not
+expand this package's supported GPU decal set.
 Existing outputs are preserved: use `--output .audit/another-preparation` for a
 new run. Once tools are cached, `--offline` forbids tool downloads.
 
