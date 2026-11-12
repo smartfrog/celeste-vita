@@ -19,7 +19,9 @@ current scoped generator, immediately clears the copied observer, then consumes
 one float-cast `next_double()` per classified Banner: foreground placement
 ordinals first, then background placement ordinals. Neither render ordering nor
 elapsed frame numbers determine the phase. The copied generator stays local;
-only owner identity/current float phase are stored in that room runtime.
+Banner state stores only owner identity/current float phase in that room runtime.
+The same detached stream subsequently initializes independent JumpThru visual
+cells; see [the JumpThru contract](native-jumpthru-command-projection.md).
 
 The actual room load seed is used, not a route-specific reseed. Tests derive
 constructor consumption from the object definitions: seed 49 reaches visual

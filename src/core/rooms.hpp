@@ -37,6 +37,7 @@ private:
 struct RoomSceneHelper { Vec2 position{}; };
 struct RoomWind { Vec2 speed{}; void update(float delta); };
 struct RoomJumpThru { Body body; };
+std::vector<std::pair<int,int>> choose_jump_thru_cells(const Body& body,PresentationRandom& random,const StaticWorld& collision);
 struct RoomSpring {
     Body body;
     Body* attached=nullptr;
@@ -71,6 +72,10 @@ struct BannerState {
     std::uint64_t authored_identity;
     float sine_timer;
 };
+struct JumpThruVisual {
+    std::uint64_t object_identity;
+    std::vector<std::pair<int,int>> cells;
+};
 class RoomRuntime final {
 public:
     RoomRuntime(const RoomDefinition& definition,const StaticWorld& collision,bool initial=false,
@@ -81,9 +86,11 @@ public:
     std::vector<std::pair<std::string,unsigned>> random_events;
     const std::vector<BannerState>& banners() const { return banners_; }
     float banner_phase(std::uint64_t authored_identity) const;
+    const JumpThruVisual& jump_thru_visual(std::uint64_t object_identity) const;
     void update_banners(float delta);
     void update(float delta,bool transitioning);
 private:
     std::vector<BannerState> banners_;
+    std::vector<JumpThruVisual> jump_thru_visuals_;
 };
 }

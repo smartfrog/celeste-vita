@@ -34,6 +34,21 @@ void RoomWind::update(float delta) {
     speed.y=source_math::approach(speed.y,0,1000.f*delta);
 }
 RoomEntity::RoomEntity(int id,RoomObject value) : authored_id(id),object(std::move(value)) {}
+std::vector<std::pair<int,int>> choose_jump_thru_cells(const Body& body,PresentationRandom& random,const StaticWorld& collision) {
+    if(!body.collider || !std::isfinite(body.collider->width) || body.collider->width<8 || body.collider->width>136 || int(body.collider->width)%8!=0 ||
+       body.collider->width!=float(int(body.collider->width))) throw std::invalid_argument("Invalid bounded JumpThru body");
+    std::vector<std::pair<int,int>> cells;
+    const int columns=int(body.collider->width)/8;
+    for(int i=0;i<columns;++i) {
+        int x=0,y=0;
+        if(i==0) y=collision.first_solid(body,{body.position.x-1,body.position.y}) ? 0 : 1;
+        else if(i==columns-1) {
+            x=2;y=collision.first_solid(body,{body.position.x+1,body.position.y}) ? 0 : 1;
+        } else { x=1+random.next(1);y=random.next(2); }
+        cells.emplace_back(x,y);
+    }
+    return cells;
+}
 int RoomEntity::tag() const { return std::holds_alternative<RoomWind>(object) ? 4 : 0; }
 int RoomEntity::depth() const {
     if(std::holds_alternative<StaticSpike>(object)) return -1;
@@ -129,18 +144,17 @@ RoomRuntime::RoomRuntime(const RoomDefinition& data,const StaticWorld& collision
         for(const bool background:{false,true}) for(const auto& owner:added)
             if(owner.banner && owner.sort_depth_band==(background?9000:-10500))
                 banners_.push_back({owner.identity,float(visual_random.next_double())});
+        for(const auto& entity:entities) if(const auto* platform=std::get_if<RoomJumpThru>(&entity->object))
+            jump_thru_visuals_.push_back({entity->object_identity,choose_jump_thru_cells(platform->body,visual_random,collision)});
     }
     for(const auto& entity:entities) if(const auto* platform=std::get_if<RoomJumpThru>(&entity->object)) {
-        const int columns=int(platform->body.collider->width)/8;
-        for(int i=0;i<columns;++i) {
-            int x=0,y=0;
-            if(i==0) y=collision.first_solid(platform->body,{platform->body.position.x-1,platform->body.position.y}) ? 0 : 1;
-            else if(i==columns-1) {
-                x=2;y=collision.first_solid(platform->body,{platform->body.position.x+1,platform->body.position.y}) ? 0 : 1;
-            } else { x=1+scoped_random.next(1);y=scoped_random.next(2); }
-            entity->image_cells.emplace_back(x,y);
-        }
+        entity->image_cells=choose_jump_thru_cells(platform->body,scoped_random,collision);
     }
+}
+const JumpThruVisual& RoomRuntime::jump_thru_visual(std::uint64_t identity) const {
+    const auto found=std::find_if(jump_thru_visuals_.begin(),jump_thru_visuals_.end(),[&](const auto& visual) { return visual.object_identity==identity; });
+    if(found==jump_thru_visuals_.end()) throw std::logic_error("Missing room-instance JumpThru visual choices");
+    return *found;
 }
 float RoomRuntime::banner_phase(std::uint64_t authored_identity) const {
     const auto found=std::find_if(banners_.begin(),banners_.end(),[&](const BannerState& banner) { return banner.authored_identity==authored_identity; });
