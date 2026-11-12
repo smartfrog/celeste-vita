@@ -1,5 +1,6 @@
 #include "spike_commands.hpp"
 #include "asset_text.hpp"
+#include "atlas_frame_text.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -9,25 +10,9 @@ namespace {
 using asset_text::take;
 using asset_text::integer;
 
-bool identity(std::string_view value) {
-    return !value.empty() && value.size()<=192 && value.front()!='/' &&
-        value.find("..")==std::string_view::npos &&
-        value.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/.\\-")==std::string_view::npos;
-}
-void validate_frame(const decal_commands::AtlasFrame& frame) {
-    if(frame.sheet.empty() || frame.sheet.size()>64 ||
-       frame.sheet.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")!=std::string::npos ||
-       !identity(frame.texture) || frame.x<0 || frame.y<0 || frame.width<=0 || frame.height<=0 ||
-       frame.x>4096-frame.width || frame.y>4096-frame.height ||
-       !std::isfinite(frame.offset_x) || !std::isfinite(frame.offset_y) ||
-       std::abs(frame.offset_x)>4096 || std::abs(frame.offset_y)>4096 ||
-       frame.frame_width<=0 || frame.frame_height<=0 ||
-       frame.frame_width>4096 || frame.frame_height>4096)
-        throw std::invalid_argument("Invalid spike atlas frame");
-}
 void validate_catalog(const Catalog& catalog) {
-    validate_frame(catalog.frames[0]);
-    validate_frame(catalog.frames[1]);
+    atlas_frame_text::validate(catalog.frames[0]);
+    atlas_frame_text::validate(catalog.frames[1]);
     for(const auto& pin:catalog.provenance)
         if(pin.size()!=64 || pin.find_first_not_of("0123456789abcdef")!=std::string::npos)
             throw std::invalid_argument("Invalid spike catalog provenance pin");
@@ -70,18 +55,7 @@ Catalog parse(std::string_view text,std::uint32_t expected_checksum) {
         auto row=take(text);
         const auto direction=take(row,' ');
         if(direction!=(index==0?"up":"left")) throw std::invalid_argument("Unknown or unordered spike catalog direction");
-        auto& frame=result.frames[std::size_t(index)];
-        frame.sheet=std::string(take(row,' '));
-        frame.x=integer(take(row,' '));
-        frame.y=integer(take(row,' '));
-        frame.width=integer(take(row,' '));
-        frame.height=integer(take(row,' '));
-        frame.offset_x=float(integer(take(row,' ')));
-        frame.offset_y=float(integer(take(row,' ')));
-        frame.frame_width=integer(take(row,' '));
-        frame.frame_height=integer(take(row,' '));
-        frame.texture=std::string(row);
-        validate_frame(frame);
+        result.frames[std::size_t(index)]=atlas_frame_text::parse(row);
     }
     if(result.frames[0].texture==result.frames[1].texture)
         throw std::invalid_argument("Duplicate spike atlas key");
