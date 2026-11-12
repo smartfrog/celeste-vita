@@ -1,6 +1,6 @@
 #pragma once
 
-#include "presentation.hpp"
+#include "player_draw_mapping.hpp"
 #include <cmath>
 #include <iomanip>
 #include <istream>
@@ -8,38 +8,8 @@
 #include <ostream>
 
 namespace native_test {
-struct LogicalPlayerFrame {
-    std::string sheet;
-    int sheet_width, sheet_height, x, y, width, height;
-};
-
-inline std::vector<LogicalPlayerFrame> read_player_draw_mapping(std::istream& stream, const celeste::PlayerFrameBank& bank) {
-    std::string magic;
-    unsigned count=0;
-    if(!(stream>>magic>>count) || magic!="CPLAYERDRAW1" || count!=bank.frames.size())
-        throw std::invalid_argument("Invalid Player draw mapping header");
-    std::vector<LogicalPlayerFrame> mapping;
-    for(const auto& frame:bank.frames) {
-        std::string name;
-        unsigned page=0;
-        int u,v,width,height,tx,ty,fw,fh;
-        LogicalPlayerFrame logical{};
-        if(!(stream>>name>>page>>u>>v>>width>>height>>tx>>ty>>fw>>fh>>logical.sheet
-             >>logical.sheet_width>>logical.sheet_height>>logical.x>>logical.y>>logical.width>>logical.height))
-            throw std::invalid_argument("Incomplete Player draw mapping");
-        if(name!=frame.name || page!=frame.page || u!=frame.u || v!=frame.v || width!=frame.width || height!=frame.height ||
-           tx!=frame.trim_x || ty!=frame.trim_y || fw!=frame.frame_width || fh!=frame.frame_height ||
-           logical.sheet.empty() || logical.sheet.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/")!=std::string::npos ||
-           logical.sheet_width<=0 || logical.sheet_height<=0 || logical.x<0 || logical.y<0 ||
-           logical.width!=width || logical.height!=height || logical.x>logical.sheet_width-width || logical.y>logical.sheet_height-height)
-            throw std::invalid_argument("Player draw mapping alias/trim/rectangle mismatch");
-        mapping.push_back(logical);
-    }
-    std::string extra;
-    if(stream>>extra) throw std::invalid_argument("Trailing Player draw mapping");
-    if(!stream.eof()) throw std::runtime_error("Failed reading Player draw mapping");
-    return mapping;
-}
+using celeste::LogicalPlayerFrame;
+using celeste::read_player_draw_mapping;
 
 inline void write_player_draw(std::ostream& stream, int tick, std::uint64_t owner, bool live,
                               const celeste::PlayerFrameBank& bank, const std::vector<LogicalPlayerFrame>& mapping,
