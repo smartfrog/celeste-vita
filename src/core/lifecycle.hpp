@@ -71,7 +71,8 @@ struct ChaserSample { float timestamp; Vec2 position,speed; int facing; };
 class FirstRoomSession final {
 public:
     FirstRoomSession(const PlayerWorld& world, const PlayerFrameBank& bank, bool hit_checkpoint=false,
-                     std::int32_t diagnostic_seed=0,const RoomCatalog* catalog=nullptr);
+                     std::int32_t diagnostic_seed=0,const RoomCatalog* catalog=nullptr,
+                     const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog=nullptr);
     FirstRoomSession(const FirstRoomSession&)=delete;
     FirstRoomSession& operator=(const FirstRoomSession&)=delete;
     void step(float raw_delta_time, PlayerInput input,std::function<void(SessionPhase,const FirstRoomSession&)> observer={});
@@ -121,6 +122,7 @@ private:
     const std::int32_t diagnostic_seed_;
     const PlayerWorld initial_world_;
     const RoomCatalog* catalog_;
+    const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog_;
     std::unique_ptr<RoomRuntime> current_room_,outgoing_room_,incoming_room_;
     std::unique_ptr<RoomTransition> transition_;
     const RoomDefinition* pending_room_=nullptr;
@@ -153,6 +155,7 @@ private:
     std::vector<DustParticle> dust_;
     unsigned dust_index_=0;
     void load();
+    const draw_order::AuthoredDecalOwners* visual_owners(const RoomDefinition& room) const;
     void reload();
     void queue_corpse();
     void commit_corpse();

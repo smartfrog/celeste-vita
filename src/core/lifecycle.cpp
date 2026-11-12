@@ -1,4 +1,5 @@
 #include "lifecycle.hpp"
+#include "draw_order.hpp"
 #include "source_math.hpp"
 
 #include <algorithm>
@@ -51,8 +52,15 @@ struct FirstRoomSession::Corpse {
     unsigned stage=0;
 };
 
-FirstRoomSession::FirstRoomSession(const PlayerWorld& world,const PlayerFrameBank& bank,bool checkpoint,std::int32_t seed,const RoomCatalog* catalog)
-    : bank_(bank),diagnostic_seed_(seed),initial_world_(world),catalog_(catalog),world_(world),random_(seed) {
+FirstRoomSession::FirstRoomSession(const PlayerWorld& world,const PlayerFrameBank& bank,bool checkpoint,std::int32_t seed,const RoomCatalog* catalog,
+                                 const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog)
+    : bank_(bank),diagnostic_seed_(seed),initial_world_(world),catalog_(catalog),visual_catalog_(visual_catalog),world_(world),random_(seed) {
+    if(visual_catalog_) {
+        if(!catalog_ || visual_catalog_->size()!=catalog_->definitions().size())
+            throw std::invalid_argument("Visual initialization requires complete room catalog metadata");
+        draw_order::validate_authored_decals(*visual_catalog_);
+        for(const auto& room:catalog_->definitions()) visual_owners(room);
+    }
     if(world.bounds_left!=0 || world.bounds_right!=320 || world.collision.solids.size()!=1 ||
        !world.collision.solids.front() || !world.collision.solids.front()->grid ||
        world.collision.solids.front()->collider || !world.collision.solids.front()->collidable ||
@@ -87,13 +95,20 @@ FirstRoomSession::FirstRoomSession(const PlayerWorld& world,const PlayerFrameBan
     load();
 }
 
+const draw_order::AuthoredDecalOwners* FirstRoomSession::visual_owners(const RoomDefinition& room) const {
+    if(!visual_catalog_) return nullptr;
+    const auto found=std::find_if(visual_catalog_->begin(),visual_catalog_->end(),[&](const auto& group) { return group.room==&room; });
+    if(found==visual_catalog_->end()) throw std::invalid_argument("Visual metadata must bind the exact room instance definition");
+    return &*found;
+}
+
 void FirstRoomSession::load() {
     world_=initial_world_;
     if(catalog_) {
         const auto& first=catalog_->first();
         if(first.bounds.x!=0 || first.bounds.y!=0 || first.spawn.x!=19 || first.spawn.y!=144)
             throw std::invalid_argument("Room catalog must retain the natural first-room spawn/bounds");
-        current_room_=std::make_unique<RoomRuntime>(first,initial_world_.collision,stats_.loads==0);
+        current_room_=std::make_unique<RoomRuntime>(first,initial_world_.collision,stats_.loads==0,visual_owners(first));
         std::vector<const StaticSpike*> authored_spikes;
         for(const auto& entity:current_room_->entities) if(const auto* spike=std::get_if<StaticSpike>(&entity->object)) authored_spikes.push_back(spike);
         if(authored_spikes.size()!=initial_world_.spikes.size()) throw std::invalid_argument("Catalog first-room hazards differ from the retained world");
@@ -323,6 +338,7 @@ void FirstRoomSession::step(float raw_delta_time,PlayerInput input,std::function
     if(committed_corpse()) update_corpse();
     else if(catalog_) {
         const bool transitioning=bool(transition_);
+        if(!transitioning) current_room_->update_banners(context_.clock.delta);
         for(const auto& entry:room_roster_) {
             if(entry.player && (transitioning ? (entry.player->scene_tag()&4)!=0 : entry.player->scene_active())) {
                 const auto dashes_before=player_->state().dash_events;

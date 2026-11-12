@@ -51,6 +51,7 @@ struct DrawProjection {
 };
 
 RosterSnapshot snapshot(const FirstRoomSession& session,const RoomDefinition* initial_room);
+void validate_authored_decals(const std::vector<AuthoredDecalOwners>& authored_decals);
 DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDecalOwners>& authored_decals);
 
 }

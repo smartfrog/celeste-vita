@@ -151,6 +151,20 @@ void record(int tick,SessionPhase phase,const FirstRoomSession& session) {
     } else std::cout<<"null";
     std::cout<<"}}\n";
 }
+void banner_phases(int tick,SessionPhase phase,const FirstRoomSession& session) {
+    std::set<const RoomRuntime*> seen;
+    for(const auto& entry:session.room_roster()) if(entry.room && seen.insert(entry.room).second) {
+        std::cout<<"{\"event\":\"banner-phases\",\"tick\":"<<tick<<",\"phase\":\""<<phase_name(phase)
+            <<"\",\"room\":\""<<entry.room->definition.name<<"\",\"roomScope\":"<<entry.room->scoped_random.object_identity()<<",\"owners\":[";
+        bool first=true;
+        for(const auto& banner:entry.room->banners()) {
+            if(!first) std::cout<<',';
+            first=false;
+            std::cout<<"{\"identity\":"<<banner.authored_identity<<",\"sineTimer\":"<<banner.sine_timer<<'}';
+        }
+        std::cout<<"]}\n";
+    }
+}
 void expect_guard(const char* member,const std::function<void()>& operation) {
     try { operation(); }
     catch(const std::runtime_error& error) {
@@ -234,8 +248,14 @@ int main(int argc,char** argv) {
     try {
         const char* player_mapping_path=nullptr;
         const char* terrain_catalog_path=nullptr;
+        bool observe_banner_phases=false;
         int legacy_argc=argc;
-        while(legacy_argc>=3) {
+        while(legacy_argc>=2) {
+            if(std::string(argv[legacy_argc-1])=="--banner-phases") {
+                if(observe_banner_phases) throw std::invalid_argument("Duplicate Banner phase observer option");
+                observe_banner_phases=true;--legacy_argc;continue;
+            }
+            if(legacy_argc<3) break;
             const std::string option=argv[legacy_argc-2];
             const char** destination=option=="--player-commands"?&player_mapping_path:
                 option=="--terrain-catalog"?&terrain_catalog_path:nullptr;
@@ -244,7 +264,8 @@ int main(int argc,char** argv) {
             *destination=argv[legacy_argc-1];legacy_argc-=2;
         }
         if(legacy_argc!=7 && legacy_argc!=8 && legacy_argc!=9) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping and --terrain-catalog catalog");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog and --banner-phases");
+        if(observe_banner_phases && legacy_argc!=9) throw std::invalid_argument("Banner phases require the complete authored CDO1 catalog");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
@@ -263,7 +284,7 @@ int main(int argc,char** argv) {
         if(terrain_catalog_path) terrain_catalog=terrain::parse(read_asset(terrain_catalog_path,terrain::catalog_byte_limit),0x16d1da6cu);
         const std::string seed_text=argv[6];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
-        FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);
+        FirstRoomSession session(room.world,assets.bank,false,seed,&catalog,observe_banner_phases?&authored:nullptr);
         Controller controller;std::ifstream controls(argv[5]);if(!controls) throw std::runtime_error("Cannot read legal controls");
         std::cout<<std::setprecision(std::numeric_limits<float>::max_digits10)<<std::boolalpha;
         if(terrain_catalog) native_test::write_terrain_catalog(std::cout,*terrain_catalog);
@@ -295,6 +316,7 @@ int main(int argc,char** argv) {
                         <<",\"dashBuffer\":"<<observed.context().dash.buffer_counter()<<",\"climb\":"<<input.grab
                         <<",\"buttons\":{\"Left\":"<<raw.left<<",\"Right\":"<<raw.right<<",\"Up\":"<<raw.up<<",\"Down\":"<<raw.down<<",\"C\":"<<raw.cross<<",\"X\":"<<raw.square<<",\"Z\":"<<raw.l<<"}}\n";
                 record(tick,phase,observed);
+                if(observe_banner_phases) banner_phases(tick,phase,observed);
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,terrain_catalog?&*terrain_catalog:nullptr);
             });
             if(player_mapping_path) {

@@ -1,4 +1,5 @@
 #include "rooms.hpp"
+#include "draw_order.hpp"
 #include "source_math.hpp"
 #include <algorithm>
 #include <cmath>
@@ -76,7 +77,17 @@ void RoomEntity::update(float delta) {
         berry->light_alpha_multiplier=source_math::approach(berry->light_alpha_multiplier,1,delta*4.f);
     }
 }
-RoomRuntime::RoomRuntime(const RoomDefinition& data,const StaticWorld& collision,bool initial) : definition(data),scoped_random(data.load_seed) {
+RoomRuntime::RoomRuntime(const RoomDefinition& data,const StaticWorld& collision,bool initial,
+                         const draw_order::AuthoredDecalOwners* visual_owners) : definition(data),scoped_random(data.load_seed) {
+    if(visual_owners) {
+        if(visual_owners->room!=&data) throw std::invalid_argument("Visual metadata must bind the exact room definition");
+        if(visual_owners->background_count<0 || visual_owners->foreground_count<0)
+            throw std::invalid_argument("Visual initialization requires complete authored layer counts");
+        draw_order::validate_authored_decals({*visual_owners});
+        for(const auto& owner:visual_owners->owners)
+            if(owner.room!=&data || (owner.identity&0xffff'0000'0000'0000ull)!=0x6000'0000'0000'0000ull)
+                throw std::invalid_argument("Visual metadata owner identity/binding is outside the authored namespace");
+    }
     scoped_random.observer=[this](const char* operation,unsigned calls) { random_events.emplace_back(operation,calls); };
     if(initial) entities.push_back(std::make_unique<RoomEntity>(-1,RoomSceneHelper{}));
     entities.push_back(std::make_unique<RoomEntity>(-2,RoomWind{}));
@@ -108,6 +119,17 @@ RoomRuntime::RoomRuntime(const RoomDefinition& data,const StaticWorld& collision
         entities.push_back(std::make_unique<RoomEntity>(object.id,std::move(value)));
         entities.back()->image_cells=std::move(image_cells);
     }
+    if(visual_owners) {
+        PresentationRandom visual_random(scoped_random);
+        visual_random.observer={};
+        auto added=visual_owners->owners;
+        std::sort(added.begin(),added.end(),[](const auto& left,const auto& right) {
+            return left.authored_id<right.authored_id;
+        });
+        for(const bool background:{false,true}) for(const auto& owner:added)
+            if(owner.banner && owner.sort_depth_band==(background?9000:-10500))
+                banners_.push_back({owner.identity,float(visual_random.next_double())});
+    }
     for(const auto& entity:entities) if(const auto* platform=std::get_if<RoomJumpThru>(&entity->object)) {
         const int columns=int(platform->body.collider->width)/8;
         for(int i=0;i<columns;++i) {
@@ -120,8 +142,18 @@ RoomRuntime::RoomRuntime(const RoomDefinition& data,const StaticWorld& collision
         }
     }
 }
+float RoomRuntime::banner_phase(std::uint64_t authored_identity) const {
+    const auto found=std::find_if(banners_.begin(),banners_.end(),[&](const BannerState& banner) { return banner.authored_identity==authored_identity; });
+    if(found==banners_.end()) throw std::logic_error("Missing room-instance Banner phase");
+    return found->sine_timer;
+}
+void RoomRuntime::update_banners(float delta) {
+    if(!std::isfinite(delta) || delta<0) throw std::invalid_argument("Invalid Banner update delta");
+    for(auto& banner:banners_) banner.sine_timer+=delta*1.f;
+}
 void RoomRuntime::update(float delta,bool transitioning) {
     if(!std::isfinite(delta) || delta<0) throw std::invalid_argument("Invalid room update delta");
+    if(!transitioning) update_banners(delta);
     for(const auto& entity:entities) if(entity->present && entity->should_update(transitioning)) entity->update(delta);
 }
 }
