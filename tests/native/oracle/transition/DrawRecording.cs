@@ -88,6 +88,8 @@ namespace PresentationOracle
         public readonly List<RecordedDraw> Calls = new();
         public readonly OriginalSpriteBatch Geometry = new();
         public readonly List<BatchState> States = new();
+        public readonly List<object> Owners = new();
+        public Func<object> ObserveOwner;
         BatchState open;
 
         void RequireOpen(string operation)
@@ -138,16 +140,20 @@ namespace PresentationOracle
         {
             RequireOpen("draw");
             Vector2 uniform = new(scale, scale);
+            object owner = ObserveOwner?.Invoke();
             Calls.Add(new(texture, position, clip, color, rotation, origin, uniform, effects));
             Geometry.Draw(texture, position, clip, color, rotation, origin, uniform, effects, depth);
+            Owners.Add(owner);
         }
 
         public void Draw(Texture2D texture, Vector2 position, Rectangle clip, Color color, float rotation,
                          Vector2 origin, Vector2 scale, SpriteEffects effects, float depth)
         {
             RequireOpen("draw");
+            object owner = ObserveOwner?.Invoke();
             Calls.Add(new(texture, position, clip, color, rotation, origin, scale, effects));
             Geometry.Draw(texture, position, clip, color, rotation, origin, scale, effects, depth);
+            Owners.Add(owner);
         }
     }
 }

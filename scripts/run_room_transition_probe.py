@@ -36,6 +36,8 @@ def validate_controls(value):
 def execution_namespace(record, profile=None):
     kind = record.get("kind")
     if kind is None:
+        if "binding" in record:
+            raise ValueError("Bound SOURCE profile kind is required")
         return ROOT / ".audit/native-room-transition/source-contract-01"
     if kind == "native-room-transition-full-bake-source-cpu-v1":
         if profile is None:
@@ -44,12 +46,21 @@ def execution_namespace(record, profile=None):
         if verify_profile(profile) != record:
             raise ValueError("Full-bake profile path/content mismatch")
         return ROOT / ".audit/native-room-transition-vita/full-bake-contract-01"
+    if kind == "native-room-transition-gameplay-draw-v1":
+        if profile is None:
+            raise ValueError("Gameplay-DRAW profile path is required")
+        from prepare_gameplay_draw_profile import AUDIT, verify_profile
+        if verify_profile(profile) != record:
+            raise ValueError("Gameplay-DRAW profile path/content mismatch")
+        return AUDIT
     raise ValueError("Unknown SOURCE profile kind")
 
 
 def run(profile, sdk, content, controls, output):
     record = json.loads((profile / "transition-profile.json").read_text())
     output_root = execution_namespace(record, profile)
+    if record.get("kind") == "native-room-transition-gameplay-draw-v1" and record["inputs"].get(str(sdk)) != file_identity(sdk):
+        raise ValueError("Gameplay-DRAW execution requires the pinned SOURCE SDK")
     if output.exists() or not output.resolve().is_relative_to(output_root):
         raise ValueError("Execution output must be fresh and private")
     validate_controls(json.loads(controls.read_text()))
@@ -71,7 +82,9 @@ def run(profile, sdk, content, controls, output):
     verify_inputs(record["inputs"], record["compiled_sources"])
     verify_file_identities(inputs)
     receipt = {"schema": 1, "exit_code": result.returncode, "command": command, "inputs": inputs,
-               "status": "blocked-or-unaccepted-experiment", "claim": "No two-room transition acceptance or native execution"}
+                "status": "blocked-or-unaccepted-experiment", "claim": "No two-room transition acceptance or native execution"}
+    if record.get("kind") == "native-room-transition-gameplay-draw-v1":
+        receipt.update(profile_binding=record["binding"], trace=file_identity(output / "trace.jsonl"))
     (output / "execution.json").write_text(json.dumps(receipt, indent=2) + "\n")
     return receipt
 
