@@ -395,6 +395,14 @@ void bad_family_index_rejects() {
     throw std::runtime_error("An out-of-range family index must reject");
 }
 
+std::uint64_t expected_identity(std::string_view room,bool background,int ordinal) {
+    return identity_namespace|(std::uint64_t(room=="2"?2:1)<<32)|
+        (std::uint64_t(background?1:2)<<24)|std::uint64_t(ordinal+1);
+}
+void require_owner_identity(const StaticDecalOwner& value,const draw_order::DrawOwner& authored) {
+    require(value.identity==authored.identity && value.identity==expected_identity(value.room,value.background,value.ordinal),
+            "Catalog identity is not the verified authored identity");
+}
 void parser_accepts_pinned_metadata_counts() {
     auto data=dataset();
     const auto parsed=parse_static_decal_catalog(data.catalog,checksum(data.catalog),data.authored);
@@ -402,11 +410,21 @@ void parser_accepts_pinned_metadata_counts() {
             "Authored static/deferred/family counts changed");
     for(const auto& value:parsed.owners) {
         const auto& authored=owner(data,value.room,value.background,value.ordinal);
-        require(value.identity==authored.identity && value.identity==identity_namespace|(std::uint64_t(value.room=="2"?2:1)<<32)|
-                    (std::uint64_t(value.background?1:2)<<24)|std::uint64_t(value.ordinal+1),
-                "Catalog identity is not the verified authored identity");
+        require_owner_identity(value,authored);
         require(value.texture==authored.texture,"Catalog family texture is not bound to its owner key");
     }
+}
+
+void parser_rejects_incorrect_identity_42() {
+    auto data=dataset();
+    const auto parsed=parse_static_decal_catalog(data.catalog,checksum(data.catalog),data.authored);
+    auto value=parsed.owners.front();
+    value.identity=42;
+    auto authored=owner(data,value.room,value.background,value.ordinal);
+    authored.identity=42;
+    try { require_owner_identity(value,authored); }
+    catch(const std::runtime_error&) { return; }
+    throw std::runtime_error("Incorrect identity 42 passed the actual identity assertion");
 }
 
 void parser_rejects_bad_versions_and_pins_parameterized() {
@@ -442,13 +460,17 @@ void parser_rejects_duplicate_family_texture() {
     throw std::runtime_error("A duplicate atlas family texture was accepted");
 }
 
-void parser_rejects_truncation_and_trailing_parameterized() {
+void parser_rejects_truncation() {
     auto data=dataset();
     auto truncated=data.catalog;
     truncated.erase(truncated.find_last_of('\n'));
     try { parse_static_decal_catalog(truncated,checksum(truncated),data.authored); }
     catch(const std::invalid_argument&) { return; }
     throw std::runtime_error("A truncated descriptor catalog was accepted");
+}
+
+void parser_rejects_trailing_data() {
+    auto data=dataset();
     auto trailing=data.catalog+"extra\n";
     try { parse_static_decal_catalog(trailing,checksum(trailing),data.authored); }
     catch(const std::invalid_argument&) { return; }
@@ -529,9 +551,11 @@ int main() {
         {"nonfinite_scale_rejects_parameterized",nonfinite_scale_rejects_parameterized},
         {"bad_family_index_rejects",bad_family_index_rejects},
         {"parser_accepts_pinned_metadata_counts",parser_accepts_pinned_metadata_counts},
+        {"parser_rejects_incorrect_identity_42",parser_rejects_incorrect_identity_42},
         {"parser_rejects_bad_versions_and_pins_parameterized",parser_rejects_bad_versions_and_pins_parameterized},
         {"parser_rejects_duplicate_family_texture",parser_rejects_duplicate_family_texture},
-        {"parser_rejects_truncation_and_trailing_parameterized",parser_rejects_truncation_and_trailing_parameterized},
+        {"parser_rejects_truncation",parser_rejects_truncation},
+        {"parser_rejects_trailing_data",parser_rejects_trailing_data},
         {"parser_rejects_wrong_integrity",parser_rejects_wrong_integrity},
         {"legacy_authored_parser_still_accepts_the_bound_metadata",legacy_authored_parser_still_accepts_the_bound_metadata},
         {"parser_rejects_missing_static_coverage",parser_rejects_missing_static_coverage},
