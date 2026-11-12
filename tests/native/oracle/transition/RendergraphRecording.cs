@@ -231,6 +231,13 @@ namespace Microsoft.Xna.Framework.Graphics
                 throw new InvalidOperationException("Effect parameter is not float2");
             value = RendergraphOracle.Capture.Bits(vector.X, vector.Y);
         }
+        public void SetValue(float scalar)
+        {
+            if (definition.GetProperty("type").GetInt32() != 3 || definition.GetProperty("class").GetInt32() != 0
+                || definition.GetProperty("columns").GetInt32() != 1 || definition.GetProperty("rows").GetInt32() != 1)
+                throw new InvalidOperationException("Effect parameter is not float");
+            value = RendergraphOracle.Capture.Bits(scalar);
+        }
         public void SetValue(Matrix matrix)
         {
             if (definition.GetProperty("type").GetInt32() != 3 || definition.GetProperty("rows").GetInt32() != 4
@@ -259,6 +266,13 @@ namespace Microsoft.Xna.Framework.Graphics
         }
         internal Effect(string identity, JsonElement definition)
         {
+            string expected = identity switch {
+                "GFX.FxDither" => "4e572804560609ef9a3e035a3f7fe6dc8b3802ebcee1dbeb05d1552b9813bf4d",
+                "GFX.FxPrimitive" => "37b3975f2d860d95bbbb7ce7a4e7233c3e0508bd672627c967d63768de005c6f",
+                "GFX.FxGaussianBlur" => "4bc39e8b3498a87c6143e601cd2894e06522c42e7262a54e7cf1bbfb37240944",
+                _ => throw new InvalidOperationException("Unknown shader identity") };
+            if (definition.GetProperty("resource_sha256").GetString() != expected)
+                throw new InvalidOperationException("Unverified shader resource");
             Identity = identity; Definition = definition;
             foreach (var item in definition.GetProperty("parameters").EnumerateObject()) Parameters.Add(item.Name, new EffectParameter(item.Value));
             foreach (var item in definition.GetProperty("techniques").EnumerateObject()) Techniques.Add(item.Name, new EffectTechnique(this, item.Name, item.Value));
@@ -310,7 +324,7 @@ namespace Microsoft.Xna.Framework.Graphics
     public sealed class SpriteBatch
     {
         readonly GraphicsDevice device;
-        readonly List<(Texture2D Texture, Vector2 Position, Color Color, string Owner)> pending = new();
+        readonly List<(Texture2D Texture, Vector2 Position, Color Color, string Owner, Rectangle? Destination)> pending = new();
         Effect effect;
         Matrix matrix;
         BlendState blend;
@@ -319,6 +333,8 @@ namespace Microsoft.Xna.Framework.Graphics
         RasterizerState rasterizer;
         bool open;
         public SpriteBatch(GraphicsDevice device) { this.device = device; }
+        public void Begin(SpriteSortMode mode, BlendState blend, SamplerState sampler, DepthStencilState depth,
+            RasterizerState rasterizer, Effect effect) => Begin(mode, blend, sampler, depth, rasterizer, effect, Matrix.Identity);
         public void Begin(SpriteSortMode mode, BlendState blend, SamplerState sampler, DepthStencilState depth,
             RasterizerState rasterizer, Effect effect, Matrix matrix)
         {
@@ -341,9 +357,22 @@ namespace Microsoft.Xna.Framework.Graphics
             if (!open) throw new InvalidOperationException("Draw outside batch");
             if (effect == null || pending.Count != 0) throw new InvalidOperationException("Only single-command verified-effect batch is closed");
             device.Require(texture);
-            pending.Add((texture, position, color, RendergraphOracle.Capture.Owner));
+            pending.Add((texture, position, color, RendergraphOracle.Capture.Owner, null));
             RendergraphOracle.Capture.Add("batch-enqueue", new { texture = texture.Id, dimensions = new[] { texture.Width, texture.Height },
                 positionFloat32Bits = RendergraphOracle.Capture.Bits(position.X, position.Y), rgba = color.PackedValue });
+        }
+        public void Draw(Texture2D texture, Rectangle destination, Color color)
+        {
+            if (!open) throw new InvalidOperationException("Draw outside batch");
+            if (effect == null) throw new InvalidOperationException("Unsupported default SpriteBatch shader");
+            if (pending.Count != 0 || destination.Width <= 0 || destination.Height <= 0)
+                throw new InvalidOperationException("Excluded rectangle batch/range");
+            device.Require(texture);
+            if (texture == device.Target) throw new InvalidOperationException("Unsupported target alias hazard");
+            pending.Add((texture, Vector2.Zero, color, RendergraphOracle.Capture.Owner, destination));
+            RendergraphOracle.Capture.Add("batch-enqueue", new { texture = texture.Id, dimensions = new[] { texture.Width, texture.Height },
+                destinationRectangle = new[] { destination.X, destination.Y, destination.Width, destination.Height }, rgba = color.PackedValue,
+                boundary = "observer-owned RectangleDraw API adapter; no original FNA quad generation" });
         }
         public void End()
         {
@@ -360,7 +389,13 @@ namespace Microsoft.Xna.Framework.Graphics
                     {
                         device.Texture = draw.Texture;
                         pass.Apply();
-                        RendergraphOracle.Capture.Add("batch-flush", new { owner = draw.Owner, texture = draw.Texture.Id,
+                         if (draw.Destination is Rectangle destination)
+                             RendergraphOracle.Capture.Add("batch-flush", new { owner = draw.Owner, texture = draw.Texture.Id,
+                                 dimensions = new[] { draw.Texture.Width, draw.Texture.Height },
+                                 destinationRectangle = new[] { destination.X, destination.Y, destination.Width, destination.Height }, rgba = draw.Color.PackedValue,
+                                 effect = pass.Snapshot(), states = device.States(), context = device.Context(), matrixFloat32Bits = RendergraphOracle.Capture.MatrixBits(matrix),
+                                 boundary = "observer-owned RectangleDraw API adapter; built-in vertex shader, original FNA quad and GPU not executed" });
+                         else RendergraphOracle.Capture.Add("batch-flush", new { owner = draw.Owner, texture = draw.Texture.Id,
                             dimensions = new[] { draw.Texture.Width, draw.Texture.Height },
                             positionFloat32Bits = RendergraphOracle.Capture.Bits(draw.Position.X, draw.Position.Y), rgba = draw.Color.PackedValue,
                             effect = pass.Snapshot(), states = device.States(), context = device.Context(), matrixFloat32Bits = RendergraphOracle.Capture.MatrixBits(matrix),

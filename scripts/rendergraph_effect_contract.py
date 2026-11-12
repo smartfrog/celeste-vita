@@ -12,6 +12,7 @@ RESOURCE_SHA = {
     "Dither": "4e572804560609ef9a3e035a3f7fe6dc8b3802ebcee1dbeb05d1552b9813bf4d",
     "Primitive": "37b3975f2d860d95bbbb7ce7a4e7233c3e0508bd672627c967d63768de005c6f",
 }
+GAUSSIAN_SHA = "4bc39e8b3498a87c6143e601cd2894e06522c42e7262a54e7cf1bbfb37240944"
 
 
 def digest(data):
@@ -81,7 +82,8 @@ def shader_contract(data):
 
 
 def parse_effect(name, resource):
-    if name not in RESOURCE_SHA or digest(resource) != RESOURCE_SHA[name]:
+    expected = GAUSSIAN_SHA if name == "GaussianBlur" else RESOURCE_SHA.get(name)
+    if expected is None or digest(resource) != expected:
         raise ValueError("Unverified effect resource identity")
     start = resource.find(b"\x01\x09\xff\xfe")
     if start < 0 or resource[:6] != b"XNBw\x05\x01" or uint(resource, 6) != len(resource):
@@ -101,9 +103,9 @@ def parse_effect(name, resource):
     def parameter_type(relative):
         offset = relative + 8
         kind, category, name_offset, semantic, elements = struct.unpack_from("<5I", data, offset)
-        if semantic or elements or category not in (1, 2, 4):
+        if semantic or elements or category not in (0, 1, 2, 4):
             raise ValueError("Excluded effect parameter type")
-        rows, columns = (uint(data, offset + 24), uint(data, offset + 20)) if category in (1, 2) else (0, 0)
+        rows, columns = (uint(data, offset + 24), uint(data, offset + 20)) if category in (0, 1, 2) else (0, 0)
         return {"type": kind, "class": category, "name": effect_string(name_offset) if name_offset else "",
                 "rows": rows, "columns": columns, "elements": elements, "type_offset": offset}
 
@@ -115,7 +117,7 @@ def parse_effect(name, resource):
         if flags or annotations or item["name"] in parameters:
             raise ValueError("Excluded effect parameter annotations")
         item["value_offset"] = value_offset + 8
-        if item["type"] == 3 and item["class"] in (1, 2):
+        if item["type"] == 3 and item["class"] in (0, 1, 2):
             count = item["rows"] * item["columns"]
             item["default_float32_bits"] = list(struct.unpack_from("<" + "i" * count, data, value_offset + 8))
         elif item["type"] == 5 and item["class"] == 4:
@@ -185,3 +187,10 @@ def original_effects(archive=ARCHIVE):
         raise ValueError("Pinned original archive identity changed")
     with zipfile.ZipFile(archive) as package:
         return {name: parse_effect(name, package.read("Content/Effects/" + name + ".xnb")) for name in RESOURCE_SHA}
+
+
+def gaussian_effect(archive=ARCHIVE):
+    if file_identity(archive)["sha256"] != ARCHIVE_SHA:
+        raise ValueError("Pinned original archive identity changed")
+    with zipfile.ZipFile(archive) as package:
+        return parse_effect("GaussianBlur", package.read("Content/Effects/GaussianBlur.xnb"))
