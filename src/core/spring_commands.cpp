@@ -1,4 +1,5 @@
 #include "spring_commands.hpp"
+#include "atlas_frame_text.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -7,13 +8,10 @@ namespace celeste::spring_commands {
 namespace {
 void validate(const Catalog& catalog) {
     const auto& frame=catalog.idle;
-    if(catalog.idle_texture.empty() || frame.texture!=catalog.idle_texture || frame.sheet.empty() ||
-       frame.x<0 || frame.y<0 || frame.width<=0 || frame.height<=0 ||
-       frame.width>4096 || frame.height>4096 || frame.x>4096-frame.width || frame.y>4096-frame.height ||
-       frame.frame_width<=0 || frame.frame_height<=0 || frame.frame_width>4096 || frame.frame_height>4096 ||
-       !std::isfinite(frame.offset_x) || !std::isfinite(frame.offset_y) ||
-       frame.offset_x<0 || frame.offset_y<0 || std::floor(frame.offset_x)!=frame.offset_x || std::floor(frame.offset_y)!=frame.offset_y ||
-       frame.offset_x>frame.frame_width-frame.width || frame.offset_y>frame.frame_height-frame.height)
+    atlas_frame_text::validate(frame);
+    if(catalog.idle_texture.empty() || frame.texture!=catalog.idle_texture ||
+       frame.offset_x>0 || frame.offset_y>0 || std::floor(frame.offset_x)!=frame.offset_x || std::floor(frame.offset_y)!=frame.offset_y ||
+       -frame.offset_x>frame.frame_width-frame.width || -frame.offset_y>frame.frame_height-frame.height)
         throw std::invalid_argument("Unsupported Spring idle material/trim");
 }
 void validate(const RoomSpring& spring) {
@@ -23,6 +21,22 @@ void validate(const RoomSpring& spring) {
        !std::isfinite(body.position.x) || !std::isfinite(body.position.y))
         throw std::invalid_argument("Unsupported non-idle floor Spring");
 }
+}
+Catalog parse(std::string_view text,std::uint32_t expected_checksum) {
+    using asset_text::take;
+    asset_text::integrity(text,catalog_byte_limit,expected_checksum);
+    if(take(text)!="CSPR1") throw std::invalid_argument("Wrong Spring catalog version");
+    for(const auto pin:provenance)
+        if(take(text)!=pin) throw std::invalid_argument("Spring catalog provenance changed");
+    if(take(text)!="floor idle 0 0" || take(text)!="1")
+        throw std::invalid_argument("Unsupported Spring orientation/animation/frame/wiggler");
+    Catalog result;
+    result.idle=atlas_frame_text::parse(take(text));
+    result.idle_texture="objects/spring/00";
+    if(!text.empty()) throw std::invalid_argument("Trailing Spring catalog data");
+    if(result.idle.sheet!="Gameplay0") throw std::invalid_argument("Unsupported Spring command sheet");
+    validate(result);
+    return result;
 }
 std::vector<Command> project(const draw_order::DrawProjection& drawn,const Catalog& catalog,
                              const std::vector<const RoomRuntime*>& rooms) {
@@ -61,7 +75,7 @@ std::vector<Command> project(const draw_order::DrawProjection& drawn,const Catal
         decal_commands::DecalCommand image;
         image.identity=owner.identity;image.room=owner.room->name;image.texture=frame.texture;image.sheet=frame.sheet;
         image.source_x=frame.x;image.source_y=frame.y;image.source_width=frame.width;image.source_height=frame.height;
-        image.origin={float(frame.frame_width)/2.f-frame.offset_x,float(frame.frame_height)-frame.offset_y};
+        image.origin={float(frame.frame_width)/2.f+frame.offset_x,float(frame.frame_height)+frame.offset_y};
         image.color={0,0,0,255};
         unsigned piece=0;
         for(int x=-1;x<=1;++x) for(int y=-1;y<=1;++y) if(x!=0 || y!=0) {

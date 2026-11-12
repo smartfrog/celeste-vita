@@ -4,6 +4,7 @@
 #include "jumpthru_commands.hpp"
 #include "player_draw_trace.hpp"
 #include "spike_commands.hpp"
+#include "spring_commands.hpp"
 #include "strawberry_commands.hpp"
 #include "terrain_draw_trace.hpp"
 #include <fstream>
@@ -243,8 +244,12 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
                  const decal_commands::StaticDecalCatalog* static_decals,
                  const terrain::Catalog* terrain_catalog,bool complete_decals,
                  const spike_commands::Catalog* spike_catalog,const jumpthru_commands::Catalog* jumpthru_catalog,
-                 const strawberry_commands::Catalog* strawberry_catalog) {
+                  const strawberry_commands::Catalog* strawberry_catalog,const spring_commands::Catalog* spring_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
+    std::vector<const RoomRuntime*> rooms;
+    if(complete_decals || jumpthru_catalog || spring_catalog) for(const auto& entry:session.room_roster())
+        if(entry.room && std::find(rooms.begin(),rooms.end(),entry.room)==rooms.end()) rooms.push_back(entry.room);
+    const auto springs=spring_catalog?spring_commands::project(projection,*spring_catalog,rooms):std::vector<spring_commands::Command>{};
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
     for(const auto& owner:projection.live) {
@@ -278,9 +283,6 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
     }
     std::cout<<"]}\n";
     if(terrain_catalog) native_test::write_terrain_draw(std::cout,tick,*terrain_catalog,session.camera(),projection);
-    std::vector<const RoomRuntime*> rooms;
-    if(complete_decals || jumpthru_catalog) for(const auto& entry:session.room_roster())
-        if(entry.room && std::find(rooms.begin(),rooms.end(),entry.room)==rooms.end()) rooms.push_back(entry.room);
     if(jumpthru_catalog) for(const auto& command:jumpthru_commands::project(projection,*jumpthru_catalog,rooms)) {
         const auto& image=command.image;
         std::cout<<"{\"event\":\"jumpthru-command\",\"tick\":"<<tick
@@ -335,6 +337,16 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
             std::cout<<"}\n";
         }
     }
+    for(std::size_t index=0;index<springs.size();++index) {
+        const auto& command=springs[index];const auto& image=command.image;
+        std::cout<<"{\"event\":\"spring-command\",\"tick\":"<<tick<<",\"index\":"<<index
+            <<",\"ownerIdentity\":"<<image.identity<<",\"room\":"<<std::quoted(image.room)
+            <<",\"authoredId\":"<<command.authored_id<<",\"piece\":"<<command.piece<<",\"dispatchIndex\":"<<command.dispatch_index
+            <<",\"orientation\":\"floor\",\"animation\":\"idle\",\"animationFrame\":0";
+        write_command_geometry(image);
+        write_command_vertices(image);
+        std::cout<<"}\n";
+    }
 }
 struct Options {
     std::vector<std::string> positional;
@@ -352,12 +364,14 @@ struct Options {
     std::string spike_catalog_path;
     bool strawberry_commands=false;
     std::string strawberry_catalog_path;
+    bool spring_commands=false;
+    std::string spring_catalog_path;
 };
 Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands" || argument=="--strawberry-commands") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands" || argument=="--strawberry-commands" || argument=="--spring-commands") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
             bool* enabled=nullptr;
@@ -371,6 +385,7 @@ Options parse_options(int argc,char** argv) {
             }
             else if(argument=="--terrain-catalog") { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
             else if(argument=="--spike-commands") { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
+            else if(argument=="--spring-commands") { enabled=&options.spring_commands; destination=&options.spring_catalog_path; }
             else { enabled=&options.strawberry_commands; destination=&options.strawberry_catalog_path; }
             if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
             *enabled=true; *destination=value;
@@ -388,7 +403,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog, --jumpthru-commands CJTC1 and --strawberry-commands strawberry-material-catalog");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog, --jumpthru-commands CJTC1, --strawberry-commands strawberry-material-catalog and --spring-commands CSPR1");
         if(options.banner_phases && arguments.size()!=8) throw std::invalid_argument("Banner phases require the complete authored CDO1 catalog");
         if(options.jumpthru_commands && arguments.size()!=8) throw std::invalid_argument("JumpThru commands require the complete authored CDO1 catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
@@ -431,6 +446,11 @@ int main(int argc,char** argv) {
             const auto catalog_text=read_asset(options.strawberry_catalog_path.c_str(),strawberry_commands::catalog_byte_limit);
             strawberry_catalog=strawberry_commands::parse(catalog_text,0xc3e8c625u);
         }
+        std::optional<spring_commands::Catalog> spring_catalog;
+        if(options.spring_commands) {
+            const auto catalog_text=read_asset(options.spring_catalog_path.c_str(),spring_commands::catalog_byte_limit);
+            spring_catalog=spring_commands::parse(catalog_text,0x05256a98u);
+        }
         const std::string seed_text=arguments[5];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog,(options.banner_phases || options.complete_decal_commands || options.jumpthru_commands)?&authored:nullptr);
@@ -470,7 +490,7 @@ int main(int argc,char** argv) {
                     (options.static_decal_commands || options.complete_decal_commands)?&static_decals:nullptr,
                     terrain_catalog?&*terrain_catalog:nullptr,options.complete_decal_commands,
                     spike_catalog?&*spike_catalog:nullptr,jumpthru_catalog?&*jumpthru_catalog:nullptr,
-                    strawberry_catalog?&*strawberry_catalog:nullptr);
+                    strawberry_catalog?&*strawberry_catalog:nullptr,spring_catalog?&*spring_catalog:nullptr);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();

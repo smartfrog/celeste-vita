@@ -1,4 +1,5 @@
 #include "spring_commands.hpp"
+#include "asset_text.hpp"
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -19,7 +20,7 @@ struct Fixture {
     Body support{{-128,-32},Hitbox{256,8,{}},true};
     StaticWorld collision{{&support},{}};
     RoomRuntime room{definition,collision};
-    spring_commands::Catalog catalog{{"FixtureSheet",32,48,6,4,3,10,18,20,"fixture/idle"},"fixture/idle"};
+    spring_commands::Catalog catalog{{"FixtureSheet",32,48,6,4,-3,-10,18,20,"fixture/idle"},"fixture/idle"};
     draw_order::DrawProjection drawn;
     std::vector<const RoomRuntime*> rooms{&room};
     Fixture() {
@@ -49,10 +50,10 @@ void ordered_outline_and_main_bind_actual_native_owners() {
     }
 }
 void trim_and_untrimmed_origin_matrix_parameterized() {
-    for(const Vec2 trim:{Vec2{0,0},Vec2{3,10},Vec2{12,16}}) {
+    for(const Vec2 trim:{Vec2{0,0},Vec2{-3,-10},Vec2{-12,-16}}) {
         Fixture f;f.catalog.idle.offset_x=trim.x;f.catalog.idle.offset_y=trim.y;
         const auto commands=f.project();const auto& image=commands.back().image;
-        require(image.origin.x==9-trim.x && image.origin.y==20-trim.y && image.position.x==-40.25f && image.position.y==-32,
+        require(image.origin.x==9+trim.x && image.origin.y==20+trim.y && image.position.x==-40.25f && image.position.y==-32,
             "Trim changes submitted origin only, including negative origins");
     }
 }
@@ -132,9 +133,9 @@ void invalid_idle_metadata_rejects_parameterized() {
         if(scenario==9) frame.frame_height=4097;
         if(scenario==10) frame.offset_x=std::numeric_limits<float>::quiet_NaN();
         if(scenario==11) frame.offset_y=std::numeric_limits<float>::infinity();
-        if(scenario==12) frame.offset_x=-1;
-        if(scenario==13) frame.offset_y=17;
-        if(scenario==14) frame.offset_x=0.5f;
+        if(scenario==12) frame.offset_x=1;
+        if(scenario==13) frame.offset_y=-17;
+        if(scenario==14) frame.offset_x=-0.5f;
         if(scenario==15) frame.frame_width=8;
         rejects([&] { f.project(); });
     }
@@ -148,6 +149,49 @@ void replacement_room_cannot_bind_previous_native_identity() {
     Fixture f;RoomRuntime replacement(f.definition,f.collision);f.rooms={&replacement};
     rejects([&] { f.project(); });
 }
+void commands_use_live_body_not_authored_playback() {
+    Fixture f;f.spring().body.position={-39.125f,-30};
+    const auto image=f.project().back().image;
+    require(image.position.x==-39.125f && image.position.y==-30,"Commands must use the actual current native body");
+}
+void odd_logical_width_preserves_half_pixel_origin() {
+    Fixture f;f.catalog.idle.frame_width=19;
+    require(f.project().back().image.origin.x==6.5f,"Logical bottom-center must not use integer division");
+}
+std::string catalog_text() {
+    std::string text="CSPR1\n";
+    for(const auto pin:spring_commands::provenance) text+=std::string(pin)+'\n';
+    return text+"floor idle 0 0\n1\nGameplay0 32 48 6 4 -3 -10 18 20 objects/spring/00\n";
+}
+void catalog_parses_signed_raw_trim_and_bottom_center() {
+    const auto text=catalog_text();const auto catalog=spring_commands::parse(text,asset_text::checksum(text));
+    require(catalog.idle.offset_x==-3 && catalog.idle.offset_y==-10 && catalog.idle.frame_height==20,
+        "Shared frame decoder must retain raw signed atlas offsets and untrimmed dimensions");
+}
+void malformed_catalog_rejects_parameterized() {
+    const auto valid=catalog_text();
+    for(unsigned i=0;i<valid.size();++i) {
+        const auto truncated=valid.substr(0,i);
+        rejects([&] { spring_commands::parse(truncated,asset_text::checksum(truncated)); });
+    }
+    for(const auto& text:{valid+"extra\n",valid+"\n",std::string("X")+valid.substr(1)})
+        rejects([&] { spring_commands::parse(text,asset_text::checksum(text)); });
+    for(unsigned pin=0;pin<spring_commands::provenance.size();++pin) {
+        auto text=valid;const auto index=6+65*pin;text[index]=text[index]=='0'?'1':'0';
+        rejects([&] { spring_commands::parse(text,asset_text::checksum(text)); });
+    }
+    for(const auto& change:std::vector<std::pair<std::string,std::string>>{
+            {"floor idle 0 0","wallLeft idle 0 0"},{"floor idle 0 0","floor bounce 1 0"},
+            {"floor idle 0 0","floor idle 0 1"},{"\n1\n","\n2\n"},
+            {"objects/spring/00","fixture/unknown"},{"Gameplay0","Unknown"},
+            {"6 4 -3 -10","6 4 3 10"},{"18 20 objects","8 20 objects"},
+            {"32 48 6 4","4096 48 6 4"},{"objects/spring/00","objects/spring/00 unknown"}}) {
+        auto text=valid;const auto index=text.find(change.first);require(index!=std::string::npos,"Valid mutation fixture");
+        text.replace(index,change.first.size(),change.second);
+        rejects([&] { spring_commands::parse(text,asset_text::checksum(text)); });
+    }
+    rejects([&] { spring_commands::parse(valid,1); });
+}
 }
 int main() {
     try {
@@ -160,6 +204,10 @@ int main() {
         invalid_idle_metadata_rejects_parameterized();
         non_spring_dispatch_is_not_projected();
         replacement_room_cannot_bind_previous_native_identity();
-        std::cout<<"9 Spring projection behaviors passed\n";
+        commands_use_live_body_not_authored_playback();
+        odd_logical_width_preserves_half_pixel_origin();
+        catalog_parses_signed_raw_trim_and_bottom_center();
+        malformed_catalog_rejects_parameterized();
+        std::cout<<"13 Spring projection behaviors passed\n";
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }
