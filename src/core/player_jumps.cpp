@@ -39,7 +39,10 @@ void Player::jump() {
 }
 
 void Player::climb_jump() {
-    if (!state_.on_ground) state_.stamina -= 27.5f;
+    if (!state_.on_ground) {
+        state_.stamina -= 27.5f;
+        cosmetic(PlayerCosmeticPhase::sweat_jump);
+    }
     jump();
     jump_kind_ = JumpKind::climb_jump;
     if (state_.move_x == 0) {

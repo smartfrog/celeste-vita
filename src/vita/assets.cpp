@@ -381,7 +381,8 @@ PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_c
         result.bank.frames.push_back(std::move(frame));
     }
     const int animation_count=integer(take(text));
-    if(animation_count!=24 && animation_count!=27) throw std::invalid_argument("Expected bounded legacy or death-animation closure");
+    if(animation_count!=24 && animation_count!=27 && animation_count!=30 && animation_count!=33)
+        throw std::invalid_argument("Expected bounded legacy, death or sweat-animation closure");
     for(int i=0;i<animation_count;++i) {
         auto row=take(text);
         PlayerAnimation animation;

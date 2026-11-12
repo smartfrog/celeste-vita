@@ -23,7 +23,8 @@ inline const char* phase_name(celeste::PlayerCosmeticPhase phase) {
     case P::components:return "components"; case P::jump:return "jump"; case P::duck:return "duck";
     case P::stand:return "stand"; case P::fast_fall:return "fast_fall"; case P::landing:return "landing";
     case P::select:return "select"; case P::hair_color:return "hair_color"; case P::after_update:return "after_update";
-    case P::respawn_complete: case P::dash_trail: case P::climb_hop: break;
+    case P::respawn_complete: case P::dash_trail: case P::climb_hop:
+    case P::sweat_climb: case P::sweat_end: case P::sweat_jump: break;
     }
     throw std::invalid_argument("Unknown cosmetic phase");
 }
@@ -32,6 +33,11 @@ public:
     PresentationTrace(const celeste::PlayerFrameBank& bank, celeste::Vec2 spawn) : bank_(bank), view_(bank,spawn,0) { }
     void observe(const std::string& name, int tick, celeste::PlayerCosmeticPhase phase, const celeste::PlayerProjection& p, float dt) {
         if(phase==celeste::PlayerCosmeticPhase::dash_trail) return;
+        if(phase==celeste::PlayerCosmeticPhase::sweat_climb || phase==celeste::PlayerCosmeticPhase::sweat_end ||
+           phase==celeste::PlayerCosmeticPhase::sweat_jump) {
+            view_.observe(phase,p,dt);
+            return;
+        }
         if(phase==celeste::PlayerCosmeticPhase::climb_hop) {
             if(view_.pose().fast_jump) throw std::invalid_argument("Legacy presentation projection cannot represent a meaningful ClimbHop reset");
             view_.observe(phase,p,dt);

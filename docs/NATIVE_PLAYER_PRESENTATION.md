@@ -117,3 +117,24 @@ explicit comparison of runtime source/header bytes, effective application
 compile settings, dependency bytes, and every staged asset/page/command byte
 against the original d4 package, apart from generated revision metadata.
 Fresh corrective-tip ELF/SELF/VPK inspection is static evidence only.
+
+## Optional Sweat bank (host animation slice)
+
+`prepare_player_presentation.py --sweat` exports the complete original
+`player_sweat` bank from the pinned XML and atlas, using namespaced animation
+IDs (`player_sweat_idle`, `player_sweat_climb`, etc.). Combine it with `--death`
+for the first-room lifecycle. This yields 30 or 33 animations; existing 24/27
+animation metadata remains loadable without regeneration. Legacy lifecycle
+assets retain their old fixed idle Sweat frame rather than invent missing art.
+
+Sweat shares the Body animation accumulator/goto implementation. It advances in
+the component phase before the state machine; climb selection runs after the
+unchanged stamina deductions. ClimbEnd preserves jump, and airborne ClimbJump
+explicitly restarts jump. Stamina and the no-move timer are read-only presentation
+projections. Each selected frame supplies its own trim; no route/tick table or
+origin override is used. The original XML defaults idle delay to zero.
+
+These host animation tests do not extend the older Body/Hair oracle or guest
+image acceptance to Sweat, pixels, GPU effects, additional gameplay states, or
+hardware. Full-route logical command comparison requires the opt-in Player
+draw observer separately.

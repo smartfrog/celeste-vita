@@ -152,7 +152,6 @@ private:
     std::vector<LifecycleCallback> callbacks_;
     std::vector<DustParticle> dust_;
     unsigned dust_index_=0;
-    unsigned sweat_frame_=0;
     void load();
     void reload();
     void queue_corpse();

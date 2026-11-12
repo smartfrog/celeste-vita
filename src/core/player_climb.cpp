@@ -29,7 +29,10 @@ void Player::climb_begin() {
     }
 }
 
-void Player::climb_end() { state_.wall_speed_retention_timer = 0.0f; }
+void Player::climb_end() {
+    state_.wall_speed_retention_timer = 0.0f;
+    cosmetic(PlayerCosmeticPhase::sweat_end);
+}
 
 bool Player::slip_check(float add_y) const {
     const auto pos = actor_.body.position;
@@ -118,6 +121,7 @@ int Player::climb_update() {
         if (s.last_climb_move == -1) s.stamina -= 45.454544f * delta_;
         else if (s.last_climb_move == 0) s.stamina -= 10.0f * delta_;
     }
+    cosmetic(PlayerCosmeticPhase::sweat_climb);
     if (s.stamina <= 0.0f) {
         add_static_lift_boost();
         return 0;

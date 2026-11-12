@@ -90,7 +90,8 @@ const PlayerAnimation& PlayerFrameBank::animation(std::string_view id) const {
     throw std::invalid_argument("Missing bounded player animation: "+std::string(id));
 }
 void PlayerFrameBank::validate() const {
-    if (!pages || pages>10 || frames.empty() || frames.size()>256 || (animations.size()!=24 && animations.size()!=27))
+    if (!pages || pages>10 || frames.empty() || frames.size()>256 ||
+        (animations.size()!=24 && animations.size()!=27 && animations.size()!=30 && animations.size()!=33))
         throw std::invalid_argument("Invalid bounded player frame bank size");
     for (const auto& f:frames) {
         if (f.name.empty() || f.page>=pages || f.u<1 || f.v<1 || f.width<1 || f.height<1 ||
@@ -107,7 +108,10 @@ void PlayerFrameBank::validate() const {
         if (!a.next.empty()) animation(a.next);
     }
     for (const char* id:{"idle","idleA","idleB","idleC","runSlow","runFast","runStumble","flip","skid","jumpSlow","jumpFast","fallSlow","fallFast","duck","edge","edgeBack","push","lookUp","climbUp","climbLookBackStart","climbLookBack","dangling","wallslide","dash"}) animation(id);
-    if(animations.size()==27) for(const char* id:{"deadup","deaddown","deadside"}) animation(id);
+    if(animations.size()==27 || animations.size()==33) for(const char* id:{"deadup","deaddown","deadside"}) animation(id);
+    if(animations.size()==30 || animations.size()==33)
+        for(const char* id:{"player_sweat_idle","player_sweat_climb","player_sweat_climbLoop","player_sweat_still","player_sweat_jump","player_sweat_danger"})
+            for(auto frame:animation(id).frames) if(frames[frame].has_hair) throw std::invalid_argument("Sweat frames cannot have hair");
     for (auto f:bangs) if (f>=frames.size()) throw std::invalid_argument("Bangs outside player bank");
     if (hair>=frames.size()) throw std::invalid_argument("Hair outside player bank");
 }
@@ -127,63 +131,90 @@ void PlayerPresentation::reset(Vec2 spawn) {
     pose_.animation=pose_.last_animation="idle";
     pose_.frame=idle.frames.front();
     pose_.animating=idle.delay>0;
+    sweat_={};
+    sweat_scale_={1,1};
+    sweat_frame_=false;
+    sweat_animations_=bank_.animations.size()==30 || bank_.animations.size()==33;
+    if(sweat_animations_) {
+        const auto& idle=bank_.animation("player_sweat_idle");
+        sweat_.animation=sweat_.last_animation=idle.id;
+        sweat_.frame=idle.frames.front();
+        sweat_.animating=idle.delay>0;
+        sweat_frame_=true;
+    } else {
+        for(unsigned i=0;i<bank_.frames.size();++i) if(bank_.frames[i].name=="characters/player/sweat/idle00") {
+            sweat_.frame=i;
+            sweat_frame_=true;
+            break;
+        }
+    }
     for(auto& node:pose_.hair_nodes) node={spawn.x-200,spawn.y+200};
 }
 void PlayerPresentation::bind_player_owner(const Player& player) {
     if(player_owner_ && player_owner_!=&player) throw std::logic_error("Player presentation owner cannot be replaced");
     player_owner_=&player;
 }
-void PlayerPresentation::callback(std::string_view kind, std::string_view animation) {
-    const auto add=[this](std::string_view text){for(unsigned char c:text){pose_.callback_hash^=c;pose_.callback_hash*=16777619u;}};
+void PlayerPresentation::callback(PlayerAnimationTrack& track, std::string_view kind, std::string_view animation) {
+    const auto add=[&track](std::string_view text){for(unsigned char c:text){track.callback_hash^=c;track.callback_hash*=16777619u;}};
     add(kind); add(":"); add(animation); add(";");
 }
-void PlayerPresentation::set_frame(unsigned frame) {
-    if (pose_.frame==frame) return;
-    pose_.frame=frame;
-    ++pose_.frame_callbacks;
-    callback("frame",pose_.animation+"/"+std::to_string(pose_.animation_frame));
+void PlayerPresentation::set_frame(PlayerAnimationTrack& track, unsigned frame) {
+    if (track.frame==frame) return;
+    track.frame=frame;
+    ++track.frame_callbacks;
+    callback(track,"frame",track.animation+"/"+std::to_string(track.animation_frame));
 }
 void PlayerPresentation::play(std::string_view id) {
-    if (pose_.animation==id) return;
-    const auto& animation=bank_.animation(id);
-    ++pose_.change_callbacks;
-    callback("change",pose_.last_animation+">"+std::string(id));
-    pose_.animation=pose_.last_animation=id;
-    pose_.animating=animation.delay>0;
-    pose_.timer=0;
-    pose_.animation_frame=0;
-    set_frame(animation.frames.front());
+    play(pose_,id);
 }
-void PlayerPresentation::update_animation(float dt) {
-    if (!pose_.animating) return;
-    const auto& animation=bank_.animation(pose_.animation);
-    pose_.timer+=dt*pose_.rate;
-    if (!(std::abs(pose_.timer)>=animation.delay)) return;
-    ++pose_.animation_frame;
-    pose_.timer-=animation.delay;
-    if (pose_.animation_frame>=animation.frames.size()) {
-        const auto old=pose_.animation;
-        ++pose_.last_callbacks;
-        callback("last",old+"/"+std::to_string(pose_.animation_frame));
-        if(old=="idle" && pose_.idle_timer>3.f && static_cast<float>(random_.next_double())<0.2f) {
+void PlayerPresentation::play(PlayerAnimationTrack& track, std::string_view id, bool restart) {
+    const auto& animation=bank_.animation(id);
+    if (track.animation==id && !restart) return;
+    ++track.change_callbacks;
+    callback(track,"change",track.last_animation+">"+std::string(id));
+    track.animation=track.last_animation=id;
+    track.animating=animation.delay>0;
+    track.timer=0;
+    track.animation_frame=0;
+    set_frame(track,animation.frames.front());
+}
+void PlayerPresentation::update_animation(PlayerAnimationTrack& track, float dt) {
+    if (!track.animating) return;
+    const auto& animation=bank_.animation(track.animation);
+    track.timer+=dt*track.rate;
+    if (!(std::abs(track.timer)>=animation.delay)) return;
+    ++track.animation_frame;
+    track.timer-=animation.delay;
+    if (track.animation_frame>=animation.frames.size()) {
+        const auto old=track.animation;
+        ++track.last_callbacks;
+        callback(track,"last",old+"/"+std::to_string(track.animation_frame));
+        if(&track==&pose_ && old=="idle" && pose_.idle_timer>3.f && static_cast<float>(random_.next_double())<0.2f) {
             const double chosen=random_.next_double()*9.0;
             play(chosen<5.0 ? "idleA" : chosen<8.0 ? "idleB" : "idleC");
         }
-        if(old!=pose_.animation) return;
+        if(old!=track.animation) return;
         if(!animation.next.empty()) {
-            pose_.animation=animation.next;
-            ++pose_.change_callbacks;
-            callback("change",pose_.last_animation+">"+pose_.animation);
-            pose_.last_animation=pose_.animation;
-            pose_.animation_frame=0;
-            set_frame(bank_.animation(pose_.animation).frames.front());
+            track.animation=animation.next;
+            ++track.change_callbacks;
+            callback(track,"change",track.last_animation+">"+track.animation);
+            track.last_animation=track.animation;
+            track.animation_frame=0;
+            set_frame(track,bank_.animation(track.animation).frames.front());
         } else {
-            pose_.animation_frame=animation.frames.size()-1;
-            pose_.animating=false;
-            pose_.animation.clear();
-            pose_.timer=0;
+            track.animation_frame=animation.frames.size()-1;
+            track.animating=false;
+            track.animation.clear();
+            track.timer=0;
         }
-    } else set_frame(animation.frames[pose_.animation_frame]);
+    } else set_frame(track,animation.frames[track.animation_frame]);
+}
+void PlayerPresentation::select_sweat(const PlayerProjection& p) {
+    if(!sweat_animations_) return;
+    if(p.stamina<=20) play(sweat_,"player_sweat_danger");
+    else if(p.climb_no_move_timer<=0 && p.climb_move==-1) {
+        if(sweat_.animation!="player_sweat_climbLoop") play(sweat_,"player_sweat_climb");
+    } else play(sweat_,p.climb_no_move_timer<=0 && !p.on_ground ? "player_sweat_still" : "player_sweat_idle");
 }
 void PlayerPresentation::select(const PlayerProjection& p) {
     const auto at=[&](float x,float y){return Vec2{p.position.x+x,p.position.y+y};};
@@ -222,6 +253,7 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
     if (!std::isfinite(dt) || dt<0 || (p.facing!=1 && p.facing!=-1) || p.state<0 || (p.state>2 && p.state!=14) || p.dashes<0 || p.dashes>1)
         throw std::invalid_argument("Presentation is limited to default-inventory Normal, Climb and Dash");
     finite(p.position); finite(p.speed); finite(p.dash_direction);
+    if(!std::isfinite(p.stamina) || !std::isfinite(p.climb_no_move_timer)) throw std::invalid_argument("Nonfinite sweat projection");
     switch(phase) {
     case PlayerCosmeticPhase::scene_tick:
         if(!level_time_) scene_time_+=dt;
@@ -238,7 +270,8 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
     case PlayerCosmeticPhase::climb_hop: pose_.fast_jump=false; break;
     case PlayerCosmeticPhase::components:
         pose_.wave+=dt*4.f;
-        update_animation(dt);
+        update_animation(pose_,dt);
+        update_animation(sweat_,dt);
         break;
     case PlayerCosmeticPhase::fast_fall:
         if(p.speed.y>=200) {
@@ -292,6 +325,13 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
     }
     case PlayerCosmeticPhase::respawn_complete: pose_.scale={1.5f,0.5f}; break;
     case PlayerCosmeticPhase::dash_trail: break;
+    case PlayerCosmeticPhase::sweat_climb: select_sweat(p); break;
+    case PlayerCosmeticPhase::sweat_end:
+        if(sweat_animations_ && sweat_.animation!="player_sweat_jump") play(sweat_,"player_sweat_idle");
+        break;
+    case PlayerCosmeticPhase::sweat_jump:
+        if(sweat_animations_) play(sweat_,"player_sweat_jump",true);
+        break;
     }
 }
 void PlayerPresentation::corpse_render(float scale, float rotation, int facing) {
@@ -327,6 +367,14 @@ std::vector<PlayerDraw> PlayerPresentation::draw(const PlayerProjection& p) {
     draws.push_back({pose_.frame,position,{16,32},
                      {pose_.scale.x*float(p.facing),pose_.scale.y},pose_.rotation,pose_.sprite_color});
     return draws;
+}
+PlayerDraw PlayerPresentation::sweat_draw(const PlayerProjection& p) {
+    if(!sweat_frame_) throw std::invalid_argument("Player bank has no sweat frame");
+    if(!sweat_animations_ || sweat_.last_animation=="player_sweat_idle") sweat_scale_.x=pose_.scale.x*float(p.facing);
+    else sweat_scale_.x=std::abs(pose_.scale.x)*float((sweat_scale_.x>0)-(sweat_scale_.x<0));
+    sweat_scale_.y=pose_.scale.y;
+    const auto& frame=bank_.frames[sweat_.frame];
+    return {sweat_.frame,p.position,{float(frame.frame_width)*0.5f,float(frame.frame_height)},sweat_scale_,0,{}};
 }
 
 std::vector<PlayerDraw> PlayerPresentation::trail_capture(const PlayerProjection& p,Vec2 offset,Vec2 body_scale) {
