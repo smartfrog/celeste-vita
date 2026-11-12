@@ -118,6 +118,9 @@ IteratorStep FirstRoomSession::transition_step() {
     publish_room_roster();
     transition.outgoing.clear();
     outgoing_room_.reset();
+    const auto& bounds=current_room_->definition.bounds;
+    visual_dust_.clear_outside(float(bounds.x)-16.f,float(bounds.y)-16.f,
+                               float(bounds.x+bounds.width)+16.f,float(bounds.y+bounds.height)+16.f);
     respawn_point_=current_room_->definition.spawn;
     player_->on_transition();
     chaser_history_.clear();
