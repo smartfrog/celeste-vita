@@ -4,6 +4,7 @@
 #include "presentation.hpp"
 #include "draw_order.hpp"
 #include "decal_commands.hpp"
+#include "rooms.hpp"
 #include <array>
 #include <string>
 #include <string_view>
@@ -66,6 +67,8 @@ struct PlayerAssets {
 };
 
 std::uint32_t checksum(std::string_view text);
+inline constexpr std::size_t room_catalog_byte_limit=65'536;
+RoomCatalog parse_room_catalog(std::string_view text);
 MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum);
 std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expected_checksum);
 VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum);
