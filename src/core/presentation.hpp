@@ -60,13 +60,15 @@ private:
 
 enum class PlayerCosmeticPhase {
     scene_tick, ground, duck_turn, components, jump, duck, stand, fast_fall, landing,
-    select, hair_color, after_update, respawn_complete, dash_trail, climb_hop
+    select, hair_color, after_update, respawn_complete, dash_trail, climb_hop,
+    sweat_climb, sweat_end, sweat_jump, sweat_idle
 };
 
 struct PlayerProjection {
     Vec2 position, speed, dash_direction;
     int facing = 1, state = 0, move_x = 0, raw_x = 0, raw_y = 0, climb_move = 0, wall_slide = 0;
     int dashes = 1;
+    float stamina = 110, climb_no_move_timer = 0;
     bool on_ground = false, ducking = false, dash_attacking = false, tired = false;
     std::function<bool(Vec2)> solid_body, solid_point, jump_thru_body;
 };
@@ -78,19 +80,24 @@ struct PlayerDraw {
     PresentationColor color;
 };
 
-struct PlayerPose {
+struct PlayerAnimationTrack {
     std::string animation, last_animation;
     unsigned animation_frame = 0, frame = 0;
-    float timer = 0, rate = 1, rotation = 0, wave = 0;
+    float timer = 0, rate = 1;
+    bool animating = false;
+    unsigned frame_callbacks = 0, change_callbacks = 0, last_callbacks = 0;
+    std::uint32_t callback_hash = 2166136261u;
+};
+
+struct PlayerPose : PlayerAnimationTrack {
+    float rotation = 0, wave = 0;
     Vec2 scale{1,1};
     std::array<Vec2,4> hair_nodes{};
     PresentationColor hair_color{172,50,50,255};
     PresentationColor sprite_color{};
     float hair_flash_timer = 0, idle_timer = 0, highest_air_y = 0;
     int last_dashes = 1, hair_facing = 1;
-    bool fast_jump = false, flash = false, animating = false;
-    unsigned frame_callbacks = 0, change_callbacks = 0, last_callbacks = 0;
-    std::uint32_t callback_hash = 2166136261u;
+    bool fast_jump = false, flash = false;
 };
 
 class PlayerPresentation final {
@@ -107,6 +114,8 @@ public:
     void corpse_render(float scale, float rotation, int facing);
     void corpse_color(PresentationColor initial);
     const PlayerPose& pose() const { return pose_; }
+    const PlayerAnimationTrack& sweat_pose() const { return sweat_; }
+    PlayerDraw sweat_draw(const PlayerProjection& player);
     unsigned random_calls() const { return random_.calls(); }
     float scene_time() const { return level_time_ ? *level_time_ : scene_time_; }
     std::int32_t diagnostic_seed() const { return diagnostic_seed_; }
@@ -124,12 +133,17 @@ private:
     PresentationRandom owned_random_;
     PresentationRandom& random_;
     PlayerPose pose_;
+    PlayerAnimationTrack sweat_;
+    Vec2 sweat_scale_{1,1};
+    bool sweat_animations_ = false, sweat_frame_ = false;
     float scene_time_ = 0;
     const float* level_time_;
     void play(std::string_view id);
-    void set_frame(unsigned frame);
-    void callback(std::string_view kind, std::string_view animation);
-    void update_animation(float delta_time);
+    void play(PlayerAnimationTrack& track, std::string_view id, bool restart = false);
+    void set_frame(PlayerAnimationTrack& track, unsigned frame);
+    void callback(PlayerAnimationTrack& track, std::string_view kind, std::string_view animation);
+    void update_animation(PlayerAnimationTrack& track, float delta_time);
+    void select_sweat(const PlayerProjection& player);
     void select(const PlayerProjection& player);
     std::vector<PlayerDraw> hair_draws();
 };

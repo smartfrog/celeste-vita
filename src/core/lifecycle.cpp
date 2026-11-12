@@ -67,7 +67,6 @@ FirstRoomSession::FirstRoomSession(const PlayerWorld& world,const PlayerFrameBan
         return frame.name=="characters/player/sweat/idle00";
     });
     if(sweat==bank.frames.end()) throw std::invalid_argument("First-room lifecycle requires the original transparent sweat idle frame");
-    sweat_frame_=unsigned(sweat-bank.frames.begin());
     int up_pieces=0,left_pieces=0;
     for(const auto* spike:world.spikes) {
         if(!spike) throw std::invalid_argument("Null first-room spike");
@@ -392,8 +391,7 @@ std::vector<PlayerDraw> FirstRoomSession::draw() {
         return death_effect_draws(bank_,{p.position.x+offset.x,p.position.y-5.5f+offset.y},presentation_->pose().hair_color,player_->intro_ease());
     }
     auto draws=presentation_->draw(p);
-    const auto& pose=presentation_->pose();
-    draws.push_back({sweat_frame_,p.position,{16,32},{pose.scale.x*float(p.facing),pose.scale.y},0,{}});
+    draws.push_back(presentation_->sweat_draw(p));
     return draws;
 }
 

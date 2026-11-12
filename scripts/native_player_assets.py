@@ -2,6 +2,8 @@
 
 from native_room_textures import extrude
 import struct
+import math
+import re
 import xml.etree.ElementTree as ET
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA
 
@@ -25,6 +27,14 @@ def player_metadata(bank, layout, page_checksums):
         text += " ".join(str(indices[name]) for name in animation["frames"]) + "\n"
     text += " ".join(str(indices[name]) for name in [*bank["bangs"], bank["hair"]]) + "\n"
     return text
+
+
+def atlas_frame(name, atlas):
+    sheet, x, y, width, height, trim_x, trim_y, frame_width, frame_height = atlas[name]
+    if sheet != "Gameplay0":
+        raise ValueError("Player frame left the pinned atlas page")
+    return {"name": name, "rectangle": [x,y,width,height], "trim": [-trim_x,-trim_y],
+            "size": [frame_width,frame_height], "hairOffset": [0,0], "hairFrame": 0, "hasHair": False}
 
 
 def extend_death_bank(bank, sprites, atlas):
@@ -54,12 +64,8 @@ def extend_death_bank(bank, sprites, atlas):
         if metadata is not None and any(path.startswith(player.attrib["path"] + child.get("path", "")) for child in metadata):
             raise ValueError("Death metadata now requires original hair export")
         for name in textures:
-            sheet, x, y, width, height, trim_x, trim_y, frame_width, frame_height = atlas[name]
-            if sheet != "Gameplay0":
-                raise ValueError("Death frame left the pinned atlas page")
             if name not in names:
-                result["frames"].append({"name": name, "rectangle": [x,y,width,height], "trim": [-trim_x,-trim_y],
-                                         "size": [frame_width,frame_height], "hairOffset": [0,0], "hairFrame": 0, "hasHair": False})
+                result["frames"].append(atlas_frame(name, atlas))
                 names.add(name)
         delay = struct.unpack("<f", struct.pack("<f", float(animation.attrib["delay"])))[0]
         result["animations"].append({"id": identity, "delay": delay, "next": "", "frames": textures})
@@ -72,11 +78,62 @@ def extend_death_bank(bank, sprites, atlas):
     name = sweat.attrib["path"] + idle[0].attrib["path"] + "00"
     if idle[0].get("frames") is None and {key for key in atlas if key.startswith(sweat.attrib["path"] + idle[0].attrib["path"])} != {name}:
         raise ValueError("Sweat idle no longer has exactly one frame")
-    sheet, x, y, width, height, trim_x, trim_y, frame_width, frame_height = atlas[name]
-    if sheet != "Gameplay0":
-        raise ValueError("Sweat idle left the pinned atlas page")
-    result["frames"].append({"name": name, "rectangle": [x,y,width,height], "trim": [-trim_x,-trim_y],
-                             "size": [frame_width,frame_height], "hairOffset": [0,0], "hairFrame": 0, "hasHair": False})
+    result["frames"].append(atlas_frame(name, atlas))
+    return result
+
+
+def extend_sweat_bank(bank, sprites, atlas):
+    if len(bank["animations"]) not in (24, 27):
+        raise ValueError("Sweat extension requires a legacy body bank")
+    sweat = ET.fromstring(sprites).find("player_sweat")
+    if sweat is None or sweat.get("copy") or sweat.get("start") != "idle":
+        raise ValueError("Unsupported original player sweat bank")
+    justify = sweat.find("Justify")
+    if justify is None or (float(justify.get("x", "0")), float(justify.get("y", "0"))) != (.5, 1):
+        raise ValueError("Unsupported original sweat origin")
+    animations = [child for child in sweat if child.tag != "Justify"]
+    ids = [child.get("id") for child in animations]
+    if len(ids) != 6 or set(ids) != {"idle", "climb", "climbLoop", "still", "jump", "danger"}:
+        raise ValueError("Invalid original sweat animation IDs")
+    result = {**bank, "animations": list(bank["animations"]), "frames": list(bank["frames"])}
+    names = {frame["name"] for frame in result["frames"]}
+    namespace = "player_sweat_"
+    for animation in animations:
+        identity = animation.attrib["id"]
+        if animation.tag not in ("Anim", "Loop"):
+            raise ValueError("Unsupported original sweat animation type")
+        path = sweat.attrib["path"] + animation.get("path", "")
+        indices = []
+        if animation.get("frames"):
+            for item in animation.attrib["frames"].split(","):
+                if not re.fullmatch(r"\d+(?:-\d+)?", item):
+                    raise ValueError("Invalid sweat frame range")
+                limits = [int(value) for value in item.split("-")]
+                if limits[0] > limits[-1] or limits[-1] > 99:
+                    raise ValueError("Invalid sweat frame range")
+                indices.extend(range(limits[0], limits[-1] + 1))
+        else:
+            while path + f"{len(indices):02d}" in atlas:
+                indices.append(len(indices))
+        textures = [path + f"{index:02d}" for index in indices]
+        if not textures or len(textures) > 32 or any(name not in atlas for name in textures):
+            raise ValueError("Missing or invalid original sweat frames")
+        target = animation.get("goto", "")
+        if target and (animation.tag == "Loop" or target not in ids):
+            raise ValueError("Unsupported original sweat goto")
+        delay = float(animation.get("delay", sweat.get("delay", "0")))
+        if not math.isfinite(delay) or delay < 0:
+            raise ValueError("Invalid original sweat animation delay")
+        delay = struct.unpack("<f", struct.pack("<f", delay))[0]
+        for name in textures:
+            if name not in names:
+                result["frames"].append(atlas_frame(name, atlas))
+                names.add(name)
+        if animation.tag == "Loop":
+            target = identity
+        result["animations"].append({"id": namespace + identity, "delay": delay,
+                                     "next": namespace + target if target else "",
+                                     "frames": textures})
     return result
 
 

@@ -64,8 +64,8 @@ def verified_player_files(directory, provenance, read_verified=verified_bytes):
     if ("payload_files" in provenance or "evidence_files" in provenance) and (
             set(provenance.get("payload_files", [])) != payload or set(provenance.get("evidence_files", [])) != evidence):
         raise ValueError("Player payload/evidence roles changed")
-    if provenance.get("death_animation_extension") and not evidence:
-        raise ValueError("Death animation source bank evidence pin is required")
+    if (provenance.get("death_animation_extension") or provenance.get("sweat_animation_extension")) and not evidence:
+        raise ValueError("Extended animation source bank evidence pin is required")
     if provenance["submitted_player_rgba_bytes"] != pages * 32768 or 164864 + pages * 32768 > 512 * 1024:
         raise ValueError("Required player closure exceeds upload budget")
     result = {name: read_verified(directory / name, provenance["files"][name], 65536 if name == "player.txt" else 32768)
@@ -77,14 +77,18 @@ def verified_player_files(directory, provenance, read_verified=verified_bytes):
     original_bank = json.loads(read_verified(source / "bank.json", provenance["bank_sha256"]))
     expected_bank = original_bank
     if evidence:
-        if provenance.get("death_animation_extension"):
-            from native_player_assets import extend_death_bank
+        if provenance.get("death_animation_extension") or provenance.get("sweat_animation_extension"):
+            from native_player_assets import extend_death_bank, extend_sweat_bank
             from native_room_textures import atlas_metadata
             from prepare_room_visuals import MEMBERS
             original_source = Path(source_manifest["source_directory"])
             sprites = read_verified(original_source / "Sprites.xml", MEMBERS["Content/Graphics/Sprites.xml"])
             atlas = read_verified(original_source / "Gameplay.meta", MEMBERS["Content/Graphics/Atlases/Gameplay.meta"])
-            expected_bank = extend_death_bank(original_bank, sprites, atlas_metadata(atlas))
+            metadata = atlas_metadata(atlas)
+            if provenance.get("death_animation_extension"):
+                expected_bank = extend_death_bank(expected_bank, sprites, metadata)
+            if provenance.get("sweat_animation_extension"):
+                expected_bank = extend_sweat_bank(expected_bank, sprites, metadata)
         bank = json.loads(read_verified(directory / "bank.json", provenance["files"]["bank.json"]))
         if bank != expected_bank:
             raise ValueError("Prepared bank evidence differs from the pinned original-source bank closure")

@@ -6,6 +6,65 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from native_player_assets import pack_player_crops
 
 
+class SweatBankTests(unittest.TestCase):
+    def setUp(self):
+        self.bank = {"animations": [{"id": str(i)} for i in range(27)], "frames": []}
+        self.xml = b'''<Sprites><player_sweat path="s/" start="idle"><Justify x=".5" y="1"/>
+            <Loop id="idle" path="idle"/><Anim id="climb" path="climb" frames="0,1" delay=".1" goto="climbLoop"/>
+            <Loop id="climbLoop" path="climb" frames="2-7" delay=".1"/><Loop id="still" path="still" delay=".1"/>
+            <Anim id="jump" path="jump" delay=".1" goto="idle"/><Loop id="danger" path="danger" delay=".05"/>
+            </player_sweat></Sprites>'''
+        self.atlas = {f"s/{name}{i:02d}": ("Gameplay0", 1, 2, 3, 4, -12, -15, 32, 32)
+                      for name, count in (("idle", 1), ("climb", 8), ("still", 2), ("jump", 3), ("danger", 2))
+                      for i in range(count)}
+
+    def extend(self, xml=None, atlas=None):
+        from native_player_assets import extend_sweat_bank
+        return extend_sweat_bank(self.bank, self.xml if xml is None else xml, self.atlas if atlas is None else atlas)
+
+    def test_preserves_body_bank_and_exports_namespaced_source_animations(self):
+        result = self.extend()
+        self.assertEqual(result["animations"][:27], self.bank["animations"])
+        self.assertEqual([a["id"] for a in result["animations"][27:]],
+                         ["player_sweat_" + name for name in ("idle", "climb", "climbLoop", "still", "jump", "danger")])
+        self.assertEqual(len(result["frames"]), 16)
+        self.assertEqual(self.bank["frames"], [])
+
+    def test_missing_idle_delay_defaults_to_zero(self):
+        self.assertEqual(self.extend()["animations"][27]["delay"], 0)
+
+    def test_climb_intro_and_loop_retain_source_order_and_float_delay(self):
+        import struct
+        intro, loop = self.extend()["animations"][28:30]
+        self.assertEqual(intro["frames"], ["s/climb00", "s/climb01"])
+        self.assertEqual(intro["next"], "player_sweat_climbLoop")
+        self.assertEqual(loop["frames"], [f"s/climb{i:02d}" for i in range(2, 8)])
+        self.assertEqual(loop["next"], loop["id"])
+        self.assertEqual(intro["delay"], struct.unpack("<f", struct.pack("<f", .1))[0])
+
+    def test_exports_per_frame_trim_without_hair(self):
+        frame = self.extend()["frames"][0]
+        self.assertEqual((frame["trim"], frame["size"], frame["hasHair"]), ([12, 15], [32, 32], False))
+
+    def test_implicit_frames_expand_beyond_idle00(self):
+        atlas = {**self.atlas, "s/idle01": self.atlas["s/idle00"]}
+        self.assertEqual(self.extend(atlas=atlas)["animations"][27]["frames"], ["s/idle00", "s/idle01"])
+
+    def test_unknown_goto_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "goto"):
+            self.extend(xml=self.xml.replace(b'goto="climbLoop"', b'goto="missing"'))
+
+    def test_missing_explicit_frame_is_rejected(self):
+        atlas = dict(self.atlas)
+        del atlas["s/climb07"]
+        with self.assertRaisesRegex(ValueError, "frame"):
+            self.extend(atlas=atlas)
+
+    def test_duplicate_animation_id_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "animation"):
+            self.extend(xml=self.xml.replace(b'id="still"', b'id="idle"'))
+
+
 class PlayerCropTests(unittest.TestCase):
     def test_death_extension_keeps_legacy_animations_and_uses_original_frames(self):
         from native_player_assets import extend_death_bank
