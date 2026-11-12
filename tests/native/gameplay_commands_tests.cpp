@@ -1,6 +1,8 @@
 #include "gameplay_commands.hpp"
 #include "asset_text.hpp"
 #include "lifecycle_fixture.hpp"
+#include "particle_commands.hpp"
+#include "gameplay_commands_trace.hpp"
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -114,9 +116,29 @@ void required_particle_mid_is_not_silently_empty() {
     draw_order::DrawProjection projection;
     projection.live={{draw_order::OwnerKind::particle_system_mid,1}};projection.dispatch={0};
     gameplay_commands::Inputs inputs;
-    rejects([&] { gameplay_commands::assemble(projection,inputs); },"Particle mid requires committed integration");
+    rejects([&] { gameplay_commands::assemble(projection,inputs); },"Missing gameplay producer");
     inputs.empty={{1,gameplay_commands::EmptyReason::particle_system_has_no_active_images}};
     rejects([&] { gameplay_commands::assemble(projection,inputs); },"policy does not cover");
+}
+void committed_particle_stream_binds_slots_and_can_be_empty() {
+    draw_order::DrawProjection projection;
+    projection.live={{draw_order::OwnerKind::particle_system_mid,draw_order::level_particles_identity}};
+    projection.dispatch={0};
+    std::vector<particle_commands::Command> particles;
+    gameplay_commands::Inputs inputs;inputs.particles=&particles;
+    const auto empty=gameplay_commands::assemble(projection,inputs);
+    require(empty.commands().empty() && empty.ranges()[0].empty==gameplay_commands::EmptyReason::particle_system_has_no_active_images,
+        "Only an actual typed Particle stream can declare empty Level.Particles");
+    particle_commands::Command command;
+    command.identity=draw_order::level_particles_identity;command.sheet="Fixture";
+    command.source_width=4;command.source_height=4;command.slot=2;command.generation=1;
+    particles.push_back(command);command.slot=7;particles.push_back(command);
+    std::vector<terrain::Sheet> sheets{{"Fixture",64,64}};inputs.sheets=&sheets;
+    const auto schedule=gameplay_commands::assemble(projection,inputs);
+    require(schedule.commands().size()==2 && schedule.commands()[0].component==gameplay_commands::Component::direct &&
+        schedule.commands()[1].piece==1,"Particle slot order is the producer subsequence, not a separate sorted layer");
+    std::swap(particles[0],particles[1]);
+    rejects([&] { gameplay_commands::assemble(projection,inputs); },"Particle slot/generation");
 }
 void result_owns_commands_and_readonly_reassembly_is_stable() {
     Fixture f;
@@ -129,6 +151,15 @@ void result_owns_commands_and_readonly_reassembly_is_stable() {
     }
     f.berries[0].sheet="changed";f.berries.clear();f.projection.live.clear();
     require(first.commands()[0].image.sheet=="Fixture" && first.ranges()[0].room=="fixture", "Owned immutable schedule must not alias mutable producer input");
+}
+void schedule_serialization_is_readonly_and_repeatable() {
+    Fixture f;
+    const auto schedule=f.assemble();
+    std::ostringstream first,second;
+    native_test::write_gameplay_schedule(first,35,schedule);
+    native_test::write_gameplay_schedule(second,35,schedule);
+    require(first.str()==second.str() && first.str().find("\"geometryWords\":40")!=std::string::npos &&
+        schedule.commands()[0].image.identity==12,"Serializing the immutable global schedule cannot change commands or component order");
 }
 void zero_clip_nonfinite_geometry_words_are_not_sanitized() {
     Fixture f;
@@ -284,7 +315,9 @@ int main() {
         same_family_identity_bijection_requires_semantics();
         explicit_empty_and_hud_policy_is_visible();
         required_particle_mid_is_not_silently_empty();
+        committed_particle_stream_binds_slots_and_can_be_empty();
         result_owns_commands_and_readonly_reassembly_is_stable();
+        schedule_serialization_is_readonly_and_repeatable();
         zero_clip_nonfinite_geometry_words_are_not_sanitized();
         cached_player_binds_original_sheet_clip_and_trim_once();
         unused_player_mapping_alias_is_validated_before_assembly();

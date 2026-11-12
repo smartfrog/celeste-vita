@@ -1,6 +1,7 @@
 #include "gameplay_commands.hpp"
 #include <algorithm>
 #include <map>
+#include <iterator>
 #include <set>
 #include <stdexcept>
 #include <tuple>
@@ -128,6 +129,19 @@ public:
         }
         if(inputs.player) player(*inputs.player);
         if(inputs.terrain) terrain(*inputs.terrain);
+        if(inputs.particles) {
+            const auto dispatch=declare(draw_order::level_particles_identity,Kind::particle_system_mid);
+            if(inputs.particles->empty()) empty[dispatch]=EmptyReason::particle_system_has_no_active_images;
+            std::optional<unsigned> previous_slot;
+            previous.reset();
+            unsigned piece=0;
+            for(const auto& command:*inputs.particles) {
+                if(!command.generation || command.slot>=DustParticles::capacity || (previous_slot && command.slot<=*previous_slot))
+                    fail(command.identity,"Invalid Particle slot/generation order");
+                previous_slot=command.slot;
+                append(command,Kind::particle_system_mid,-1,Component::direct,piece++,previous,dispatch);
+            }
+        }
         for(const auto& producer:inputs.empty) {
             const auto found=owners.find(producer.identity);
             if(found==owners.end()) fail(producer.identity,"Unused empty gameplay producer");
@@ -142,8 +156,7 @@ public:
         }
         for(std::size_t dispatch=0;dispatch<streams.size();++dispatch) {
             const auto& binding=projection.live[projection.dispatch[dispatch]];
-            if(!declared[dispatch]) fail(binding.identity,binding.kind==Kind::particle_system_mid?
-                "Missing gameplay producer: Particle mid requires committed integration":"Missing gameplay producer");
+            if(!declared[dispatch]) fail(binding.identity,"Missing gameplay producer");
             if(binding.kind==Kind::spring && streams[dispatch].size()!=9) fail(binding.identity,"Incomplete Spring component stream");
         }
     }

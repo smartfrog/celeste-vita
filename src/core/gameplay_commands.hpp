@@ -1,6 +1,7 @@
 #pragma once
 #include "jumpthru_commands.hpp"
 #include "player_draw_mapping.hpp"
+#include "particle_commands.hpp"
 #include "spike_commands.hpp"
 #include "spring_commands.hpp"
 #include "strawberry_commands.hpp"
@@ -30,6 +31,7 @@ struct Inputs {
     const std::vector<jumpthru_commands::Command>* jumpthrus=nullptr;
     const std::vector<strawberry_commands::Command>* strawberries=nullptr;
     const std::vector<spring_commands::Command>* springs=nullptr;
+    const std::vector<particle_commands::Command>* particles=nullptr;
     const CachedPlayer* player=nullptr;
     const TerrainInput* terrain=nullptr;
     std::vector<EmptyProducer> empty;
