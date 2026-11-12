@@ -2,6 +2,7 @@
 #include "diagnostic.hpp"
 #include "draw_order.hpp"
 #include "player_draw_trace.hpp"
+#include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -9,6 +10,7 @@
 #include <type_traits>
 #include <set>
 #include <algorithm>
+#include <optional>
 
 using namespace celeste;
 using namespace celeste::diagnostic;
@@ -192,7 +194,8 @@ std::vector<draw_order::AuthoredDecalOwners> authored_first_room_decals(const De
 }
 void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
                  const std::vector<draw_order::AuthoredDecalOwners>& authored,
-                 const decal_commands::StaticDecalCatalog* static_decals) {
+                 const decal_commands::StaticDecalCatalog* static_decals,
+                 const terrain::Catalog* terrain_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
@@ -226,6 +229,7 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
         std::cout<<projection.live[index].identity;
     }
     std::cout<<"]}\n";
+    if(terrain_catalog) native_test::write_terrain_draw(std::cout,tick,*terrain_catalog,session.camera(),projection);
     if(!static_decals) return;
     const auto decals=decal_commands::project(projection,*static_decals);
     for(std::size_t index=0;index<decals.commands.size();++index) {
@@ -257,21 +261,23 @@ struct Options {
     std::string player_mapping;
     bool static_decal_commands=false;
     std::string static_decal_catalog;
+    bool terrain_catalog=false;
+    std::string terrain_catalog_path;
 };
 Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--terrain-catalog") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
-            if(argument=="--player-commands") {
-                if(options.player_commands) throw std::invalid_argument("Duplicate --player-commands");
-                options.player_commands=true; options.player_mapping=value;
-            } else {
-                if(options.static_decal_commands) throw std::invalid_argument("Duplicate --static-decal-commands");
-                options.static_decal_commands=true; options.static_decal_catalog=value;
-            }
+            bool* enabled=nullptr;
+            std::string* destination=nullptr;
+            if(argument=="--player-commands") { enabled=&options.player_commands; destination=&options.player_mapping; }
+            else if(argument=="--static-decal-commands") { enabled=&options.static_decal_commands; destination=&options.static_decal_catalog; }
+            else { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
+            if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
+            *enabled=true; *destination=value;
         } else options.positional.push_back(argument);
     }
     return options;
@@ -283,7 +289,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional trace flags");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog and --static-decal-commands descriptor-catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
             metadata=read_asset(arguments[2].c_str(),65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
@@ -307,11 +313,15 @@ int main(int argc,char** argv) {
             std::ifstream mapping(options.player_mapping);
             player_mapping=native_test::read_player_draw_mapping(mapping,assets.bank);
         }
+        std::optional<terrain::Catalog> terrain_catalog;
+        if(options.terrain_catalog)
+            terrain_catalog=terrain::parse(read_asset(options.terrain_catalog_path.c_str(),terrain::catalog_byte_limit),0x16d1da6cu);
         const std::string seed_text=arguments[5];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);
         Controller controller;std::ifstream controls(arguments[4]);if(!controls) throw std::runtime_error("Cannot read legal controls");
         std::cout<<std::setprecision(std::numeric_limits<float>::max_digits10)<<std::boolalpha;
+        if(terrain_catalog) native_test::write_terrain_catalog(std::cout,*terrain_catalog);
         std::set<const RoomRuntime*> observed_rooms;
         std::vector<Controls> route_controls;
         int tick=0,x=0,y=0,jump=0,dash=0,grab=0,expected=0;
@@ -341,7 +351,8 @@ int main(int argc,char** argv) {
                         <<",\"buttons\":{\"Left\":"<<raw.left<<",\"Right\":"<<raw.right<<",\"Up\":"<<raw.up<<",\"Down\":"<<raw.down<<",\"C\":"<<raw.cross<<",\"X\":"<<raw.square<<",\"Z\":"<<raw.l<<"}}\n";
                 record(tick,phase,observed);
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,
-                    options.static_decal_commands?&static_decals:nullptr);
+                    options.static_decal_commands?&static_decals:nullptr,
+                    terrain_catalog?&*terrain_catalog:nullptr);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();

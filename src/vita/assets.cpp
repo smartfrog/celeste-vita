@@ -1,4 +1,5 @@
 #include "assets.hpp"
+#include "asset_text.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cstdint>
@@ -16,27 +17,12 @@ constexpr std::string_view decal_source_sha = "81d04a56cb9b5cb981f3c7823388bed60
 constexpr std::string_view static_decal_atlas_sha = "b75f913d315bd641c35a4990d9041b238c0d9ef3f8b1247ec557de8a9defc1cc";
 constexpr std::string_view authored_decal_catalog_sha = "1eb4bcb699363754df20ddf9b6f7b21738401cddf53e961755127f3ba5fda350";
 
-std::string_view take(std::string_view& text, char separator = '\n') {
-    const auto end = text.find(separator);
-    if (end == std::string_view::npos) throw std::invalid_argument("Truncated asset field");
-    auto field = text.substr(0, end);
-    text.remove_prefix(end + 1);
-    return field;
-}
-int integer(std::string_view text) {
-    int value = 0;
-    auto parsed = std::from_chars(text.data(), text.data()+text.size(), value);
-    if (parsed.ec != std::errc{} || parsed.ptr != text.data()+text.size() || std::to_string(value) != text)
-        throw std::invalid_argument("Invalid or noncanonical asset integer");
-    return value;
-}
+using asset_text::take;
+using asset_text::integer;
+using asset_text::integrity;
 void header(std::string_view& text, std::string_view version) {
     if (take(text) != version || take(text) != input_sha || take(text) != map_sha)
         throw std::invalid_argument("Wrong asset version or pinned input hashes");
-}
-void integrity(std::string_view text, std::size_t limit, std::uint32_t expected) {
-    if (text.size() > limit || checksum(text) != expected)
-        throw std::invalid_argument("Asset exceeds bound or fails build-pinned FNV-1a integrity");
 }
 std::uint32_t hex_value(std::string_view text) {
     std::uint32_t value=0;
@@ -58,9 +44,7 @@ PlayerWorld make_world(Body& solids, const std::vector<StaticSpike>& spikes) {
 }
 
 std::uint32_t checksum(std::string_view text) {
-    std::uint32_t hash = 2166136261u;
-    for (unsigned char byte : text) hash = (hash ^ byte) * 16777619u;
-    return hash;
+    return asset_text::checksum(text);
 }
 MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text, 4'000'512, expected_checksum);
