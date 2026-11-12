@@ -3,6 +3,7 @@
 #include "player.hpp"
 #include "presentation.hpp"
 #include "draw_order.hpp"
+#include "decal_commands.hpp"
 #include <array>
 #include <string>
 #include <string_view>
@@ -73,6 +74,10 @@ DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum)
 inline constexpr std::uint32_t authored_decal_catalog_checksum=0x5a81b77du;
 std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
     std::string_view text,std::uint32_t expected_checksum,const RoomCatalog& catalog);
+inline constexpr std::uint32_t static_decal_catalog_checksum=0xb4b9e859u;
+decal_commands::StaticDecalCatalog parse_static_decal_catalog(
+    std::string_view text,std::uint32_t expected_checksum,
+    const std::vector<draw_order::AuthoredDecalOwners>& authored);
 void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes);
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum);
 void validate_texture_bytes(std::string_view bytes, const TextureInfo& texture);
