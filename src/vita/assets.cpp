@@ -12,6 +12,9 @@ namespace celeste::diagnostic {
 namespace {
 constexpr std::string_view input_sha = "fd73f8a2311fa5737ded550cbad4b75c85b7686b36432f59185e940fcb65fcfe";
 constexpr std::string_view map_sha = "ace1892261c03aa766f45aaa38cb2cd60a8823c34eda673f5b2ed8ab31c890ab";
+constexpr std::string_view decal_source_sha = "81d04a56cb9b5cb981f3c7823388bed6082db2d5755d364c15c35bbcaf8b7746";
+constexpr std::string_view static_decal_atlas_sha = "b75f913d315bd641c35a4990d9041b238c0d9ef3f8b1247ec557de8a9defc1cc";
+constexpr std::string_view authored_decal_catalog_sha = "1eb4bcb699363754df20ddf9b6f7b21738401cddf53e961755127f3ba5fda350";
 
 std::string_view take(std::string_view& text, char separator = '\n') {
     const auto end = text.find(separator);
@@ -353,6 +356,124 @@ std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
         result.push_back(std::move(authored));
     }
     if(!text.empty()) throw std::invalid_argument("Trailing authored decal metadata");
+    return result;
+}
+decal_commands::StaticDecalCatalog parse_static_decal_catalog(
+    std::string_view text,std::uint32_t expected_checksum,
+    const std::vector<draw_order::AuthoredDecalOwners>& authored) {
+    integrity(text,65'536,expected_checksum);
+    header(text,"CDSC1");
+    if(take(text)!=decal_source_sha || take(text)!=static_decal_atlas_sha || take(text)!=authored_decal_catalog_sha)
+        throw std::invalid_argument("Invalid static decal descriptor provenance pins");
+    const auto valid_identity=[](std::string_view value) {
+        return !value.empty() && value.size()<=192 && value.front()!='/' && value.front()!='\\' &&
+            value.find("..")==std::string_view::npos &&
+            value.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/.\\-")==std::string_view::npos;
+    };
+    decal_commands::StaticDecalCatalog result;
+    const int families=integer(take(text));
+    if(families!=23) throw std::invalid_argument("Expected twenty-three static decal atlas families");
+    result.families.reserve(families);
+    for(int index=0;index<families;++index) {
+        auto row=take(text);
+        decal_commands::AtlasFrame frame;
+        frame.sheet=std::string(take(row,' '));
+        if(frame.sheet.empty() || frame.sheet.size()>64 ||
+           frame.sheet.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")!=std::string::npos)
+            throw std::invalid_argument("Invalid static decal atlas sheet");
+        frame.x=integer(take(row,' ')); frame.y=integer(take(row,' '));
+        frame.width=integer(take(row,' ')); frame.height=integer(take(row,' '));
+        frame.offset_x=float(integer(take(row,' '))); frame.offset_y=float(integer(take(row,' ')));
+        frame.frame_width=integer(take(row,' ')); frame.frame_height=integer(take(row,' '));
+        frame.texture=std::string(row);
+        if(!valid_identity(frame.texture)) throw std::invalid_argument("Invalid static decal atlas key");
+        for(const auto& other:result.families)
+            if(other.texture==frame.texture) throw std::invalid_argument("Duplicate static decal atlas key");
+        if(frame.x<0 || frame.y<0 || frame.width<=0 || frame.height<=0 ||
+           frame.x>4096-frame.width || frame.y>4096-frame.height ||
+           frame.offset_x<-4096 || frame.offset_x>4096 || frame.offset_y<-4096 || frame.offset_y>4096 ||
+           frame.frame_width<=0 || frame.frame_height<=0 ||
+           frame.frame_width>4096 || frame.frame_height>4096)
+            throw std::invalid_argument("Invalid static decal atlas crop/frame bounds");
+        result.families.push_back(std::move(frame));
+    }
+    int static_owner_count=0,banner_owner_count=0;
+    std::vector<const draw_order::DrawOwner*> static_owners,banner_owners;
+    for(const auto& group:authored) {
+        if(!group.room) throw std::invalid_argument("Authored decal room is unbound");
+        for(const auto& owner:group.owners) {
+            if(owner.kind!=draw_order::OwnerKind::decal) throw std::invalid_argument("Authored owner is not a decal");
+            (owner.banner?banner_owners:static_owners).push_back(&owner);
+        }
+    }
+    static_owner_count=int(static_owners.size()); banner_owner_count=int(banner_owners.size());
+    if(static_owner_count!=41 || banner_owner_count!=11)
+        throw std::invalid_argument("Authored static decal owner counts changed");
+    const int owners=integer(take(text));
+    if(owners!=static_owner_count) throw std::invalid_argument("Static decal descriptor owner count changed");
+    std::array<bool,23> used_families{};
+    std::vector<std::uint64_t> identities;
+    for(int index=0;index<owners;++index) {
+        auto row=take(text);
+        if(take(row,' ')!="O") throw std::invalid_argument("Invalid static decal descriptor row");
+        const auto room=std::string(take(row,' '));
+        const auto layer=take(row,' ');
+        const int ordinal=integer(take(row,' '));
+        const int family=integer(row);
+        if(layer!="B" && layer!="F") throw std::invalid_argument("Invalid static decal descriptor layer");
+        if(family<0 || family>=families) throw std::invalid_argument("Static decal family index is out of range");
+        const draw_order::DrawOwner* match=nullptr;
+        for(const auto* owner:static_owners) {
+            if(owner->room->name==room && owner->authored_id==ordinal &&
+               (owner->sort_depth_band>0)==(layer=="B")) {
+                if(match) throw std::invalid_argument("Duplicate static decal authored descriptor binding");
+                match=owner;
+            }
+        }
+        if(!match) throw std::invalid_argument("Unknown or mismatched static decal owner");
+        if(std::find(identities.begin(),identities.end(),match->identity)!=identities.end())
+            throw std::invalid_argument("Duplicate static decal descriptor identity");
+        if(result.families[family].texture!=match->texture)
+            throw std::invalid_argument("Static decal descriptor atlas key is not bound to its owner");
+        identities.push_back(match->identity);
+        used_families[family]=true;
+        result.owners.push_back({match->identity,room,layer=="B",ordinal,unsigned(family),match->texture});
+    }
+    for(std::size_t index=0;index<used_families.size();++index)
+        if(!used_families[index]) throw std::invalid_argument("Unused static decal atlas family");
+    for(const auto* owner:static_owners)
+        if(std::find(identities.begin(),identities.end(),owner->identity)==identities.end())
+            throw std::invalid_argument("Static decal descriptor coverage is incomplete");
+    const int deferred=integer(take(text));
+    if(deferred!=banner_owner_count) throw std::invalid_argument("Deferred Banner descriptor count changed");
+    std::vector<std::uint64_t> deferred_identities;
+    for(int index=0;index<deferred;++index) {
+        auto row=take(text);
+        if(take(row,' ')!="D") throw std::invalid_argument("Invalid deferred decal descriptor row");
+        const auto room=std::string(take(row,' '));
+        const auto layer=take(row,' ');
+        const int ordinal=integer(take(row,' '));
+        const auto texture=std::string(row);
+        if((layer!="B" && layer!="F") || !valid_identity(texture))
+            throw std::invalid_argument("Invalid deferred decal descriptor layer/key");
+        const draw_order::DrawOwner* match=nullptr;
+        for(const auto* owner:banner_owners) {
+            if(owner->room->name==room && owner->authored_id==ordinal &&
+               (owner->sort_depth_band>0)==(layer=="B")) {
+                if(match) throw std::invalid_argument("Duplicate Banner authored descriptor binding");
+                match=owner;
+            }
+        }
+        if(!match || match->texture!=texture) throw std::invalid_argument("Unknown or mismatched deferred decal owner");
+        if(std::find(identities.begin(),identities.end(),match->identity)!=identities.end() ||
+           std::find(deferred_identities.begin(),deferred_identities.end(),match->identity)!=deferred_identities.end())
+            throw std::invalid_argument("Aliased deferred decal descriptor identity");
+        deferred_identities.push_back(match->identity);
+        result.deferred.push_back({match->identity,room,layer=="B",ordinal,texture});
+    }
+    if(deferred_identities.size()!=banner_owners.size())
+        throw std::invalid_argument("Deferred Banner descriptor coverage is incomplete");
+    if(!text.empty()) throw std::invalid_argument("Trailing static decal descriptor data");
     return result;
 }
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {
