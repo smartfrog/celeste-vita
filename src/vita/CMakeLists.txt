@@ -105,7 +105,7 @@ target_include_directories(celeste_native_room PRIVATE "${CELESTE_ROOM_STAGING}"
 target_compile_options(celeste_native_room PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_link_options(celeste_native_room PRIVATE -Wl,-q -Wl,-z,nocopyreloc "-Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/layout.ld")
 set_property(TARGET celeste_native_room APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/layout.ld")
-target_link_libraries(celeste_native_room PRIVATE celeste_room_diagnostic
+target_link_libraries(celeste_native_room PRIVATE celeste_room_diagnostic celeste_command_submission
     "${CELESTE_VITAGL_LIBRARY}" vitashark SceShaccCgExt SceShaccCg_stub_weak taihen_stub_weak
     SceCtrl_stub_weak SceDisplay_stub_weak SceGxm_stub_weak SceAppMgr_stub_weak SceSysmodule_stub_weak
     SceProcessmgr_stub_weak SceRtc_stub_weak SceKernelThreadMgr_stub_weak

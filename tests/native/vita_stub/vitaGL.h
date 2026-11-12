@@ -16,16 +16,21 @@ enum {
     GL_BLEND_EQUATION_RGB, GL_BLEND_EQUATION_ALPHA, GL_CURRENT_COLOR, GL_SCISSOR_TEST, GL_CULL_FACE,
     GL_DRAW_FRAMEBUFFER, GL_READ_FRAMEBUFFER, GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_COMPLETE,
     GL_FUNC_ADD, GL_ZERO, GL_DST_ALPHA, GL_PROJECTION_MATRIX, GL_MODELVIEW_MATRIX,
-    GL_RGB, GL_COLOR_CLEAR_VALUE, GL_PACK_ALIGNMENT, GL_INVALID_ENUM,
+    GL_RGB, GL_COLOR_CLEAR_VALUE, GL_PACK_ALIGNMENT, GL_INVALID_ENUM, GL_TRIANGLE_STRIP,
+    GL_LINEAR, GL_REPEAT, GL_REPLACE, GL_TEXTURE_1D, GL_TEXTURE,
+    GL_TEXTURE0=0x84C0, GL_TEXTURE1=0x84C1,
     GL_STACK_OVERFLOW=0x0503, GL_STACK_UNDERFLOW=0x0504
 };
 extern "C" {
 unsigned glGetError();
 void glBindTexture(unsigned,GLuint);
+void glActiveTexture(unsigned);
+void glBindSampler(unsigned,GLuint);
 void glTexParameteri(unsigned,unsigned,int);
 void glTexImage2D(unsigned,int,int,int,int,int,unsigned,unsigned,const void*);
 void glBegin(unsigned);
 void glVertex2f(float,float);
+void glVertex3f(float,float,float);
 void glEnd();
 void glTexCoord2f(float,float);
 void glColor4ub(unsigned char,unsigned char,unsigned char,unsigned char);

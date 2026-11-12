@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.hpp"
+#include "command_submission.hpp"
 #include "lifecycle.hpp"
 
 namespace celeste::diagnostic {
@@ -21,6 +22,12 @@ struct PlayerRender {
     PlayerTrails* trails=nullptr;
 };
 void initialize_graphics();
+// Inactive opt-in entry: no uploads, clear, swap or app wiring. Caller owns the
+// current render target/context and verified page pixels; leaves configured draw state.
+// Establishes unit-zero-only 2D texturing, no sampler override and an identity UV matrix.
+void submit_ready_frame(const command_preflight::ReadyFrame& frame,
+                        const std::vector<command_submission::UploadedPage>& pages,
+                        const command_submission::View& view);
 void load_textures(const VisualAssets& visuals);
 void load_decal_textures(const DecalAssets& decals);
 void load_player_textures(const PlayerAssets& assets);

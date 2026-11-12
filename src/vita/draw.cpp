@@ -11,6 +11,7 @@
 #endif
 #include <vitaGL.h>
 #include <cmath>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -214,6 +215,64 @@ std::string export_back_buffer(const char* path, const Player& player, unsigned 
     write_guest_file((std::string(path)+".txt").c_str(),receipt,SCE_O_EXCL);
     return receipt;
 }
+}
+void submit_ready_frame(const command_preflight::ReadyFrame& frame,
+                        const std::vector<command_submission::UploadedPage>& pages,
+                        const command_submission::View& view) {
+    command_submission::submit(frame,pages,view,{
+        [](const command_submission::Projection& projection) {
+            check("ReadyFrame caller GL state");
+            const auto* version=glGetString(GL_VERSION);
+            check("ReadyFrame context query");
+            if(!version) throw std::runtime_error("ReadyFrame requires a current vitaGL context");
+            const auto& viewport=projection.viewport;
+            glViewport(viewport.x,viewport.y,viewport.width,viewport.height);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(projection.left,projection.right,projection.bottom,projection.top,-1,1);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendEquation(GL_FUNC_ADD);
+            glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+            glActiveTexture(GL_TEXTURE1);
+            glDisable(GL_TEXTURE_1D);
+            glDisable(GL_TEXTURE_2D);
+            glActiveTexture(GL_TEXTURE0);
+            glDisable(GL_TEXTURE_1D);
+            glBindSampler(0,0);
+            glMatrixMode(GL_TEXTURE);
+            glLoadIdentity();
+            glMatrixMode(GL_MODELVIEW);
+            check("ReadyFrame texture unit state");
+            glEnable(GL_TEXTURE_2D);
+            glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
+            check("ReadyFrame projection and draw state");
+        },
+        [](unsigned texture,const command_preflight::ReadyCommand& command) {
+            glBindTexture(GL_TEXTURE_2D,texture);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+            const auto& color=command.command.color;
+            glColor4ub(color.r,color.g,color.b,color.a);
+            check("ReadyFrame texture and color state");
+            glBegin(GL_TRIANGLE_STRIP);
+            for(const auto& words:command.geometry.vertices) {
+                float vertex[5];
+                static_assert(sizeof(vertex)==sizeof(words));
+                std::memcpy(vertex,words.data(),sizeof(vertex));
+                glTexCoord2f(vertex[3],vertex[4]);
+                glVertex3f(vertex[0],vertex[1],vertex[2]);
+            }
+            glEnd();
+            check("ReadyFrame quad");
+        },
+        [] {check("ReadyFrame submission completion");}
+    });
 }
 void initialize_graphics() {
     const auto fallback = vglInitExtended(1024*1024, 960, 544, 64*1024*1024, SCE_GXM_MULTISAMPLE_NONE);
