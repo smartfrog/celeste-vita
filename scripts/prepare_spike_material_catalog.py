@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -37,12 +38,18 @@ def atlas_key(direction):
 
 
 def read_frame(atlas, direction):
-    key = atlas_key(direction)
+    return read_atlas_frame(atlas, atlas_key(direction))
+
+
+def read_atlas_frame(atlas, key):
+    require(isinstance(key, str) and len(key) <= 192 and not key.startswith('/') and '..' not in key and
+            re.fullmatch(r'[a-zA-Z0-9_/.\\-]+', key) is not None, 'Invalid pinned atlas key')
     require(key in atlas, "Pinned original atlas is missing the spike frame: " + key)
     value = atlas[key]
     require(isinstance(value, list) and len(value) == 9, "Invalid pinned spike atlas tuple: " + key)
     sheet, *numbers = value
-    require(isinstance(sheet, str) and sheet, "Invalid pinned spike atlas sheet: " + key)
+    require(isinstance(sheet, str) and len(sheet) <= 64 and re.fullmatch(r'[a-zA-Z0-9_]+', sheet) is not None,
+            "Invalid pinned atlas sheet: " + key)
     require(all(type(number) is int for number in numbers), "Non-integer pinned spike atlas field: " + key)
     x, y, width, height, offset_x, offset_y, frame_width, frame_height = numbers
     require(0 <= x <= 4096 - width and 0 <= y <= 4096 - height and width > 0 and height > 0,

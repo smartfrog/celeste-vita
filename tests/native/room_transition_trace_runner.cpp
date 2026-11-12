@@ -4,6 +4,7 @@
 #include "jumpthru_commands.hpp"
 #include "player_draw_trace.hpp"
 #include "spike_commands.hpp"
+#include "strawberry_commands.hpp"
 #include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
@@ -222,11 +223,27 @@ void write_command_geometry(const Command& command) {
         <<unsigned(command.color.b)<<','<<unsigned(command.color.a)<<"]"
         <<",\"rotation\":"<<command.rotation<<",\"effects\":"<<std::quoted(command.effects);
 }
+void write_command_vertices(const decal_commands::DecalCommand& command) {
+    if(command.sheet!="Gameplay0") throw std::invalid_argument("Unsupported command sheet dimensions");
+    const auto geometry=decal_commands::project_geometry(command,4096,4096);
+    std::cout<<",\"dimensions\":[4096,4096],\"finiteGeometry\":"<<geometry.finite<<",\"verticesFloat32Bits\":[";
+    for(unsigned vertex=0;vertex<geometry.vertices.size();++vertex) {
+        if(vertex) std::cout<<',';
+        std::cout<<'[';
+        for(unsigned field=0;field<geometry.vertices[vertex].size();++field) {
+            if(field) std::cout<<',';
+            std::cout<<geometry.vertices[vertex][field];
+        }
+        std::cout<<']';
+    }
+    std::cout<<']';
+}
 void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
                  const std::vector<draw_order::AuthoredDecalOwners>& authored,
                  const decal_commands::StaticDecalCatalog* static_decals,
                  const terrain::Catalog* terrain_catalog,bool complete_decals,
-                 const spike_commands::Catalog* spike_catalog,const jumpthru_commands::Catalog* jumpthru_catalog) {
+                 const spike_commands::Catalog* spike_catalog,const jumpthru_commands::Catalog* jumpthru_catalog,
+                 const strawberry_commands::Catalog* strawberry_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
@@ -282,19 +299,8 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
                 <<",\"layer\":\""<<(command.background?'B':'F')<<"\",\"ordinal\":"<<command.ordinal;
             write_command_geometry(command);
             if(complete_decals) {
-                if(command.sheet!="Gameplay0") throw std::invalid_argument("Unsupported decal sheet dimensions");
-                const auto geometry=decal_commands::project_geometry(command,4096,4096);
-                std::cout<<",\"slice\":"<<command.slice<<",\"dimensions\":[4096,4096],\"finiteGeometry\":"<<geometry.finite<<",\"verticesFloat32Bits\":[";
-                for(unsigned vertex=0;vertex<geometry.vertices.size();++vertex) {
-                    if(vertex) std::cout<<',';
-                    std::cout<<'[';
-                    for(unsigned field=0;field<geometry.vertices[vertex].size();++field) {
-                        if(field) std::cout<<',';
-                        std::cout<<geometry.vertices[vertex][field];
-                    }
-                    std::cout<<']';
-                }
-                std::cout<<']';
+                std::cout<<",\"slice\":"<<command.slice;
+                write_command_vertices(command);
             }
             std::cout<<"}\n";
         }
@@ -316,6 +322,19 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
             std::cout<<"}\n";
         }
     }
+    if(strawberry_catalog) {
+        const auto commands=strawberry_commands::project(projection,session.room_roster(),*strawberry_catalog);
+        for(std::size_t index=0;index<commands.size();++index) {
+            const auto& command=commands[index];
+            std::cout<<"{\"event\":\"strawberry-command\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
+                <<",\"authoredId\":"<<command.authored_id<<",\"piece\":0,\"animation\":\"idle\",\"animationFrame\":"<<command.animation_frame
+                <<",\"textureFrame\":"<<command.texture_frame;
+            write_command_geometry(command);
+            write_command_vertices(command);
+            std::cout<<"}\n";
+        }
+    }
 }
 struct Options {
     std::vector<std::string> positional;
@@ -331,12 +350,14 @@ struct Options {
     std::string jumpthru_catalog_path;
     bool spike_commands=false;
     std::string spike_catalog_path;
+    bool strawberry_commands=false;
+    std::string strawberry_catalog_path;
 };
 Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands" || argument=="--strawberry-commands") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
             bool* enabled=nullptr;
@@ -349,7 +370,8 @@ Options parse_options(int argc,char** argv) {
                 destination=&options.static_decal_catalog;
             }
             else if(argument=="--terrain-catalog") { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
-            else { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
+            else if(argument=="--spike-commands") { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
+            else { enabled=&options.strawberry_commands; destination=&options.strawberry_catalog_path; }
             if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
             *enabled=true; *destination=value;
         } else if(argument=="--banner-phases") {
@@ -366,7 +388,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog and --jumpthru-commands CJTC1");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog, --jumpthru-commands CJTC1 and --strawberry-commands strawberry-material-catalog");
         if(options.banner_phases && arguments.size()!=8) throw std::invalid_argument("Banner phases require the complete authored CDO1 catalog");
         if(options.jumpthru_commands && arguments.size()!=8) throw std::invalid_argument("JumpThru commands require the complete authored CDO1 catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
@@ -403,6 +425,11 @@ int main(int argc,char** argv) {
         if(options.spike_commands) {
             const auto catalog_text=read_asset(options.spike_catalog_path.c_str(),spike_commands::catalog_byte_limit);
             spike_catalog=spike_commands::parse(catalog_text,spike_command_catalog_checksum);
+        }
+        std::optional<strawberry_commands::Catalog> strawberry_catalog;
+        if(options.strawberry_commands) {
+            const auto catalog_text=read_asset(options.strawberry_catalog_path.c_str(),strawberry_commands::catalog_byte_limit);
+            strawberry_catalog=strawberry_commands::parse(catalog_text,0xc3e8c625u);
         }
         const std::string seed_text=arguments[5];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
@@ -442,7 +469,8 @@ int main(int argc,char** argv) {
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,
                     (options.static_decal_commands || options.complete_decal_commands)?&static_decals:nullptr,
                     terrain_catalog?&*terrain_catalog:nullptr,options.complete_decal_commands,
-                    spike_catalog?&*spike_catalog:nullptr,jumpthru_catalog?&*jumpthru_catalog:nullptr);
+                    spike_catalog?&*spike_catalog:nullptr,jumpthru_catalog?&*jumpthru_catalog:nullptr,
+                    strawberry_catalog?&*strawberry_catalog:nullptr);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();
