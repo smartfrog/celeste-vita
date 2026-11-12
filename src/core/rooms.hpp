@@ -27,6 +27,7 @@ class RoomCatalog final {
 public:
     explicit RoomCatalog(std::vector<RoomDefinition> rooms);
     const RoomDefinition& first() const { return rooms_.front(); }
+    const std::vector<RoomDefinition>& definitions() const { return rooms_; }
     const RoomDefinition* at(Vec2 point) const;
 private:
     const std::vector<RoomDefinition> rooms_;

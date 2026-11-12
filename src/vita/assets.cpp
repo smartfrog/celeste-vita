@@ -305,6 +305,56 @@ DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum)
             throw std::invalid_argument("Animated Banner omission set changed");
     return result;
 }
+std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
+    std::string_view text,std::uint32_t expected_checksum,const RoomCatalog& catalog) {
+    integrity(text,65'536,expected_checksum);
+    header(text,"CDO1");
+    if(take(text)!="81d04a56cb9b5cb981f3c7823388bed6082db2d5755d364c15c35bbcaf8b7746" ||
+       take(text)!="6000000000000000" || integer(take(text))!=2 || catalog.definitions().size()!=2)
+        throw std::invalid_argument("Invalid authored decal provenance/namespace/room count");
+    std::vector<draw_order::AuthoredDecalOwners> result;
+    for(std::size_t index=0;index<catalog.definitions().size();++index) {
+        const auto& room=catalog.definitions()[index];
+        auto row=take(text);
+        if(take(row,' ')!="R" || take(row,' ')!=room.name)
+            throw std::invalid_argument("Unknown, duplicate or reordered authored decal room");
+        const int x=integer(take(row,' ')),y=integer(take(row,' '));
+        const int width=integer(take(row,' ')),height=integer(take(row,' ')),raw_height=integer(take(row,' '));
+        const int background=integer(take(row,' ')),foreground=integer(row);
+        if(x!=room.bounds.x || y!=room.bounds.y || width!=room.bounds.width || height!=room.bounds.height ||
+           raw_height<=0 || raw_height>1'000'000 || height!=(raw_height==184?180:raw_height) ||
+           background<0 || background>64 || foreground<0 || foreground>64)
+            throw std::invalid_argument("Invalid authored decal room bounds/counts");
+        draw_order::AuthoredDecalOwners authored{&room,{},background,foreground};
+        for(const bool back:{true,false}) {
+            const int count=back?background:foreground;
+            for(int ordinal=0;ordinal<count;++ordinal) {
+                row=take(text);
+                if(take(row,' ')!=(back?"B":"F") || integer(take(row,' '))!=ordinal)
+                    throw std::invalid_argument("Invalid authored decal layer/ordinal coverage");
+                const auto texture=take(row,' ');
+                auto name=texture;
+                if(name.size()>4 && name.substr(name.size()-4)==".png") name.remove_suffix(4);
+                if(name.empty() || name.size()>192 || name.front()=='/' || name.front()=='\\' ||
+                   name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/\\-")!=std::string_view::npos)
+                    throw std::invalid_argument("Invalid original decal texture key");
+                const int px=integer(take(row,' ')),py=integer(take(row,' '));
+                const int sx=integer(take(row,' ')),sy=integer(take(row,' ')),banner=integer(row);
+                if(px < -1'000'000 || px>1'000'000 || py < -1'000'000 || py>1'000'000 ||
+                   (sx!=1 && sx!=-1) || (sy!=1 && sy!=-1) || (banner!=0 && banner!=1))
+                    throw std::invalid_argument("Invalid authored decal transform/classification");
+                const auto identity=0x6000'0000'0000'0000ull | (std::uint64_t(index+1)<<32) |
+                    (std::uint64_t(back?1:2)<<24) | std::uint64_t(ordinal+1);
+                authored.owners.push_back({draw_order::OwnerKind::decal,identity,ordinal,&room,
+                    back?9000:-10500,unsigned(ordinal),true,false,banner!=0,std::string(texture),
+                    {float(px),float(py)},{float(sx),float(sy)}});
+            }
+        }
+        result.push_back(std::move(authored));
+    }
+    if(!text.empty()) throw std::invalid_argument("Trailing authored decal metadata");
+    return result;
+}
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text,65'536,expected_checksum);
     header(text,"CSPP1");

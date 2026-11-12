@@ -1,10 +1,12 @@
 # Native Player command projection
 
-`native_room_transition_trace_runner` keeps its original 7/8-argument update-only
+`native_room_transition_trace_runner` keeps its 7/8/9-argument update-only
 behavior. Appending `--player-commands <logical-mapping>` enables one normal
 `FirstRoomSession::draw()` after each update. The returned command vector is cached
 locally and serialized without another draw, hair flooring, update, or RNG call.
 Normal draw-time hair mutations remain visible to subsequent updates.
+The opt-in works with no decals, legacy CSD1 first-room decals, or a complete CDO1
+authored catalog; catalog validation still precedes any trace output.
 
 Prepare the observer mapping from the frozen native player metadata, independently
 pinned original atlas metadata, and the accepted profile's sheet dimensions:

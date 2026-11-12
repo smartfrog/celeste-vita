@@ -66,6 +66,35 @@ DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDec
     if(!state.initial_room) throw std::logic_error("The draw roster requires the authored initial room");
     if(std::count_if(state.roster.begin(),state.roster.end(),[](const RoomRosterEntry& entry) { return entry.player; })!=1)
         throw std::logic_error("The draw roster requires exactly one Player owner");
+    std::vector<std::uint64_t> authored_identities;
+    for(const auto& group:authored_decals) {
+        if(!group.room || std::count_if(authored_decals.begin(),authored_decals.end(),[&](const AuthoredDecalOwners& other) {
+            return other.room && other.room->name==group.room->name;
+        })!=1) throw std::logic_error("Authored decal metadata must bind each room exactly once");
+        for(const auto& owner:group.owners) {
+            if(owner.kind!=OwnerKind::decal || !owner.room || owner.room->name!=group.room->name || owner.authored_id<0 ||
+               !owner.visible || owner.hud_excluded || !owner.identity)
+                throw std::logic_error("Invalid authored decal owner binding");
+            if(owner.sort_depth_band!=decal_background_depth && owner.sort_depth_band!=decal_foreground_depth)
+                throw std::logic_error("Authored decal depth must match the observed SOURCE layers");
+            if(std::find(authored_identities.begin(),authored_identities.end(),owner.identity)!=authored_identities.end())
+                throw std::logic_error("Every authored draw owner must hold a distinct stable identity");
+            authored_identities.push_back(owner.identity);
+            if(std::count_if(group.owners.begin(),group.owners.end(),[&](const DrawOwner& other) {
+                return other.sort_depth_band==owner.sort_depth_band && other.authored_id==owner.authored_id;
+            })!=1) throw std::logic_error("Authored decal metadata binds one ordinal twice");
+        }
+        for(const bool background:{true,false}) {
+            const int expected=background?group.background_count:group.foreground_count;
+            if(expected<0) continue;
+            const int band=background?decal_background_depth:decal_foreground_depth;
+            if(std::count_if(group.owners.begin(),group.owners.end(),[&](const DrawOwner& owner) {
+                return owner.sort_depth_band==band;
+            })!=expected) throw std::logic_error("Incomplete authored decal layer coverage");
+            for(const auto& owner:group.owners) if(owner.sort_depth_band==band && owner.authored_id>=expected)
+                throw std::logic_error("Authored decal ordinal exceeds its layer count");
+        }
+    }
     std::vector<const RoomRuntime*> rooms;
     for(const auto& entry:state.roster) {
         if(!entry.room) continue;
@@ -106,6 +135,9 @@ DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDec
             &entry.room->definition,entity_band(kind),sequence,true,false,false});
     }
 
+    for(const auto& owner:projection.live)
+        if(std::find(authored_identities.begin(),authored_identities.end(),owner.identity)!=authored_identities.end())
+            throw std::logic_error("Authored decal identity aliases a global, Player or room entity owner");
     unsigned background_sequence=0,foreground_sequence=0;
     for(const auto* room:rooms) {
         const auto authored=std::find_if(authored_decals.begin(),authored_decals.end(),
@@ -114,18 +146,11 @@ DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDec
             projection.decal_gap_rooms.push_back(&room->definition);
             continue;
         }
-        if(std::count_if(authored_decals.begin(),authored_decals.end(),
-            [&](const AuthoredDecalOwners& entry) { return entry.room && entry.room->name==room->definition.name; })!=1)
-            throw std::logic_error("Authored decal metadata must bind each room exactly once");
         for(const auto& owner:authored->owners) {
-            if(owner.kind!=OwnerKind::decal) throw std::logic_error("Authored decal owners must be decals");
-            if(owner.sort_depth_band!=decal_background_depth && owner.sort_depth_band!=decal_foreground_depth)
-                throw std::logic_error("Authored decal depth must match the observed SOURCE layers");
-            for(const auto& other:authored->owners)
-                if(&other!=&owner && other.sort_depth_band==owner.sort_depth_band && other.authored_id==owner.authored_id)
-                    throw std::logic_error("Authored decal metadata binds one ordinal twice");
-            projection.live.push_back(DrawOwner{owner.kind,owner.identity,owner.authored_id,&room->definition,
-                owner.sort_depth_band,owner.sort_depth_band>0?background_sequence++:foreground_sequence++,true,false,owner.banner});
+            auto projected=owner;
+            projected.room=&room->definition;
+            projected.sequence=owner.sort_depth_band>0?background_sequence++:foreground_sequence++;
+            projection.live.push_back(std::move(projected));
         }
     }
 

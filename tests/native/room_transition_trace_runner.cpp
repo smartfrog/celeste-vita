@@ -202,7 +202,12 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
             <<",\"authoredId\":"<<owner.authored_id<<",\"room\":\""<<(owner.room?owner.room->name:"")<<"\""
             <<",\"sortDepthBand\":"<<owner.sort_depth_band<<",\"sequence\":"<<owner.sequence
             <<",\"visible\":"<<owner.visible<<",\"hudExcluded\":"<<owner.hud_excluded
-            <<",\"banner\":"<<owner.banner<<'}';
+            <<",\"banner\":"<<owner.banner;
+        if(!owner.texture.empty()) {
+            std::cout<<",\"texture\":"<<std::quoted(owner.texture)<<",\"position\":";vec(owner.position);
+            std::cout<<",\"scale\":";vec(owner.scale);
+        }
+        std::cout<<'}';
     }
     std::cout<<"],\"decalGapRooms\":[";
     first=true;
@@ -226,16 +231,17 @@ int main(int argc,char** argv) {
     try {
         const bool player_commands=argc>=3 && std::string(argv[argc-2])=="--player-commands";
         const int legacy_argc=argc-(player_commands?2:0);
-        if(legacy_argc!=7 && legacy_argc!=8) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            " and optional authored first-room decal metadata, then optional --player-commands logical-mapping");
+        if(legacy_argc!=7 && legacy_argc!=8 && legacy_argc!=9) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
         std::vector<draw_order::AuthoredDecalOwners> authored;
-        if(legacy_argc==8) {
+        if(legacy_argc>=8) {
             const auto decal_text=read_asset(argv[7],65536);
             authored=authored_first_room_decals(parse_decals(decal_text,checksum(decal_text)),catalog.first());
         }
+        if(legacy_argc==9) authored=parse_authored_decals(read_asset(argv[8],65536),authored_decal_catalog_checksum,catalog);
         std::vector<native_test::LogicalPlayerFrame> player_mapping;
         if(player_commands) {
             std::ifstream mapping(argv[argc-1]);

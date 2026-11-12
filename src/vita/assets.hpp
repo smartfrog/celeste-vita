@@ -2,6 +2,7 @@
 
 #include "player.hpp"
 #include "presentation.hpp"
+#include "draw_order.hpp"
 #include <array>
 #include <string>
 #include <string_view>
@@ -68,6 +69,10 @@ MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum);
 std::vector<StaticSpike> parse_spikes(std::string_view text, std::uint32_t expected_checksum);
 VisualAssets parse_visuals(std::string_view text, std::uint32_t expected_checksum);
 DecalAssets parse_decals(std::string_view text, std::uint32_t expected_checksum);
+// Build pin of map-derived CDO1 metadata, never a SOURCE draw-roster input.
+inline constexpr std::uint32_t authored_decal_catalog_checksum=0x5a81b77du;
+std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
+    std::string_view text,std::uint32_t expected_checksum,const RoomCatalog& catalog);
 void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes);
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum);
 void validate_texture_bytes(std::string_view bytes, const TextureInfo& texture);

@@ -278,6 +278,48 @@ void missing_initial_room_binding_is_rejected() {
     catch(const std::logic_error&) { return; }
     throw std::runtime_error("A missing authored initial-room binding must reject");
 }
+void missing_catalog_owner_is_rejected() {
+    const auto state=two_room_snapshot(false);
+    auto decals=first_room_decals(*state.initial_room);
+    decals.front().background_count=25;decals.front().foreground_count=4;
+    decals.front().owners.pop_back();
+    try { project(state,decals); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Incomplete catalog coverage must reject, not hide behind an empty gap");
+}
+void nonlive_duplicate_groups_are_rejected() {
+    const auto state=second_room_only_snapshot();
+    auto decals=first_room_decals(*state.initial_room);
+    decals.push_back(decals.front());
+    try { project(state,decals); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Duplicate metadata groups must reject even after their room unloads");
+}
+void nonlive_alias_of_player_is_rejected() {
+    const auto state=second_room_only_snapshot();
+    auto decals=first_room_decals(*state.initial_room);
+    decals.front().owners.front().identity=state.roster.back().player->object_identity();
+    try { project(state,decals); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Nonlive metadata may not alias the Player identity");
+}
+void foreign_room_owner_binding_is_rejected() {
+    const auto state=two_room_snapshot(false);
+    const auto foreign=second_room();
+    auto decals=first_room_decals(*state.initial_room);
+    decals.front().owners.front().room=&foreign;
+    try { project(state,decals); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Foreign owner room binding must reject");
+}
+void nonlive_duplicate_identity_is_rejected() {
+    const auto state=second_room_only_snapshot();
+    auto decals=first_room_decals(*state.initial_room);
+    decals.front().owners.back().identity=decals.front().owners.front().identity;
+    try { project(state,decals); }
+    catch(const std::logic_error&) { return; }
+    throw std::runtime_error("Nonlive metadata identity aliases must reject before publication");
+}
 }
 int main() {
     try {
@@ -296,7 +338,12 @@ int main() {
         aliased_decal_owner_identity_is_rejected();
         duplicate_authored_decal_ordinal_is_rejected();
         missing_initial_room_binding_is_rejected();
-        std::cout<<"16 draw owner projection behaviors passed\n";
+        missing_catalog_owner_is_rejected();
+        nonlive_duplicate_groups_are_rejected();
+        nonlive_alias_of_player_is_rejected();
+        foreign_room_owner_binding_is_rejected();
+        nonlive_duplicate_identity_is_rejected();
+        std::cout<<"21 draw owner projection behaviors passed\n";
         return 0;
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }
