@@ -3,6 +3,7 @@
 #include "draw_order.hpp"
 #include "jumpthru_commands.hpp"
 #include "player_draw_trace.hpp"
+#include "spike_commands.hpp"
 #include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
@@ -207,10 +208,25 @@ std::vector<draw_order::AuthoredDecalOwners> authored_first_room_decals(const De
             omitted.source_index,&room,omitted.background?9000:-10500,unsigned(omitted.source_index),true,false,true});
     return {authored};
 }
+template<typename Command>
+void write_command_geometry(const Command& command) {
+    std::cout<<",\"texture\":"<<std::quoted(command.texture)<<",\"sheet\":"<<std::quoted(command.sheet)
+        <<",\"sourceRectangle\":["<<command.source_x<<','<<command.source_y<<','<<command.source_width<<','<<command.source_height
+        <<"],\"position\":";
+    vec(command.position);
+    std::cout<<",\"origin\":";
+    vec(command.origin);
+    std::cout<<",\"scale\":";
+    vec(command.scale);
+    std::cout<<",\"color\":["<<unsigned(command.color.r)<<','<<unsigned(command.color.g)<<','
+        <<unsigned(command.color.b)<<','<<unsigned(command.color.a)<<"]"
+        <<",\"rotation\":"<<command.rotation<<",\"effects\":"<<std::quoted(command.effects);
+}
 void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
                  const std::vector<draw_order::AuthoredDecalOwners>& authored,
                  const decal_commands::StaticDecalCatalog* static_decals,
-                 const terrain::Catalog* terrain_catalog,bool complete_decals,const jumpthru_commands::Catalog* jumpthru_catalog) {
+                 const terrain::Catalog* terrain_catalog,bool complete_decals,
+                 const spike_commands::Catalog* spike_catalog,const jumpthru_commands::Catalog* jumpthru_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
@@ -253,53 +269,53 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
         std::cout<<"{\"event\":\"jumpthru-command\",\"tick\":"<<tick
             <<",\"ownerIdentity\":"<<image.identity<<",\"room\":"<<std::quoted(image.room)
             <<",\"authoredId\":"<<command.authored_id<<",\"piece\":"<<command.piece<<",\"dispatchIndex\":"<<command.dispatch_index
-            <<",\"texture\":"<<std::quoted(image.texture)<<",\"sheet\":"<<std::quoted(image.sheet)
-            <<",\"dimensions\":[4096,4096]"
-            <<",\"sourceRectangle\":["<<image.source_x<<','<<image.source_y<<','<<image.source_width<<','<<image.source_height<<"],\"position\":";
-        vec(image.position);std::cout<<",\"origin\":";vec(image.origin);std::cout<<",\"scale\":";vec(image.scale);
-        std::cout<<",\"color\":["<<unsigned(image.color.r)<<','<<unsigned(image.color.g)<<','<<unsigned(image.color.b)<<','<<unsigned(image.color.a)
-            <<"],\"rotation\":"<<image.rotation<<",\"effects\":"<<std::quoted(image.effects)<<"}\n";
+            <<",\"dimensions\":[4096,4096]";
+        write_command_geometry(image);
+        std::cout<<"}\n";
     }
-    if(!static_decals) return;
-    const auto decals=decal_commands::project(projection,*static_decals,complete_decals?&rooms:nullptr);
-    for(std::size_t index=0;index<decals.commands.size();++index) {
-        const auto& command=decals.commands[index];
-        std::cout<<"{\"event\":\""<<(complete_decals?"decal-command":"static-decal-command")<<"\",\"tick\":"<<tick<<",\"index\":"<<index
-            <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
-            <<",\"layer\":\""<<(command.background?'B':'F')<<"\",\"ordinal\":"<<command.ordinal
-            <<",\"texture\":"<<std::quoted(command.texture)<<",\"sheet\":"<<std::quoted(command.sheet)
-            <<",\"sourceRectangle\":["<<command.source_x<<','<<command.source_y<<','<<command.source_width<<','<<command.source_height
-            <<"],\"position\":";
-        vec(command.position);
-        std::cout<<",\"origin\":";
-        vec(command.origin);
-        std::cout<<",\"scale\":";
-        vec(command.scale);
-        std::cout<<",\"color\":["<<unsigned(command.color.r)<<','<<unsigned(command.color.g)<<','
-            <<unsigned(command.color.b)<<','<<unsigned(command.color.a)<<"]"
-            <<",\"rotation\":"<<command.rotation<<",\"effects\":"<<std::quoted(command.effects);
-        if(complete_decals) {
-            if(command.sheet!="Gameplay0") throw std::invalid_argument("Unsupported decal sheet dimensions");
-            const auto geometry=decal_commands::project_geometry(command,4096,4096);
-            std::cout<<",\"slice\":"<<command.slice<<",\"dimensions\":[4096,4096],\"finiteGeometry\":"<<geometry.finite<<",\"verticesFloat32Bits\":[";
-            for(unsigned vertex=0;vertex<geometry.vertices.size();++vertex) {
-                if(vertex) std::cout<<',';
-                std::cout<<'[';
-                for(unsigned field=0;field<geometry.vertices[vertex].size();++field) {
-                    if(field) std::cout<<',';
-                    std::cout<<geometry.vertices[vertex][field];
+    if(static_decals) {
+        const auto decals=decal_commands::project(projection,*static_decals,complete_decals?&rooms:nullptr);
+        for(std::size_t index=0;index<decals.commands.size();++index) {
+            const auto& command=decals.commands[index];
+            std::cout<<"{\"event\":\""<<(complete_decals?"decal-command":"static-decal-command")<<"\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
+                <<",\"layer\":\""<<(command.background?'B':'F')<<"\",\"ordinal\":"<<command.ordinal;
+            write_command_geometry(command);
+            if(complete_decals) {
+                if(command.sheet!="Gameplay0") throw std::invalid_argument("Unsupported decal sheet dimensions");
+                const auto geometry=decal_commands::project_geometry(command,4096,4096);
+                std::cout<<",\"slice\":"<<command.slice<<",\"dimensions\":[4096,4096],\"finiteGeometry\":"<<geometry.finite<<",\"verticesFloat32Bits\":[";
+                for(unsigned vertex=0;vertex<geometry.vertices.size();++vertex) {
+                    if(vertex) std::cout<<',';
+                    std::cout<<'[';
+                    for(unsigned field=0;field<geometry.vertices[vertex].size();++field) {
+                        if(field) std::cout<<',';
+                        std::cout<<geometry.vertices[vertex][field];
+                    }
+                    std::cout<<']';
                 }
                 std::cout<<']';
             }
-            std::cout<<']';
+            std::cout<<"}\n";
         }
-        std::cout<<"}\n";
+        for(const auto& deferred:decals.deferred)
+            std::cout<<"{\"event\":\"static-decal-deferred\",\"tick\":"<<tick
+                <<",\"ownerIdentity\":"<<deferred.identity<<",\"room\":"<<std::quoted(deferred.room)
+                <<",\"layer\":\""<<(deferred.background?'B':'F')<<"\",\"ordinal\":"<<deferred.ordinal
+                <<",\"texture\":"<<std::quoted(deferred.texture)<<"}\n";
     }
-    for(const auto& deferred:decals.deferred)
-        std::cout<<"{\"event\":\"static-decal-deferred\",\"tick\":"<<tick
-            <<",\"ownerIdentity\":"<<deferred.identity<<",\"room\":"<<std::quoted(deferred.room)
-            <<",\"layer\":\""<<(deferred.background?'B':'F')<<"\",\"ordinal\":"<<deferred.ordinal
-            <<",\"texture\":"<<std::quoted(deferred.texture)<<"}\n";
+    if(spike_catalog) {
+        const auto commands=spike_commands::project(projection,session.room_roster(),*spike_catalog);
+        for(std::size_t index=0;index<commands.size();++index) {
+            const auto& command=commands[index];
+            std::cout<<"{\"event\":\"spike-command\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
+                <<",\"authoredId\":"<<command.authored_id<<",\"direction\":\""
+                <<(command.direction==SpikeDirection::up?"up":"left")<<"\",\"piece\":"<<command.piece;
+            write_command_geometry(command);
+            std::cout<<"}\n";
+        }
+    }
 }
 struct Options {
     std::vector<std::string> positional;
@@ -313,12 +329,14 @@ struct Options {
     std::string terrain_catalog_path;
     bool jumpthru_commands=false;
     std::string jumpthru_catalog_path;
+    bool spike_commands=false;
+    std::string spike_catalog_path;
 };
 Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--jumpthru-commands") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
             bool* enabled=nullptr;
@@ -330,7 +348,8 @@ Options parse_options(int argc,char** argv) {
                 enabled=argument=="--decal-commands"?&options.complete_decal_commands:&options.static_decal_commands;
                 destination=&options.static_decal_catalog;
             }
-            else { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
+            else if(argument=="--terrain-catalog") { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
+            else { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
             if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
             *enabled=true; *destination=value;
         } else if(argument=="--banner-phases") {
@@ -347,7 +366,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --jumpthru-commands CJTC1 and --banner-phases");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog and --jumpthru-commands CJTC1");
         if(options.banner_phases && arguments.size()!=8) throw std::invalid_argument("Banner phases require the complete authored CDO1 catalog");
         if(options.jumpthru_commands && arguments.size()!=8) throw std::invalid_argument("JumpThru commands require the complete authored CDO1 catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
@@ -380,6 +399,11 @@ int main(int argc,char** argv) {
         std::optional<jumpthru_commands::Catalog> jumpthru_catalog;
         if(options.jumpthru_commands)
             jumpthru_catalog=jumpthru_commands::parse(read_asset(options.jumpthru_catalog_path.c_str(),1024),0x822b4e11u);
+        std::optional<spike_commands::Catalog> spike_catalog;
+        if(options.spike_commands) {
+            const auto catalog_text=read_asset(options.spike_catalog_path.c_str(),spike_commands::catalog_byte_limit);
+            spike_catalog=spike_commands::parse(catalog_text,spike_command_catalog_checksum);
+        }
         const std::string seed_text=arguments[5];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog,(options.banner_phases || options.complete_decal_commands || options.jumpthru_commands)?&authored:nullptr);
@@ -417,7 +441,8 @@ int main(int argc,char** argv) {
                 if(options.banner_phases) banner_phases(tick,phase,observed);
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,
                     (options.static_decal_commands || options.complete_decal_commands)?&static_decals:nullptr,
-                    terrain_catalog?&*terrain_catalog:nullptr,options.complete_decal_commands,jumpthru_catalog?&*jumpthru_catalog:nullptr);
+                    terrain_catalog?&*terrain_catalog:nullptr,options.complete_decal_commands,
+                    spike_catalog?&*spike_catalog:nullptr,jumpthru_catalog?&*jumpthru_catalog:nullptr);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();

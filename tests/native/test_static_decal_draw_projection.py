@@ -41,6 +41,85 @@ def require(condition, message):
         raise ValueError(message)
 
 
+TRACE_DIRECTORIES = ("", "native-runs", "../native-runs")
+
+
+def trace_candidates(base, name):
+    path = Path(name)
+    if path.is_absolute():
+        return [path] if path.is_file() else []
+    candidates = []
+    for directory in TRACE_DIRECTORIES:
+        candidate = (base / directory / path).resolve()
+        if candidate.is_file() and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def trace_identity(identity, name):
+    require(isinstance(identity, dict), "Malformed native trace identity: " + name)
+    require(type(identity.get("bytes")) is int and identity["bytes"] >= 0,
+            "Malformed native trace byte pin: " + name)
+    sha256 = identity.get("sha256")
+    require(isinstance(sha256, str) and len(sha256) == 64 and
+            set(sha256) <= set("0123456789abcdef"), "Malformed native trace SHA-256 pin: " + name)
+    return {"bytes": identity["bytes"], "sha256": sha256}
+
+
+def bound_trace(base, name, identity):
+    expected = trace_identity(identity, name)
+    matches = [path for path in trace_candidates(base, name) if file_identity(path) == expected]
+    require(matches, "Native trace listed in the receipt is missing or changed: " + name)
+    return matches[0]
+
+
+def contains_static_commands(path):
+    with path.open() as stream:
+        for line in stream:
+            if line.startswith('{"event":"static-decal-command"'):
+                return True
+    return False
+
+
+def require_consistent_static_rows(candidates, row_loader):
+    require(candidates, "No static-decal-command trace is available in native_traces")
+    baseline_name, baseline_path = candidates[0]
+    baseline = row_loader(baseline_path)
+    for name, path in candidates[1:]:
+        require(row_loader(path) == baseline,
+                "Ambiguous static-bearing native traces disagree: " + baseline_name + " vs " + name)
+    return baseline_path
+
+
+def select_static_trace(receipt, base, row_loader=None):
+    require(isinstance(receipt, dict), "Static producer receipt must be an object")
+    has_legacy, has_table = "native_trace" in receipt, "native_traces" in receipt
+    require(not (has_legacy and has_table),
+            "Ambiguous static producer receipt has both native_trace and native_traces")
+    if has_legacy:
+        name = receipt["native_trace"]
+        require(isinstance(name, str) and name, "Invalid legacy native_trace path")
+        sha256 = receipt.get("native_trace_sha256")
+        require(isinstance(sha256, str) and len(sha256) == 64 and
+                set(sha256) <= set("0123456789abcdef"),
+                "Legacy native_trace requires a strict native_trace_sha256 pin")
+        matches = [path for path in trace_candidates(base, name)
+                   if file_identity(path)["sha256"] == sha256]
+        require(len(matches) == 1,
+                "Legacy native_trace is missing or ambiguous in the bound proof directories")
+        return matches[0]
+    require(has_table, "Static producer receipt has no native trace binding")
+    traces = receipt["native_traces"]
+    require(isinstance(traces, dict) and traces, "Malformed native_traces table")
+    candidates = []
+    for name, identity in traces.items():
+        require(isinstance(name, str) and name, "Malformed native_traces entry name")
+        path = bound_trace(base, name, identity)
+        if contains_static_commands(path):
+            candidates.append((name, path))
+    return require_consistent_static_rows(candidates, row_loader or read_native)
+
+
 def fnv1a(data):
     value = 2166136261
     for byte in data:
@@ -276,8 +355,8 @@ class StaticDecalEvidenceTests(unittest.TestCase):
             if not PROOF_RECEIPT.exists():
                 raise unittest.SkipTest("Fresh static decal native evidence is unavailable")
             receipt = json.loads(PROOF_RECEIPT.read_text())
-            native = PROOF_RECEIPT.parent / receipt["native_trace"]
-            expected = receipt["native_trace_sha256"]
+            native = select_static_trace(receipt, PROOF_RECEIPT.parent)
+            expected = None
         if file_identity(SOURCE_TRACE) != SOURCE_IDENTITY:
             raise ValueError("Immutable accepted SOURCE draw trace changed")
         if expected and file_identity(native)["sha256"] != expected:
@@ -392,6 +471,57 @@ class StaticDecalEvidenceTests(unittest.TestCase):
             prepare(atlas, authored, ROOT / "descriptor-catalog.txt")
         with self.assertRaisesRegex(ValueError, "fresh"):
             prepare(atlas, authored, AUDIT / "descriptor-catalog-01/static-decals.txt")
+
+
+class StaticTraceReceiptCompatibilityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not PROOF_RECEIPT.exists():
+            raise unittest.SkipTest("Fresh static decal native evidence is unavailable")
+        cls.receipt = json.loads(PROOF_RECEIPT.read_text())
+        cls.trace = AUDIT / "native-runs/release-combined.jsonl"
+        if not cls.trace.is_file():
+            raise unittest.SkipTest("Bound static producer trace is unavailable")
+        cls.identity = file_identity(cls.trace)
+        require(cls.receipt.get("native_traces", {}).get("release-combined.jsonl") == cls.identity,
+                "Producer trace identity binding changed")
+
+    def test_current_native_traces_schema_binds_a_static_trace(self):
+        selected = select_static_trace(self.receipt, PROOF_RECEIPT.parent)
+        self.assertTrue(contains_static_commands(selected))
+        self.assertEqual(file_identity(selected), self.identity)
+
+    def test_legacy_singular_receipt_is_supported(self):
+        receipt = {"native_trace": str(self.trace),
+                   "native_trace_sha256": self.identity["sha256"]}
+        self.assertEqual(select_static_trace(receipt, PROOF_RECEIPT.parent), self.trace.resolve())
+
+    def test_malformed_receipts_are_rejected(self):
+        cases = (
+            ({"native_trace": str(self.trace)}, "native_trace_sha256"),
+            ({"native_traces": {"release-combined.jsonl": {"bytes": 1}}}, "SHA-256"),
+            ({"native_trace": "/nonexistent-celeste-trace.jsonl",
+              "native_trace_sha256": "0" * 64}, "missing or ambiguous"),
+            ({}, "no native trace binding"),
+        )
+        for receipt, message in cases:
+            with self.assertRaisesRegex(ValueError, message):
+                select_static_trace(receipt, PROOF_RECEIPT.parent)
+
+    def test_ambiguous_receipt_shapes_are_rejected(self):
+        both = {"native_trace": str(self.trace),
+                "native_trace_sha256": self.identity["sha256"], "native_traces": {}}
+        with self.assertRaisesRegex(ValueError, "both native_trace"):
+            select_static_trace(both, PROOF_RECEIPT.parent)
+        with self.assertRaisesRegex(ValueError, "Ambiguous static-bearing"):
+            require_consistent_static_rows(
+                [("a", Path("a")), ("b", Path("b"))],
+                lambda path: {"a": 1} if path.name == "a" else {"b": 1})
+
+    def test_wrong_or_missing_identity_is_rejected(self):
+        receipt = {"native_trace": str(self.trace), "native_trace_sha256": "0" * 64}
+        with self.assertRaisesRegex(ValueError, "missing or ambiguous"):
+            select_static_trace(receipt, PROOF_RECEIPT.parent)
 
 
 if __name__ == "__main__":
