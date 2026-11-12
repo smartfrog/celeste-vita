@@ -75,9 +75,10 @@ inline constexpr std::uint32_t authored_decal_catalog_checksum=0x5a81b77du;
 std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
     std::string_view text,std::uint32_t expected_checksum,const RoomCatalog& catalog);
 inline constexpr std::uint32_t static_decal_catalog_checksum=0xb4b9e859u;
+inline constexpr std::uint32_t banner_decal_catalog_checksum=0x9bf1390au;
 decal_commands::StaticDecalCatalog parse_static_decal_catalog(
     std::string_view text,std::uint32_t expected_checksum,
-    const std::vector<draw_order::AuthoredDecalOwners>& authored);
+    const std::vector<draw_order::AuthoredDecalOwners>& authored,bool include_banners=false);
 inline constexpr std::uint32_t spike_command_catalog_checksum=0x33e4a42fu;
 void validate_spike_art(const VisualAssets& visuals, const std::vector<StaticSpike>& spikes);
 PlayerAssets parse_player_assets(std::string_view text, std::uint32_t expected_checksum);

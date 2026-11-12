@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import json
+import re
+import struct
 from pathlib import Path
 
 ROOT = Path("/home/fred/projects/celeste-vita")
@@ -117,23 +119,45 @@ def frame_tuple(atlas, texture):
     return value
 
 
-def encode_catalog(authored_text, atlas):
+def banner_parameters(source):
+    require(hashlib.sha256(source).hexdigest() == DECAL_SOURCE_SHA, "Pinned original Decal source changed")
+    added = source.decode().split("public override void Added(Scene scene)", 1)[1].split("private void MakeBanner(", 1)[0]
+    parameters = {}
+    for cases, arguments in re.findall(r'((?:\s*case "[^"\n]+":)+)\s*MakeBanner\(([^;]+)\);', added):
+        values = [value.strip().split(":")[-1].strip() for value in arguments.split(",")]
+        require(5 <= len(values) <= 7, "Unknown original MakeBanner arguments")
+        def number(value):
+            require(re.fullmatch(r"-?\d+(?:\.\d+)?f?", value) is not None, "Unknown original Banner scalar")
+            return float(value.removesuffix("f"))
+        require(values[4] in ("true", "false"), "Unknown original Banner easing")
+        windy = values[6] if len(values) == 7 else "false"
+        row = [number(values[0]), number(values[1]), int(values[2]), number(values[3]),
+               values[4] == "true", number(values[5]) if len(values) >= 6 else 0., windy == "true"]
+        for name in re.findall(r'case "([^"\n]+)":', cases):
+            parameters[name] = row
+    require(parameters, "Original Banner parameters unavailable")
+    return parameters
+
+
+def encode_catalog(authored_text, atlas, decal_source=None):
     rooms, owners = parse_authored_catalog(authored_text)
+    include_banners = decal_source is not None
+    parameters = banner_parameters(decal_source) if include_banners else {}
     families, static_keys = [], []
     for owner in owners:
-        if owner["banner"]:
+        if owner["banner"] and not include_banners:
             continue
         key = atlas_key(owner["texture"])
         if key not in static_keys:
             static_keys.append(key)
             families.append((key, owner["texture"], frame_tuple(atlas, owner["texture"])))
-    require(len(families) == FAMILY_COUNT, "Expected 23 static decal atlas families")
+    require(len(families) == (27 if include_banners else FAMILY_COUNT), "Unexpected decal atlas family count")
     require(len(static_keys) == len(set(static_keys)), "Duplicate static decal atlas family")
     for owner in owners:
         frame_tuple(atlas, owner["texture"])
     family_index = {key: index for index, (key, _, _) in enumerate(families)}
-    lines = ["CDSC1", INPUT_SHA, MAP_SHA, DECAL_SOURCE_SHA, ATLAS_SHA, AUTHORED_SHA,
-             str(FAMILY_COUNT)]
+    lines = ["CDSC2" if include_banners else "CDSC1", INPUT_SHA, MAP_SHA, DECAL_SOURCE_SHA, ATLAS_SHA, AUTHORED_SHA,
+             str(len(families))]
     for _, texture, frame in families:
         lines.append(" ".join(map(str, frame)) + " " + texture)
     used = set()
@@ -155,12 +179,29 @@ def encode_catalog(authored_text, atlas):
     require(len(deferred) == DEFERRED_COUNT, "Incomplete deferred Banner coverage")
     lines.append(str(len(deferred)))
     lines.extend("D " + " ".join(map(str, row)) for row in deferred)
+    if include_banners:
+        banner_keys = list(dict.fromkeys(atlas_key(owner["texture"]) for owner in owners if owner["banner"]))
+        require(len(banner_keys) == 4, "Expected four Banner texture families")
+        lines.append(str(len(banner_keys)))
+        def bits(value):
+            return struct.pack(">f", value).hex()
+        for key in banner_keys:
+            name = re.sub(r"\d+$", "", key.removeprefix("decals/")).lower()
+            require(name in parameters, "Unknown original Banner family")
+            speed, amplitude, size, increment, ease, offset, windy = parameters[name]
+            require(not windy, "Wind-dependent Banner family is unsupported")
+            require(sum(bool(re.fullmatch(re.escape(key) + r"\d*", candidate)) for candidate in atlas) == 1,
+                    "Animated Banner family is unsupported")
+            lines.append(" ".join(map(str, ["A", family_index[key], 1, bits(speed), bits(amplitude), size,
+                                            bits(increment), int(ease), bits(offset), int(windy)])))
     return ("\n".join(lines) + "\n").encode()
 
 
-def prepare(atlas_path, authored_path, output):
-    require(output.resolve().is_relative_to(AUDIT), "Descriptor catalog must live in its private audit namespace")
+def prepare(atlas_path, authored_path, output, decal_source_path=None):
+    namespace = ROOT / ".audit/native-banner-draw-projection-01" if decal_source_path else AUDIT
+    require(output.resolve().is_relative_to(namespace), "Descriptor catalog must live in its private audit namespace")
     require(not output.exists(), "Descriptor catalog output must be fresh")
+    require(not (output.parent / "receipt.json").exists(), "Descriptor receipt must be fresh")
     atlas_identity = file_identity(atlas_path)
     authored_identity = file_identity(authored_path)
     require(atlas_identity["sha256"] == ATLAS_SHA, "Pinned private atlas metadata changed")
@@ -169,7 +210,8 @@ def prepare(atlas_path, authored_path, output):
     require(isinstance(atlas, dict) and atlas, "Invalid atlas metadata payload")
     authored_text = authored_path.read_text()
     rooms, owners = parse_authored_catalog(authored_text)
-    data = encode_catalog(authored_text, atlas)
+    source = decal_source_path.read_bytes() if decal_source_path else None
+    data = encode_catalog(authored_text, atlas, source)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("xb") as stream:
         stream.write(data)
@@ -182,14 +224,16 @@ def prepare(atlas_path, authored_path, output):
         "atlas_owner_keys": len(owners),
         "atlas_missing_keys": 0,
         "static_owners": STATIC_COUNT,
-        "deferred_banners": DEFERRED_COUNT,
-        "families": FAMILY_COUNT,
+        "deferred_banners": 0 if source else DEFERRED_COUNT,
+        "banner_owners": DEFERRED_COUNT if source else 0,
+        "families": 27 if source else FAMILY_COUNT,
         "output": {"path": str(output), "bytes": len(data),
                    "sha256": hashlib.sha256(data).hexdigest(),
                    "fnv1a": f"{fnv1a(data):08x}"},
         "integrity_note": "FNV-1a is build integrity; only the pinned SHA-256 values are provenance identities",
     }
-    (output.parent / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    with (output.parent / "receipt.json").open("x") as stream:
+        stream.write(json.dumps(receipt, indent=2) + "\n")
     return receipt
 
 
@@ -198,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("--atlas", type=Path, required=True)
     parser.add_argument("--authored-catalog", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--decal-source", type=Path)
     arguments = parser.parse_args()
     print(json.dumps(prepare(arguments.atlas, arguments.authored_catalog,
-                             arguments.output), indent=2))
+                              arguments.output, arguments.decal_source), indent=2))

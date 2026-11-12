@@ -5,6 +5,7 @@
 #include <memory>
 
 namespace celeste {
+namespace draw_order { struct AuthoredDecalOwners; }
 struct RoomBounds {
     int x=0,y=0,width=320,height=180;
     bool contains(Vec2 point) const;
@@ -66,13 +67,23 @@ public:
     bool should_update(bool transitioning) const { return transitioning ? (tag()&4)!=0 : active; }
     void update(float delta);
 };
+struct BannerState {
+    std::uint64_t authored_identity;
+    float sine_timer;
+};
 class RoomRuntime final {
 public:
-    RoomRuntime(const RoomDefinition& definition,const StaticWorld& collision,bool initial=false);
+    RoomRuntime(const RoomDefinition& definition,const StaticWorld& collision,bool initial=false,
+                const draw_order::AuthoredDecalOwners* visual_owners=nullptr);
     const RoomDefinition& definition;
     std::vector<std::unique_ptr<RoomEntity>> entities;
     PresentationRandom scoped_random;
     std::vector<std::pair<std::string,unsigned>> random_events;
+    const std::vector<BannerState>& banners() const { return banners_; }
+    float banner_phase(std::uint64_t authored_identity) const;
+    void update_banners(float delta);
     void update(float delta,bool transitioning);
+private:
+    std::vector<BannerState> banners_;
 };
 }

@@ -82,7 +82,7 @@ IteratorStep FirstRoomSession::transition_step() {
     if(!transition.loaded) {
         if((player_->scene_tag()&(16|32))==0) throw std::runtime_error("Player must retain its persistent tag");
         for(const auto& entity:current_room_->entities) if((entity->tag()&(16|32))==0) transition.outgoing.push_back(entity.get());
-        incoming_room_=std::make_unique<RoomRuntime>(*transition.destination,world_.collision);
+        incoming_room_=std::make_unique<RoomRuntime>(*transition.destination,world_.collision,false,visual_owners(*transition.destination));
         for(const auto& event:incoming_room_->random_events) random_events_.push_back({"room-load",event.first,event.second,incoming_room_->definition.name});
         previous_bounds_=current_room_->definition.bounds;
         for(const auto& entity:current_room_->entities) if(std::holds_alternative<RoomWind>(entity->object)) entity->present=false;

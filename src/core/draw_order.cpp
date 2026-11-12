@@ -62,10 +62,7 @@ RosterSnapshot snapshot(const FirstRoomSession& session,const RoomDefinition* in
     return state;
 }
 
-DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDecalOwners>& authored_decals) {
-    if(!state.initial_room) throw std::logic_error("The draw roster requires the authored initial room");
-    if(std::count_if(state.roster.begin(),state.roster.end(),[](const RoomRosterEntry& entry) { return entry.player; })!=1)
-        throw std::logic_error("The draw roster requires exactly one Player owner");
+void validate_authored_decals(const std::vector<AuthoredDecalOwners>& authored_decals) {
     std::vector<std::uint64_t> authored_identities;
     for(const auto& group:authored_decals) {
         if(!group.room || std::count_if(authored_decals.begin(),authored_decals.end(),[&](const AuthoredDecalOwners& other) {
@@ -95,6 +92,15 @@ DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDec
                 throw std::logic_error("Authored decal ordinal exceeds its layer count");
         }
     }
+}
+
+DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDecalOwners>& authored_decals) {
+    if(!state.initial_room) throw std::logic_error("The draw roster requires the authored initial room");
+    if(std::count_if(state.roster.begin(),state.roster.end(),[](const RoomRosterEntry& entry) { return entry.player; })!=1)
+        throw std::logic_error("The draw roster requires exactly one Player owner");
+    validate_authored_decals(authored_decals);
+    std::vector<std::uint64_t> authored_identities;
+    for(const auto& group:authored_decals) for(const auto& owner:group.owners) authored_identities.push_back(owner.identity);
     std::vector<const RoomRuntime*> rooms;
     for(const auto& entry:state.roster) {
         if(!entry.room) continue;

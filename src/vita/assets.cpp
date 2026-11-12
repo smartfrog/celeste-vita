@@ -1,4 +1,5 @@
 #include "assets.hpp"
+#include <cmath>
 #include "asset_text.hpp"
 #include <algorithm>
 #include <charconv>
@@ -344,9 +345,9 @@ std::vector<draw_order::AuthoredDecalOwners> parse_authored_decals(
 }
 decal_commands::StaticDecalCatalog parse_static_decal_catalog(
     std::string_view text,std::uint32_t expected_checksum,
-    const std::vector<draw_order::AuthoredDecalOwners>& authored) {
+    const std::vector<draw_order::AuthoredDecalOwners>& authored,bool include_banners) {
     integrity(text,65'536,expected_checksum);
-    header(text,"CDSC1");
+    header(text,include_banners?"CDSC2":"CDSC1");
     if(take(text)!=decal_source_sha || take(text)!=static_decal_atlas_sha || take(text)!=authored_decal_catalog_sha)
         throw std::invalid_argument("Invalid static decal descriptor provenance pins");
     const auto valid_identity=[](std::string_view value) {
@@ -356,7 +357,7 @@ decal_commands::StaticDecalCatalog parse_static_decal_catalog(
     };
     decal_commands::StaticDecalCatalog result;
     const int families=integer(take(text));
-    if(families!=23) throw std::invalid_argument("Expected twenty-three static decal atlas families");
+    if(families!=(include_banners?27:23)) throw std::invalid_argument("Unexpected bounded decal atlas family count");
     result.families.reserve(families);
     for(int index=0;index<families;++index) {
         auto row=take(text);
@@ -395,7 +396,7 @@ decal_commands::StaticDecalCatalog parse_static_decal_catalog(
         throw std::invalid_argument("Authored static decal owner counts changed");
     const int owners=integer(take(text));
     if(owners!=static_owner_count) throw std::invalid_argument("Static decal descriptor owner count changed");
-    std::array<bool,23> used_families{};
+    std::vector<bool> used_families(std::size_t(families),false);
     std::vector<std::uint64_t> identities;
     for(int index=0;index<owners;++index) {
         auto row=take(text);
@@ -423,8 +424,6 @@ decal_commands::StaticDecalCatalog parse_static_decal_catalog(
         used_families[family]=true;
         result.owners.push_back({match->identity,room,layer=="B",ordinal,unsigned(family),match->texture});
     }
-    for(std::size_t index=0;index<used_families.size();++index)
-        if(!used_families[index]) throw std::invalid_argument("Unused static decal atlas family");
     for(const auto* owner:static_owners)
         if(std::find(identities.begin(),identities.end(),owner->identity)==identities.end())
             throw std::invalid_argument("Static decal descriptor coverage is incomplete");
@@ -457,6 +456,37 @@ decal_commands::StaticDecalCatalog parse_static_decal_catalog(
     }
     if(deferred_identities.size()!=banner_owners.size())
         throw std::invalid_argument("Deferred Banner descriptor coverage is incomplete");
+    if(include_banners) {
+        if(integer(take(text))!=4) throw std::invalid_argument("Expected four Banner atlas families");
+        for(int index=0;index<4;++index) {
+            auto row=take(text);
+            if(take(row,' ')!="A") throw std::invalid_argument("Invalid Banner parameter row");
+            decal_commands::StaticDecalCatalog::BannerFamily banner;
+            const int family=integer(take(row,' '));
+            if(family<0 || family>=families || used_families[family]) throw std::invalid_argument("Unknown or aliased Banner family");
+            banner.family=unsigned(family);banner.frame_count=integer(take(row,' '));
+            const auto scalar=[&]() {
+                const auto bits=hex_value(take(row,' '));float value;
+                std::memcpy(&value,&bits,sizeof value);
+                if(!std::isfinite(value)) throw std::invalid_argument("Nonfinite Banner parameter");
+                return value;
+            };
+            banner.speed=scalar();banner.amplitude=scalar();banner.slice_size=integer(take(row,' '));banner.increment=scalar();
+            const int ease=integer(take(row,' '));banner.offset=scalar();const int windy=integer(row);
+            if(banner.frame_count!=1 || banner.slice_size<1 || banner.slice_size>4096 || (ease!=0 && ease!=1) || windy!=0)
+                throw std::invalid_argument("Unsupported Banner animation, slice or windy parameters");
+            banner.ease_down=ease!=0;banner.only_if_windy=false;
+            bool referenced=false;
+            for(const auto& owner:result.deferred) if(owner.texture==result.families[family].texture) referenced=true;
+            if(!referenced) throw std::invalid_argument("Banner family has no authored owner");
+            used_families[family]=true;result.banners.push_back(banner);
+        }
+        for(const auto& owner:result.deferred)
+            if(std::none_of(result.banners.begin(),result.banners.end(),[&](const auto& banner) {
+                return result.families[banner.family].texture==owner.texture;
+            })) throw std::invalid_argument("Missing Banner family parameters");
+    }
+    for(const bool used:used_families) if(!used) throw std::invalid_argument("Unused static decal atlas family");
     if(!text.empty()) throw std::invalid_argument("Trailing static decal descriptor data");
     return result;
 }

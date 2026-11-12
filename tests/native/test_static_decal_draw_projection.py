@@ -265,12 +265,13 @@ def read_source(path):
         key_by_id = {entry_id: key for entry_id, key in zip(ids, keys) if key[0] == "Decal"}
         banners = {entity for entity, value in source["entities"].items()
                    if any(component["type"] == "Banner" for component in value["components"])}
-        static_commands, banner_commands = [], []
+        static_commands, banner_commands, ordered = [], [], []
         for command in source["commands"]:
             entity = command["owner"]["entity"]
             require(entity in key_by_id, "SOURCE decal command has no roster key")
             key = key_by_id[entity]
             key = (key[1], key[2] == "bg", key[3])
+            ordered.append((key, command, entity in banners))
             if entity in banners:
                 banner_commands.append(command)
             else:
@@ -279,7 +280,7 @@ def read_source(path):
                     for entry_id, entry in zip(ids, source["live"])
                     if entry[1] == "Decal" and entry_id in banners]
         result[tick] = {"room": source["room"], "static": static_commands,
-                        "banner_commands": banner_commands, "deferred": deferred}
+                         "banner_commands": banner_commands, "deferred": deferred, "ordered": ordered}
     return result
 
 
