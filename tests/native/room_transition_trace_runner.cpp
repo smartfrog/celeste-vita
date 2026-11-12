@@ -1,5 +1,6 @@
 #include "assets.hpp"
 #include "diagnostic.hpp"
+#include "draw_order.hpp"
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -156,13 +157,82 @@ void expect_guard(const char* member,const std::function<void()>& operation) {
     }
     throw std::runtime_error(std::string("Unsupported guard bypass: ")+member);
 }
+const char* draw_kind_name(draw_order::OwnerKind kind) {
+    using namespace draw_order;
+    switch(kind) {
+    case OwnerKind::background_tiles: return "BackgroundTiles";
+    case OwnerKind::decal: return "Decal";
+    case OwnerKind::particle_system_back: case OwnerKind::particle_system_mid: case OwnerKind::particle_system_front:
+        return "ParticleSystem";
+    case OwnerKind::scene_helper: return "Entity";
+    case OwnerKind::wind: return "WindController";
+    case OwnerKind::hud_display: return "TotalStrawberriesDisplay";
+    case OwnerKind::player: return "Player";
+    case OwnerKind::spikes: return "Spikes";
+    case OwnerKind::jumpthru_platform: return "JumpthruPlatform";
+    case OwnerKind::strawberry: return "Strawberry";
+    case OwnerKind::spring: return "Spring";
+    case OwnerKind::solid_tiles: return "SolidTiles";
+    }
+    throw std::invalid_argument("Unknown draw owner kind");
+}
+std::uint64_t decal_identity(bool background,bool banner,int source_index) {
+    return (std::uint64_t(background?1:2)<<32) | (std::uint64_t(banner?1:0)<<31) | std::uint64_t(source_index);
+}
+std::vector<draw_order::AuthoredDecalOwners> authored_first_room_decals(const DecalAssets& decals,const RoomDefinition& room) {
+    draw_order::AuthoredDecalOwners authored{&room,{}};
+    for(const auto& instance:decals.instances)
+        authored.owners.push_back({draw_order::OwnerKind::decal,decal_identity(instance.background,false,instance.source_index),
+            instance.source_index,&room,instance.depth(),unsigned(instance.source_index),true,false,false});
+    for(const auto& omitted:decals.omitted)
+        authored.owners.push_back({draw_order::OwnerKind::decal,decal_identity(omitted.background,true,omitted.source_index),
+            omitted.source_index,&room,omitted.background?9000:-10500,unsigned(omitted.source_index),true,false,true});
+    return {authored};
+}
+void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
+                 const std::vector<draw_order::AuthoredDecalOwners>& authored) {
+    const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
+    std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
+    bool first=true;
+    for(const auto& owner:projection.live) {
+        if(!first) std::cout<<',';
+        first=false;
+        std::cout<<"{\"kind\":\""<<draw_kind_name(owner.kind)<<"\",\"identity\":"<<owner.identity
+            <<",\"authoredId\":"<<owner.authored_id<<",\"room\":\""<<(owner.room?owner.room->name:"")<<"\""
+            <<",\"sortDepthBand\":"<<owner.sort_depth_band<<",\"sequence\":"<<owner.sequence
+            <<",\"visible\":"<<owner.visible<<",\"hudExcluded\":"<<owner.hud_excluded
+            <<",\"banner\":"<<owner.banner<<'}';
+    }
+    std::cout<<"],\"decalGapRooms\":[";
+    first=true;
+    for(const auto* room:projection.decal_gap_rooms) {
+        if(!first) std::cout<<',';
+        first=false;
+        std::cout<<'"'<<room->name<<'"';
+    }
+    std::cout<<"]}\n";
+    std::cout<<"{\"event\":\"draw-owner-dispatch\",\"tick\":"<<tick<<",\"order\":[";
+    first=true;
+    for(const auto index:projection.dispatch) {
+        if(!first) std::cout<<',';
+        first=false;
+        std::cout<<projection.live[index].identity;
+    }
+    std::cout<<"]}\n";
+}
 }
 int main(int argc,char** argv) {
     try {
-        if(argc!=7) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed");
+        if(argc!=7 && argc!=8) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
+            " and optional authored first-room decal metadata");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
+        std::vector<draw_order::AuthoredDecalOwners> authored;
+        if(argc==8) {
+            const auto decal_text=read_asset(argv[7],65536);
+            authored=authored_first_room_decals(parse_decals(decal_text,checksum(decal_text)),catalog.first());
+        }
         const std::string seed_text=argv[6];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);
@@ -196,6 +266,7 @@ int main(int argc,char** argv) {
                         <<",\"dashBuffer\":"<<observed.context().dash.buffer_counter()<<",\"climb\":"<<input.grab
                         <<",\"buttons\":{\"Left\":"<<raw.left<<",\"Right\":"<<raw.right<<",\"Up\":"<<raw.up<<",\"Down\":"<<raw.down<<",\"C\":"<<raw.cross<<",\"X\":"<<raw.square<<",\"Z\":"<<raw.l<<"}}\n";
                 record(tick,phase,observed);
+                if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored);
             });
         }
         if(!controls.eof() || !expected) throw std::invalid_argument("Incomplete controls");
