@@ -24,7 +24,7 @@ inline const char* phase_name(celeste::PlayerCosmeticPhase phase) {
     case P::stand:return "stand"; case P::fast_fall:return "fast_fall"; case P::landing:return "landing";
     case P::select:return "select"; case P::hair_color:return "hair_color"; case P::after_update:return "after_update";
     case P::respawn_complete: case P::dash_trail: case P::climb_hop:
-    case P::sweat_climb: case P::sweat_end: case P::sweat_jump: break;
+    case P::sweat_climb: case P::sweat_end: case P::sweat_jump: case P::sweat_idle: break;
     }
     throw std::invalid_argument("Unknown cosmetic phase");
 }
@@ -34,7 +34,7 @@ public:
     void observe(const std::string& name, int tick, celeste::PlayerCosmeticPhase phase, const celeste::PlayerProjection& p, float dt) {
         if(phase==celeste::PlayerCosmeticPhase::dash_trail) return;
         if(phase==celeste::PlayerCosmeticPhase::sweat_climb || phase==celeste::PlayerCosmeticPhase::sweat_end ||
-           phase==celeste::PlayerCosmeticPhase::sweat_jump) {
+           phase==celeste::PlayerCosmeticPhase::sweat_jump || phase==celeste::PlayerCosmeticPhase::sweat_idle) {
             view_.observe(phase,p,dt);
             return;
         }

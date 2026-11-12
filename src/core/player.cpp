@@ -471,6 +471,7 @@ void Player::frame_impl(float delta_time, PlayerInput input, PlayerObserver obse
                 s.speed.x = 130.0f * static_cast<float>(s.move_x);
                 s.stamina += 27.5f;
                 s.wall_boost_timer = 0.0f;
+                cosmetic(PlayerCosmeticPhase::sweat_idle);
             }
         }
         if (s.on_ground && machine_.state() != 1) {

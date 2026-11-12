@@ -151,6 +151,44 @@ void natural_climb_jump_preserves_source_event_order() {
     require(player.state_machine().state()==0 && player.state().stamina==110.f-27.5f && view.sweat_pose().animation=="player_sweat_jump",
             "ClimbJump must select jump after stamina deduction and before ClimbEnd");
 }
+void natural_wall_boost_refund_animation_parameterized() {
+    for(bool refund:{false,true}) {
+        auto bank=sweat_bank();Body wall{{4,-100},Hitbox{8,300,{}},true};PlayerWorld world;world.collision.solids={&wall};
+        Player player(world,{0,50});PlayerPresentation view(bank,{0,50});PlayerInput input;input.grab=true;
+        bool awaiting_refund=false,refunded_before_components=false;
+        const auto observe=[&](PlayerCosmeticPhase phase) {
+            if(awaiting_refund && phase==PlayerCosmeticPhase::components && player.state().wall_boost_timer==0 && player.state().stamina==110) {
+                require(view.sweat_pose().animation=="player_sweat_idle" && view.sweat_pose().timer==0,
+                        "Wall-boost refund must select idle before component animation advances");
+                refunded_before_components=true;
+            }
+            view.observe(phase,project_player(player,world,input),player.clock().delta);
+        };
+        player.frame(1.f/60,input,{},observe);
+        require(player.state_machine().state()==1,"Fixture must naturally enter climb before jumping");
+        input.jump={true,true,false};
+        player.frame(1.f/60,input,{},observe);
+        require(player.state_machine().state()==0 && player.state().wall_boost_timer>0 && player.state().stamina==82.5f &&
+                view.sweat_pose().animation=="player_sweat_jump","Natural stationary ClimbJump and ClimbEnd must preserve jump");
+        input.grab=false;input.jump={false,false,true};input.x=refund?-1:0;
+        awaiting_refund=refund;
+        unsigned updates=0;
+        while(player.state().wall_boost_timer>0 && updates++<30) {
+            player.frame(1.f/60,input,{},observe);
+            input.jump={};
+        }
+        require(player.state().wall_boost_timer<=0,"Natural wall-boost window must end without an unbounded test loop");
+        if(refund) {
+            require(refunded_before_components && player.state().stamina==110 && view.sweat_pose().animation=="player_sweat_idle",
+                    "Steering away must cancel jump on the refund update, not after the animation finishes");
+        } else {
+            require(player.state().stamina==82.5f && view.sweat_pose().animation=="player_sweat_jump",
+                    "Expiry without a refund must preserve the still-active jump animation");
+        }
+        std::cout<<"natural wall-boost refund="<<refund<<" updates="<<updates<<" stamina="<<player.state().stamina
+                 <<" timer="<<player.state().wall_boost_timer<<" sweat="<<view.sweat_pose().animation<<'\n';
+    }
+}
 void natural_stamina_deduction_selects_danger_on_the_same_update() {
     auto bank=sweat_bank();Body wall{{4,-10000},Hitbox{8,20000,{}},true};PlayerWorld world;world.collision.solids={&wall};
     Player player(world,{0,50});PlayerPresentation view(bank,{0,50});PlayerInput input;input.grab=true;input.y=-1;
@@ -276,10 +314,11 @@ int main() {
         float_residual_is_retained_across_goto();non_upward_selector_parameterized();danger_override_parameterized();
         danger_uses_point_zero_five_delay();climb_end_preserves_jump();climb_end_resets_non_jump_to_idle();
         jump_restarts_and_then_goes_to_idle();natural_climb_jump_preserves_source_event_order();selected_frame_owns_trimmed_origin();
+        natural_wall_boost_refund_animation_parameterized();
         natural_stamina_deduction_selects_danger_on_the_same_update();
         non_idle_sweat_keeps_previous_horizontal_sign();sweat_does_not_change_body_hair_or_random();
         lifecycle_visibility_retains_sweat_after_body_only_when_live();legacy_and_extended_metadata_parameterized();
         malformed_metadata_parameterized();unknown_animation_fails_before_pose_mutation();nonfinite_sweat_projection_is_rejected();
-        std::cout<<"22 sweat behaviors passed\n";
+        std::cout<<"23 sweat behaviors passed\n";
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n'; return 1; }
 }

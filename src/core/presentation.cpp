@@ -332,6 +332,9 @@ void PlayerPresentation::observe(PlayerCosmeticPhase phase, const PlayerProjecti
     case PlayerCosmeticPhase::sweat_jump:
         if(sweat_animations_) play(sweat_,"player_sweat_jump",true);
         break;
+    case PlayerCosmeticPhase::sweat_idle:
+        if(sweat_animations_) play(sweat_,"player_sweat_idle");
+        break;
     }
 }
 void PlayerPresentation::corpse_render(float scale, float rotation, int facing) {

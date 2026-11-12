@@ -12,10 +12,13 @@ from native_room_revision import file_identity
 from native_room_textures import atlas_metadata
 from prepare_room_visuals import MEMBERS
 from prepare_static_tilemap import INPUT_SHA, MAP_SHA
+from stage_native_room import verified_player_files
 
 SOURCE_IDENTITY = {"bytes": 575248334, "sha256": "8af9703eff54511307b57170bd7bbc98fb8efcd58eb5d7e9ef2e0972ab378073"}
 METADATA_IDENTITY = {"bytes": 13992, "sha256": "157b8dd821a79ed59b49834ac068b5edff1ee27b4ea6a8ebc4a5fa09df1697d6"}
 SHEETS_IDENTITY = {"bytes": 50, "sha256": "c8ccf3ecb4b7cbe32da5a18de46e7db08d0be90a0acb4c0db1f9e72246258f52"}
+BODY_BANK_SHA256 = "b723a5d340eaa3f6d875b63720fad2f67f64ee7e86fbc1d51f09532df5bbf8ab"
+BODY_SOURCE_MANIFEST_SHA256 = "2b1fdb382861414a5ece5a92a61c124f20d14ced4a9d62023f1381d1790543f7"
 FIELDS = ("sheet", "dimensions", "sourceRectangle", "position", "origin", "scale", "rotation", "color")
 
 
@@ -41,8 +44,17 @@ def logical_frames(text, atlas, sheets):
     return frames
 
 
-def verified_frames(metadata, atlas, sheets):
-    require(file_identity(metadata) == METADATA_IDENTITY, "Frozen native player metadata changed")
+def verified_frames(metadata, atlas, sheets, provenance_path=None):
+    if provenance_path is None:
+        require(file_identity(metadata) == METADATA_IDENTITY, "Frozen native player metadata changed")
+    else:
+        require(provenance_path.resolve() == (metadata.parent / "provenance.json").resolve(), "Provenance must belong to the metadata directory")
+        provenance = json.loads(provenance_path.read_text())
+        require(provenance.get("bank_sha256") == BODY_BANK_SHA256, "Pinned original body bank changed")
+        require(provenance.get("source_manifest_sha256") == BODY_SOURCE_MANIFEST_SHA256, "Pinned original source manifest changed")
+        require(provenance.get("sweat_animation_extension") is True, "Verified Sweat extension must be declared")
+        payload = verified_player_files(metadata.parent, provenance)
+        require(metadata.name == "player.txt" and metadata.read_bytes() == payload["player.txt"], "Extended player metadata payload changed")
     require(file_identity(atlas)["sha256"] == MEMBERS["Content/Graphics/Atlases/Gameplay.meta"], "Pinned atlas changed")
     require(file_identity(sheets) == SHEETS_IDENTITY, "Pinned sheet dimensions changed")
     return logical_frames(metadata.read_text(), atlas_metadata(atlas.read_bytes()), json.loads(sheets.read_text()))
@@ -173,14 +185,15 @@ def main():
     parser.add_argument("--source", type=Path)
     parser.add_argument("--native", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--player-provenance", type=Path, help="Verify an extended Sweat bank against its original-source closure and all private payload pins")
     args = parser.parse_args()
     git_dir = subprocess.check_output(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
                                       cwd=Path(__file__).resolve().parents[1], text=True).strip()
-    audit = Path(git_dir).parent / ".audit/native-player-draw-projection-01"
+    audit = Path(git_dir).parent / (".audit/native-sweat-animation-parity-01" if args.player_provenance else ".audit/native-player-draw-projection-01")
     destination = args.mapping_output or args.output
     require(destination is not None and destination.resolve().is_relative_to(audit) and not destination.exists(),
             "Player draw evidence must be fresh in its canonical private namespace")
-    frames = verified_frames(args.metadata, args.atlas, args.sheets)
+    frames = verified_frames(args.metadata, args.atlas, args.sheets, args.player_provenance)
     if args.mapping_output:
         with args.mapping_output.open("x") as stream:
             stream.write(mapping_text(frames))

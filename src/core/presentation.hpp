@@ -61,7 +61,7 @@ private:
 enum class PlayerCosmeticPhase {
     scene_tick, ground, duck_turn, components, jump, duck, stand, fast_fall, landing,
     select, hair_color, after_update, respawn_complete, dash_trail, climb_hop,
-    sweat_climb, sweat_end, sweat_jump
+    sweat_climb, sweat_end, sweat_jump, sweat_idle
 };
 
 struct PlayerProjection {
