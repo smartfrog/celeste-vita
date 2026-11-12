@@ -1,6 +1,7 @@
 #include "assets.hpp"
 #include "diagnostic.hpp"
 #include "draw_order.hpp"
+#include "player_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -223,15 +224,22 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
 }
 int main(int argc,char** argv) {
     try {
-        if(argc!=7 && argc!=8) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            " and optional authored first-room decal metadata");
+        const bool player_commands=argc>=3 && std::string(argv[argc-2])=="--player-commands";
+        const int legacy_argc=argc-(player_commands?2:0);
+        if(legacy_argc!=7 && legacy_argc!=8) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
+            " and optional authored first-room decal metadata, then optional --player-commands logical-mapping");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
         std::vector<draw_order::AuthoredDecalOwners> authored;
-        if(argc==8) {
+        if(legacy_argc==8) {
             const auto decal_text=read_asset(argv[7],65536);
             authored=authored_first_room_decals(parse_decals(decal_text,checksum(decal_text)),catalog.first());
+        }
+        std::vector<native_test::LogicalPlayerFrame> player_mapping;
+        if(player_commands) {
+            std::ifstream mapping(argv[argc-1]);
+            player_mapping=native_test::read_player_draw_mapping(mapping,assets.bank);
         }
         const std::string seed_text=argv[6];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
@@ -268,6 +276,12 @@ int main(int argc,char** argv) {
                 record(tick,phase,observed);
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored);
             });
+            if(player_commands) {
+                const std::string phase=session.phase();
+                if(phase!="live" && phase!="respawn14") throw std::runtime_error("Unsupported Player command trace phase: "+phase);
+                const auto cached=session.draw();
+                native_test::write_player_draw(std::cout,tick,session.player().object_identity(),phase=="live",assets.bank,player_mapping,cached);
+            }
         }
         if(!controls.eof() || !expected) throw std::invalid_argument("Incomplete controls");
         for(const auto& entry:session.room_roster()) if(entry.entity) {
