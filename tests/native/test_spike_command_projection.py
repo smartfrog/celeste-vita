@@ -7,7 +7,9 @@ rather than a cardinality count. Cross-tick object lifetimes are checked as well
 SOURCE owner bindings come from pinned room positions/authored ids plus the observed
 Image component order, never from native order or a same-kind ordinal assumption.
 This is logical CPU command comparison, not renderer/physics/input/timestep/RNG
-parity.
+parity. Lifetime inference is bounded to this zero-reload 514-frame route: it
+detects cross-tick identity tampering, but an immediate same-room reload is not
+modeled and would be rejected rather than treated as a fresh instance.
 """
 
 import copy
@@ -375,13 +377,29 @@ class SpikeCommandProjectionTests(unittest.TestCase):
 
     def test_known_room1_owner7_owner8_identity_swap_is_rejected(self):
         changed = copy.deepcopy(self.native_tick(0))
-        first = next(command for command in changed["commands"][0] if command["authoredId"] == 7)
-        second = next(command for command in changed["commands"][0] if command["authoredId"] == 8)
-        for command in changed["commands"][0]:
+        commands = changed["commands"][0]
+        first_commands = [command for command in commands if command["authoredId"] == 7]
+        second_commands = [command for command in commands if command["authoredId"] == 8]
+        self.assertEqual(len(first_commands), 5, "Fixture must retain five room1 owner7 pieces")
+        self.assertEqual(len(second_commands), 5, "Fixture must retain five room1 owner8 pieces")
+        first_identity = first_commands[0]["ownerIdentity"]
+        second_identity = second_commands[0]["ownerIdentity"]
+        self.assertNotEqual(first_identity, second_identity,
+                            "Fixture owners must have distinct native identities")
+        self.assertTrue(all(command["ownerIdentity"] == first_identity for command in first_commands),
+                        "Fixture owner7 identity must be stable before mutation")
+        self.assertTrue(all(command["ownerIdentity"] == second_identity for command in second_commands),
+                        "Fixture owner8 identity must be stable before mutation")
+        for command in commands:
             if command["authoredId"] == 7:
-                command["ownerIdentity"] = second["ownerIdentity"]
+                command["ownerIdentity"] = second_identity
             elif command["authoredId"] == 8:
-                command["ownerIdentity"] = first["ownerIdentity"]
+                command["ownerIdentity"] = first_identity
+        swapped = {command["authoredId"]: command["ownerIdentity"] for command in commands
+                   if command["authoredId"] in (7, 8)}
+        self.assertEqual(swapped, {7: second_identity, 8: first_identity},
+                         "Mutation must exchange the two saved identities")
+        self.assertNotEqual(swapped[7], swapped[8], "Mutation must stay bijective, not alias")
         with self.assertRaisesRegex(ValueError, "bind"):
             compare_tick(0, self.source[0], changed, self.frames)
 
