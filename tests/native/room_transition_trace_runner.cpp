@@ -6,6 +6,7 @@
 #include "spike_commands.hpp"
 #include "spring_commands.hpp"
 #include "strawberry_commands.hpp"
+#include "particle_commands.hpp"
 #include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
@@ -244,7 +245,9 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
                  const decal_commands::StaticDecalCatalog* static_decals,
                  const terrain::Catalog* terrain_catalog,bool complete_decals,
                  const spike_commands::Catalog* spike_catalog,const jumpthru_commands::Catalog* jumpthru_catalog,
-                  const strawberry_commands::Catalog* strawberry_catalog,const spring_commands::Catalog* spring_catalog) {
+                  const strawberry_commands::Catalog* strawberry_catalog,const spring_commands::Catalog* spring_catalog,
+                  const particle_commands::Catalog* particle_catalog,
+                  std::array<std::uint64_t,DustParticles::capacity>& observed_particle_births) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::vector<const RoomRuntime*> rooms;
     if(complete_decals || jumpthru_catalog || spring_catalog) for(const auto& entry:session.room_roster())
@@ -324,6 +327,32 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
             std::cout<<"}\n";
         }
     }
+    if(particle_catalog) {
+        for(unsigned slot=0;slot<DustParticles::capacity;++slot) {
+            const auto& particle=session.visual_dust().slots()[slot];
+            if(particle.generation==observed_particle_births[slot]) continue;
+            observed_particle_births[slot]=particle.generation;
+            const auto& birth=particle.birth;
+            std::cout<<"{\"event\":\"particle-birth\",\"tick\":"<<tick<<",\"slot\":"<<slot
+                <<",\"generation\":"<<particle.generation<<",\"type\":\"Dust\",\"textureFrame\":"<<birth.source<<",\"position\":";
+            vec(birth.position);std::cout<<",\"speed\":";vec(birth.speed);
+            std::cout<<",\"size\":"<<birth.size<<",\"life\":"<<birth.life<<",\"rotation\":"<<birth.rotation<<",\"spin\":"<<birth.spin<<"}\n";
+        }
+        const auto commands=particle_commands::project(projection,session.visual_dust(),*particle_catalog);
+        for(std::size_t index=0;index<commands.size();++index) {
+            const auto& command=commands[index];
+            std::cout<<"{\"event\":\"particle-command\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"owner\":\"Level.Particles\",\"depth\":-8000"
+                <<",\"slot\":"<<command.slot<<",\"generation\":"<<command.generation;
+            const auto& particle=session.visual_dust().slots()[command.slot];
+            std::cout<<",\"startLife\":"<<particle.start_life<<",\"life\":"<<particle.life<<",\"startSize\":"<<particle.start_size
+                <<",\"visualPosition\":";vec(particle.position);
+            std::cout<<",\"speed\":";vec(particle.speed);
+            write_command_geometry(command);
+            write_command_vertices(command);
+            std::cout<<"}\n";
+        }
+    }
     if(strawberry_catalog) {
         const auto commands=strawberry_commands::project(projection,session.room_roster(),*strawberry_catalog);
         for(std::size_t index=0;index<commands.size();++index) {
@@ -364,6 +393,8 @@ struct Options {
     std::string spike_catalog_path;
     bool strawberry_commands=false;
     std::string strawberry_catalog_path;
+    bool particle_commands=false;
+    std::string particle_catalog_path;
     bool spring_commands=false;
     std::string spring_catalog_path;
 };
@@ -371,7 +402,7 @@ Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands" || argument=="--strawberry-commands" || argument=="--spring-commands") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands" || argument=="--jumpthru-commands" || argument=="--strawberry-commands" || argument=="--particle-commands" || argument=="--spring-commands") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
             bool* enabled=nullptr;
@@ -385,6 +416,7 @@ Options parse_options(int argc,char** argv) {
             }
             else if(argument=="--terrain-catalog") { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
             else if(argument=="--spike-commands") { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
+            else if(argument=="--particle-commands") { enabled=&options.particle_commands; destination=&options.particle_catalog_path; }
             else if(argument=="--spring-commands") { enabled=&options.spring_commands; destination=&options.spring_catalog_path; }
             else { enabled=&options.strawberry_commands; destination=&options.strawberry_catalog_path; }
             if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
@@ -403,7 +435,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog, --jumpthru-commands CJTC1, --strawberry-commands strawberry-material-catalog and --spring-commands CSPR1");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands CDSC1, --decal-commands CDSC2, --banner-phases, --spike-commands spike-material-catalog, --jumpthru-commands CJTC1, --strawberry-commands strawberry-material-catalog, --particle-commands CDUS1 and --spring-commands CSPR1");
         if(options.banner_phases && arguments.size()!=8) throw std::invalid_argument("Banner phases require the complete authored CDO1 catalog");
         if(options.jumpthru_commands && arguments.size()!=8) throw std::invalid_argument("JumpThru commands require the complete authored CDO1 catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
@@ -446,6 +478,11 @@ int main(int argc,char** argv) {
             const auto catalog_text=read_asset(options.strawberry_catalog_path.c_str(),strawberry_commands::catalog_byte_limit);
             strawberry_catalog=strawberry_commands::parse(catalog_text,0xc3e8c625u);
         }
+        std::optional<particle_commands::Catalog> particle_catalog;
+        if(options.particle_commands) {
+            const auto catalog_text=read_asset(options.particle_catalog_path.c_str(),particle_commands::catalog_byte_limit);
+            particle_catalog=particle_commands::parse(catalog_text,0xf1858eb5u);
+        }
         std::optional<spring_commands::Catalog> spring_catalog;
         if(options.spring_commands) {
             const auto catalog_text=read_asset(options.spring_catalog_path.c_str(),spring_commands::catalog_byte_limit);
@@ -458,6 +495,7 @@ int main(int argc,char** argv) {
         std::cout<<std::setprecision(std::numeric_limits<float>::max_digits10)<<std::boolalpha;
         if(terrain_catalog) native_test::write_terrain_catalog(std::cout,*terrain_catalog);
         std::set<const RoomRuntime*> observed_rooms;
+        std::array<std::uint64_t,DustParticles::capacity> observed_particle_births{};
         std::vector<Controls> route_controls;
         int tick=0,x=0,y=0,jump=0,dash=0,grab=0,expected=0;
         while(controls>>tick>>x>>y>>jump>>dash>>grab) {
@@ -490,7 +528,8 @@ int main(int argc,char** argv) {
                     (options.static_decal_commands || options.complete_decal_commands)?&static_decals:nullptr,
                     terrain_catalog?&*terrain_catalog:nullptr,options.complete_decal_commands,
                     spike_catalog?&*spike_catalog:nullptr,jumpthru_catalog?&*jumpthru_catalog:nullptr,
-                    strawberry_catalog?&*strawberry_catalog:nullptr,spring_catalog?&*spring_catalog:nullptr);
+                    strawberry_catalog?&*strawberry_catalog:nullptr,spring_catalog?&*spring_catalog:nullptr,
+                    particle_catalog?&*particle_catalog:nullptr,observed_particle_births);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();

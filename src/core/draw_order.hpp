@@ -4,6 +4,7 @@
 #include <vector>
 
 namespace celeste::draw_order {
+inline constexpr std::uint64_t level_particles_identity=0x5000'0000'0000'0003ull;
 
 enum class OwnerKind {
     background_tiles, decal, particle_system_back, scene_helper, wind, hud_display, player,

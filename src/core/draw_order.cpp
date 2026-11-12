@@ -110,7 +110,7 @@ DrawProjection project(const RosterSnapshot& state,const std::vector<AuthoredDec
     DrawProjection projection;
     projection.live.push_back(structural(OwnerKind::background_tiles,1,background_tiles_depth,0));
     projection.live.push_back(structural(OwnerKind::particle_system_back,2,particle_back_depth,0));
-    projection.live.push_back(structural(OwnerKind::particle_system_mid,3,particle_mid_depth,0));
+    projection.live.push_back(structural(OwnerKind::particle_system_mid,level_particles_identity,particle_mid_depth,0));
     projection.live.push_back(structural(OwnerKind::solid_tiles,4,solid_tiles_depth,0));
     projection.live.push_back(structural(OwnerKind::particle_system_front,5,particle_front_depth,0));
     projection.live.push_back(structural(OwnerKind::hud_display,6,hud_depth,0,false,true));

@@ -4,6 +4,7 @@
 #include "presentation.hpp"
 #include "trails.hpp"
 #include "rooms.hpp"
+#include "dust_particles.hpp"
 #include <deque>
 
 namespace celeste {
@@ -45,11 +46,6 @@ public:
     std::array<WipeVertex,36> vertices() const;
 };
 
-struct DustParticle {
-    Vec2 position, speed;
-    int source;
-    float size, life, rotation, spin;
-};
 enum class SessionPhase { before_frame,before_update,before_eof,after_eof,after_frame };
 struct RoomRosterEntry {
     const RoomRuntime* room=nullptr;
@@ -102,6 +98,7 @@ public:
     bool scene_ran() const { return scene_ran_; }
     bool foreground_owner() const { return foreground_owner_; }
     const std::vector<DustParticle>& dust() const { return dust_; }
+    const DustParticles& visual_dust() const { return visual_dust_; }
     PlayerTrails& trails() { return trails_; }
     const PlayerTrails& trails() const { return trails_; }
     const RoomDefinition* room_definition() const { return current_room_ ? &current_room_->definition : nullptr; }
@@ -153,6 +150,7 @@ private:
     std::vector<LifecycleRandomEvent> random_events_;
     std::vector<LifecycleCallback> callbacks_;
     std::vector<DustParticle> dust_;
+    DustParticles visual_dust_;
     unsigned dust_index_=0;
     void load();
     const draw_order::AuthoredDecalOwners* visual_owners(const RoomDefinition& room) const;

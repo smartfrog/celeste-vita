@@ -155,6 +155,7 @@ void FirstRoomSession::reload() {
     ++stats_.wipe_callbacks;
     if(!stats_.hit_checkpoint) { stats_.session_time=0; stats_.session_deaths=0; stats_.timer_started=false; }
     dust_.clear();
+    visual_dust_.clear();
     dust_index_=0;
     ++stats_.particle_clears;
     corpse_.reset();
@@ -271,6 +272,7 @@ void FirstRoomSession::dust_burst(Vec2 position,int count) {
         particle.life=0.3f+next()*(0.5f-0.3f);
         particle.rotation=next()*pi*2.f;
         particle.spin=0.f+next()*0.f;
+        visual_dust_.add(particle,DustParticleType::dust);
         if(dust_.size()<400) dust_.push_back(particle);
         else dust_[dust_index_]=particle;
         dust_index_=(dust_index_+1)%400;
@@ -335,6 +337,7 @@ void FirstRoomSession::step(float raw_delta_time,PlayerInput input,std::function
     stats_.save_time+=static_cast<std::int64_t>(double(raw_delta_time)*10000000.0);
     random_phase_="level-glitch";
     random_.next_double();
+    const bool particles_update=!transition_;
     if(committed_corpse()) update_corpse();
     else if(catalog_) {
         const bool transitioning=bool(transition_);
@@ -360,6 +363,7 @@ void FirstRoomSession::step(float raw_delta_time,PlayerInput input,std::function
         stats_.save_dashes+=player_->state().dash_events-dashes_before;
         if(player_->death().dead) queue_corpse();
     }
+    if(particles_update) visual_dust_.update(context_.clock.raw_delta);
     const auto current_wipe=wipe_;
     if(current_wipe && !wipe_pending_ && current_wipe->update(raw_delta_time)) {
         wipe_.reset();
