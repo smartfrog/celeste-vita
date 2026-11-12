@@ -126,3 +126,35 @@ def extrude(rgba, width, height, texture_width, texture_height):
         source = source[:4] + source + source[-4:]
         output[y * texture_width * 4:y * texture_width * 4 + len(source)] = source
     return bytes(output)
+
+
+def plan_rectangles(rectangles, page_width, page_height, maximum_pages):
+    if not rectangles or min(page_width, page_height, maximum_pages) <= 0:
+        raise ValueError("Invalid bounded rectangle plan")
+    for name, (width, height) in rectangles.items():
+        if not name or min(width, height) <= 0 or width + 2 > page_width or height + 2 > page_height:
+            raise ValueError(f"Rectangle {name}: {width}x{height} exceeds {page_width}x{page_height} with border")
+    page = x = y = row_height = 0
+    layout = {}
+    for name, (width, height) in sorted(rectangles.items(), key=lambda entry: (-entry[1][1], -entry[1][0], entry[0])):
+        if x + width + 2 > page_width:
+            x, y, row_height = 0, y + row_height, 0
+        if y + height + 2 > page_height:
+            page += 1
+            if page >= maximum_pages:
+                raise ValueError(f"Rectangle {name}: {width}x{height} exceeds {maximum_pages}-page budget at {page_width}x{page_height}")
+            x = y = row_height = 0
+        layout[name] = page, x + 1, y + 1
+        x, row_height = x + width + 2, max(row_height, height + 2)
+    return page + 1, layout
+
+
+def blit_extruded(page, page_width, page_height, rgba, width, height, x, y):
+    if len(page) != page_width * page_height * 4 or not (
+            1 <= x <= page_width - width - 1 and 1 <= y <= page_height - height - 1):
+        raise ValueError("Extruded crop outside actual page bounds")
+    padded = extrude(rgba, width, height, width + 2, height + 2)
+    for dy in range(height + 2):
+        start = dy * (width + 2) * 4
+        target = ((y - 1 + dy) * page_width + x - 1) * 4
+        page[target:target + (width + 2) * 4] = padded[start:start + (width + 2) * 4]
