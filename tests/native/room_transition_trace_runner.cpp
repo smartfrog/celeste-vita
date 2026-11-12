@@ -43,31 +43,6 @@ const char* kind(const RoomEntity& entity) {
         return "strawberry";
     },entity.object);
 }
-RoomCatalog read_catalog(const char* path) {
-    std::ifstream stream(path);std::string magic;int count=0;
-    if(!(stream>>magic>>count) || magic!="CROOM1" || count!=2) throw std::invalid_argument("Invalid bounded room catalog header");
-    std::vector<RoomDefinition> rooms;
-    for(int index=0;index<count;++index) {
-        RoomDefinition room;int objects=0;
-        if(!(stream>>room.name>>room.bounds.x>>room.bounds.y>>room.bounds.width>>room.bounds.height>>room.load_seed>>room.spawn.x>>room.spawn.y>>objects) || objects<0 || objects>32)
-            throw std::invalid_argument("Invalid bounded room record");
-        for(int object=0;object<objects;++object) {
-            std::string name;RoomObjectDefinition value;
-            if(!(stream>>name>>value.id>>value.position.x>>value.position.y>>value.size)) throw std::invalid_argument("Incomplete room object");
-            if(name=="spike_up") value.kind=RoomObjectKind::spike_up;
-            else if(name=="spike_left") value.kind=RoomObjectKind::spike_left;
-            else if(name=="jump_thru") value.kind=RoomObjectKind::jump_thru;
-            else if(name=="spring") value.kind=RoomObjectKind::spring;
-            else if(name=="strawberry") value.kind=RoomObjectKind::strawberry;
-            else throw std::invalid_argument("Unsupported room object: "+name);
-            room.objects.push_back(value);
-        }
-        rooms.push_back(std::move(room));
-    }
-    std::string extra;if(stream>>extra) throw std::invalid_argument("Trailing room catalog data");
-    if(!stream.eof()) throw std::runtime_error("Failed reading room catalog");
-    return RoomCatalog(std::move(rooms));
-}
 void entity(const RoomRosterEntry& entry,const PlayerWorld& world) {
     if(entry.player) {
         std::cout<<"{\"kind\":\"player\",\"id\":"<<entry.player->object_identity()<<",\"tag\":"<<entry.player->scene_tag()<<",\"active\":"<<entry.player->scene_active()
@@ -441,7 +416,8 @@ int main(int argc,char** argv) {
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
             metadata=read_asset(arguments[2].c_str(),65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
-        const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(arguments[3].c_str());
+        const auto assets=parse_player_assets(metadata,checksum(metadata));
+        const auto catalog=parse_room_catalog(read_asset(arguments[3].c_str(),room_catalog_byte_limit));
         std::vector<draw_order::AuthoredDecalOwners> authored;
         if(arguments.size()>=7) {
             const auto decal_text=read_asset(arguments[6].c_str(),65536);

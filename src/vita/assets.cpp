@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 namespace celeste::diagnostic {
@@ -46,6 +47,32 @@ PlayerWorld make_world(Body& solids, const std::vector<StaticSpike>& spikes) {
 
 std::uint32_t checksum(std::string_view text) {
     return asset_text::checksum(text);
+}
+RoomCatalog parse_room_catalog(std::string_view text) {
+    if(text.size()>room_catalog_byte_limit) throw std::invalid_argument("Bounded room catalog exceeds byte limit");
+    std::istringstream stream{std::string(text)};std::string magic;int count=0;
+    if(!(stream>>magic>>count) || magic!="CROOM1" || count!=2) throw std::invalid_argument("Invalid bounded room catalog header");
+    std::vector<RoomDefinition> rooms;
+    for(int index=0;index<count;++index) {
+        RoomDefinition room;int objects=0;
+        if(!(stream>>room.name>>room.bounds.x>>room.bounds.y>>room.bounds.width>>room.bounds.height>>room.load_seed>>room.spawn.x>>room.spawn.y>>objects) || objects<0 || objects>32)
+            throw std::invalid_argument("Invalid bounded room record");
+        for(int object=0;object<objects;++object) {
+            std::string name;RoomObjectDefinition value;
+            if(!(stream>>name>>value.id>>value.position.x>>value.position.y>>value.size)) throw std::invalid_argument("Incomplete room object");
+            if(name=="spike_up") value.kind=RoomObjectKind::spike_up;
+            else if(name=="spike_left") value.kind=RoomObjectKind::spike_left;
+            else if(name=="jump_thru") value.kind=RoomObjectKind::jump_thru;
+            else if(name=="spring") value.kind=RoomObjectKind::spring;
+            else if(name=="strawberry") value.kind=RoomObjectKind::strawberry;
+            else throw std::invalid_argument("Unsupported room object: "+name);
+            room.objects.push_back(value);
+        }
+        rooms.push_back(std::move(room));
+    }
+    std::string extra;if(stream>>extra) throw std::invalid_argument("Trailing room catalog data");
+    if(!stream.eof()) throw std::runtime_error("Failed reading room catalog");
+    return RoomCatalog(std::move(rooms));
 }
 MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text, 4'000'512, expected_checksum);

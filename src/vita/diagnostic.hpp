@@ -43,7 +43,9 @@ class Session final {
 public:
     explicit Session(const PlayerWorld& world, Vec2 spawn = {19, 144}, const PlayerFrameBank* bank = nullptr,
                       std::int32_t diagnostic_seed = 0);
-    Session(const PlayerWorld& world, const PlayerFrameBank& bank, bool hit_checkpoint=false, std::int32_t diagnostic_seed=0,const RoomCatalog* catalog=nullptr);
+    // Borrowed world, bank, catalog and metadata must remain alive and unmoved through resets.
+    Session(const PlayerWorld& world, const PlayerFrameBank& bank, bool hit_checkpoint=false, std::int32_t diagnostic_seed=0,
+            const RoomCatalog* catalog=nullptr,const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog=nullptr);
     void step(const Sample& sample);
     const Player& player() const { return automatic_ ? automatic_->player() : *player_; }
     unsigned jump_count() const { return automatic_ ? automatic_->stats().jumps : player_->jump_count(); }
@@ -67,6 +69,7 @@ private:
     bool hit_checkpoint_=false;
     std::int32_t diagnostic_seed_=0;
     const RoomCatalog* catalog_=nullptr;
+    const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog_=nullptr;
     PlayerInput presentation_input_{};
     unsigned resets_ = 0;
     bool exiting_ = false;

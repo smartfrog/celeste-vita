@@ -24,11 +24,15 @@ inline constexpr bool automatic_session_profile=true;
 inline constexpr bool automatic_session_profile=false;
 #endif
 
-inline Session make_session(const PlayerWorld& world,const PlayerFrameBank* bank) {
+inline Session make_session(const PlayerWorld& world,const PlayerFrameBank* bank,const RoomCatalog* catalog=nullptr,
+                            const std::vector<draw_order::AuthoredDecalOwners>* visual_catalog=nullptr) {
     if constexpr(automatic_session_profile) {
         if(!bank) throw std::invalid_argument("Automatic session requires the animated Player bank");
-        return Session(world,*bank);
-    } else return Session(world,{19,144},bank,0);
+        return Session(world,*bank,false,0,catalog,visual_catalog);
+    } else {
+        if(catalog || visual_catalog) throw std::invalid_argument("Room catalogs and visual metadata require the automatic session profile");
+        return Session(world,{19,144},bank,0);
+    }
 }
 
 }
