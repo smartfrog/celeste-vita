@@ -1,4 +1,5 @@
 #include "assets.hpp"
+#include "asset_text.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cstdint>
@@ -13,27 +14,12 @@ namespace {
 constexpr std::string_view input_sha = "fd73f8a2311fa5737ded550cbad4b75c85b7686b36432f59185e940fcb65fcfe";
 constexpr std::string_view map_sha = "ace1892261c03aa766f45aaa38cb2cd60a8823c34eda673f5b2ed8ab31c890ab";
 
-std::string_view take(std::string_view& text, char separator = '\n') {
-    const auto end = text.find(separator);
-    if (end == std::string_view::npos) throw std::invalid_argument("Truncated asset field");
-    auto field = text.substr(0, end);
-    text.remove_prefix(end + 1);
-    return field;
-}
-int integer(std::string_view text) {
-    int value = 0;
-    auto parsed = std::from_chars(text.data(), text.data()+text.size(), value);
-    if (parsed.ec != std::errc{} || parsed.ptr != text.data()+text.size() || std::to_string(value) != text)
-        throw std::invalid_argument("Invalid or noncanonical asset integer");
-    return value;
-}
+using asset_text::take;
+using asset_text::integer;
+using asset_text::integrity;
 void header(std::string_view& text, std::string_view version) {
     if (take(text) != version || take(text) != input_sha || take(text) != map_sha)
         throw std::invalid_argument("Wrong asset version or pinned input hashes");
-}
-void integrity(std::string_view text, std::size_t limit, std::uint32_t expected) {
-    if (text.size() > limit || checksum(text) != expected)
-        throw std::invalid_argument("Asset exceeds bound or fails build-pinned FNV-1a integrity");
 }
 std::uint32_t hex_value(std::string_view text) {
     std::uint32_t value=0;
@@ -55,9 +41,7 @@ PlayerWorld make_world(Body& solids, const std::vector<StaticSpike>& spikes) {
 }
 
 std::uint32_t checksum(std::string_view text) {
-    std::uint32_t hash = 2166136261u;
-    for (unsigned char byte : text) hash = (hash ^ byte) * 16777619u;
-    return hash;
+    return asset_text::checksum(text);
 }
 MaskData parse_mask(std::string_view text, std::uint32_t expected_checksum) {
     integrity(text, 4'000'512, expected_checksum);

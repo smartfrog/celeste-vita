@@ -2,6 +2,7 @@
 #include "diagnostic.hpp"
 #include "draw_order.hpp"
 #include "player_draw_trace.hpp"
+#include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -9,6 +10,7 @@
 #include <type_traits>
 #include <set>
 #include <algorithm>
+#include <optional>
 
 using namespace celeste;
 using namespace celeste::diagnostic;
@@ -191,7 +193,7 @@ std::vector<draw_order::AuthoredDecalOwners> authored_first_room_decals(const De
     return {authored};
 }
 void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
-                 const std::vector<draw_order::AuthoredDecalOwners>& authored) {
+                  const std::vector<draw_order::AuthoredDecalOwners>& authored,const terrain::Catalog* terrain_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
@@ -225,14 +227,24 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
         std::cout<<projection.live[index].identity;
     }
     std::cout<<"]}\n";
+    if(terrain_catalog) native_test::write_terrain_draw(std::cout,tick,*terrain_catalog,session.camera(),projection);
 }
 }
 int main(int argc,char** argv) {
     try {
-        const bool player_commands=argc>=3 && std::string(argv[argc-2])=="--player-commands";
-        const int legacy_argc=argc-(player_commands?2:0);
+        const char* player_mapping_path=nullptr;
+        const char* terrain_catalog_path=nullptr;
+        int legacy_argc=argc;
+        while(legacy_argc>=3) {
+            const std::string option=argv[legacy_argc-2];
+            const char** destination=option=="--player-commands"?&player_mapping_path:
+                option=="--terrain-catalog"?&terrain_catalog_path:nullptr;
+            if(!destination) break;
+            if(*destination) throw std::invalid_argument("Duplicate trace observer option");
+            *destination=argv[legacy_argc-1];legacy_argc-=2;
+        }
         if(legacy_argc!=7 && legacy_argc!=8 && legacy_argc!=9) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping and --terrain-catalog catalog");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
@@ -243,15 +255,18 @@ int main(int argc,char** argv) {
         }
         if(legacy_argc==9) authored=parse_authored_decals(read_asset(argv[8],65536),authored_decal_catalog_checksum,catalog);
         std::vector<native_test::LogicalPlayerFrame> player_mapping;
-        if(player_commands) {
-            std::ifstream mapping(argv[argc-1]);
+        if(player_mapping_path) {
+            std::ifstream mapping(player_mapping_path);
             player_mapping=native_test::read_player_draw_mapping(mapping,assets.bank);
         }
+        std::optional<terrain::Catalog> terrain_catalog;
+        if(terrain_catalog_path) terrain_catalog=terrain::parse(read_asset(terrain_catalog_path,terrain::catalog_byte_limit),0x16d1da6cu);
         const std::string seed_text=argv[6];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);
         Controller controller;std::ifstream controls(argv[5]);if(!controls) throw std::runtime_error("Cannot read legal controls");
         std::cout<<std::setprecision(std::numeric_limits<float>::max_digits10)<<std::boolalpha;
+        if(terrain_catalog) native_test::write_terrain_catalog(std::cout,*terrain_catalog);
         std::set<const RoomRuntime*> observed_rooms;
         std::vector<Controls> route_controls;
         int tick=0,x=0,y=0,jump=0,dash=0,grab=0,expected=0;
@@ -280,9 +295,9 @@ int main(int argc,char** argv) {
                         <<",\"dashBuffer\":"<<observed.context().dash.buffer_counter()<<",\"climb\":"<<input.grab
                         <<",\"buttons\":{\"Left\":"<<raw.left<<",\"Right\":"<<raw.right<<",\"Up\":"<<raw.up<<",\"Down\":"<<raw.down<<",\"C\":"<<raw.cross<<",\"X\":"<<raw.square<<",\"Z\":"<<raw.l<<"}}\n";
                 record(tick,phase,observed);
-                if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored);
+                if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,terrain_catalog?&*terrain_catalog:nullptr);
             });
-            if(player_commands) {
+            if(player_mapping_path) {
                 const std::string phase=session.phase();
                 if(phase!="live" && phase!="respawn14") throw std::runtime_error("Unsupported Player command trace phase: "+phase);
                 const auto cached=session.draw();
