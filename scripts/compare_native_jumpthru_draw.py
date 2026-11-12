@@ -10,9 +10,9 @@ from prepare_static_decal_descriptors import require
 SOURCE_ENTITY = "JumpthruPlatform#151"
 SOURCE_COMPONENTS = tuple("Image#" + str(index) for index in range(195, 200))
 SEMANTIC_OWNER = ("2", 7)
-SOURCE_ROOMS = Path("/home/fred/projects/celeste-vita-worktrees/native-room-transition/.audit/native-room-transition"
-                    "/source-contract-01/frozen-profile-02/two-rooms.json")
-ROOMS_IDENTITY = {"bytes": 8415, "sha256": "53ddd1071bac512856a436769f7c40b40084cc629887b9e01d07025422f397a8"}
+SOURCE_ROOMS = Path("/home/fred/projects/celeste-vita-worktrees/native-room-transition-vita/.audit/native-room-transition-vita"
+                    "/gameplay-draw-profile-01/clean-commit-a2af9d05b662/profile-01/two-rooms.json")
+ROOMS_IDENTITY = {"bytes": 15518, "sha256": "b5c5814db9cb0084099a552d38890887f9f9602a97d86d99f07969e79602809f"}
 
 
 def verify_source_binding(path=SOURCE_ROOMS):

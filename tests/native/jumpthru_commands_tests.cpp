@@ -163,6 +163,10 @@ void catalog_truncation_trailing_and_pin_reject_parameterized() {
     }
     for(const auto& text:{valid+"extra\n",std::string("X")+valid.substr(1),header+"Gameplay0 16 24 24 12 0 1 24 16 objects/jumpthru/wood\n"})
         rejects([&] { jumpthru_commands::parse(text,asset_text::checksum(text)); });
+    for(unsigned pin=0;pin<5;++pin) {
+        auto changed=valid;const auto index=6+65*pin;changed[index]=changed[index]=='0'?'1':'0';
+        rejects([&] { jumpthru_commands::parse(changed,asset_text::checksum(changed)); });
+    }
     rejects([&] { jumpthru_commands::parse(valid,1); });
 }
 }

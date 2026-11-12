@@ -26,6 +26,9 @@ legacy physical behavior and creates no visual choices; projection never falls
 back to physical cells. Existing session metadata injection covers loads,
 transitions and reloads. Retained rooms keep their choices until normal
 destruction. No update, timer or draw mutation is needed.
+Runtime re-instantiation is tested directly. The SOURCE route comparator's
+lifetime check is bounded to the zero-reload 514-frame route, not a general
+immediate same-room reload oracle or authorization of unsupported session paths.
 
 ## Material and projection
 
@@ -54,7 +57,10 @@ it adds no Player Draw call. Legacy 7/8/9 positional invocations remain valid.
 
 ## Verification boundary
 
-Fresh Release and ASan/UBSan builds each pass 46 CTests. Fresh native combined
+After synchronization with the delivered Spike projection, fresh Release and
+ASan/UBSan builds each pass 47 CTests and 146 focused Python tests. Static default
+fixture resolution additionally passes 15 tests per build without overrides.
+Fresh native combined
 runs compare all 700 logical commands and independent SOURCE owner/Image
 bindings, and preserve 605,992 Terrain, 11,938 Player and 49,854 Decal commands,
 including 997,080 Decal geometry float32 words and 5,929 nonfinite submissions.
@@ -62,7 +68,9 @@ Four fresh stripped-CPU runs (Release 7/8/9 and ASan 9) compare 2,570 phases eac
 without extra Player Draw. Immutable SOURCE draw/CPU oracles are reused in place.
 
 Evidence is private under canonical `.audit/native-jumpthru-command-projection-01/`;
-failed attempts are retained. Independent review and simplification remain parent
-gates. No commit, development update or push is authorized. The broad quota-bound
+the post-sync candidate is bound in `sync-01/`. Failed attempts are retained.
+Only the explicitly authorized WIP checkpoint and normal synchronization merge
+were committed. Independent review and simplification remain parent gates; no
+delivery commit, development update or push is authorized. The broad quota-bound
 Python aggregate is not claimed green. Full geometry, rendergraph, GPU, pixels,
 hardware/Vita and off-route fidelity are outside this increment.
