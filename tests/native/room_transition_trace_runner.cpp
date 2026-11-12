@@ -2,6 +2,7 @@
 #include "diagnostic.hpp"
 #include "draw_order.hpp"
 #include "player_draw_trace.hpp"
+#include "spike_commands.hpp"
 #include "terrain_draw_trace.hpp"
 #include <fstream>
 #include <iomanip>
@@ -192,10 +193,25 @@ std::vector<draw_order::AuthoredDecalOwners> authored_first_room_decals(const De
             omitted.source_index,&room,omitted.background?9000:-10500,unsigned(omitted.source_index),true,false,true});
     return {authored};
 }
+template<typename Command>
+void write_command_geometry(const Command& command) {
+    std::cout<<",\"texture\":"<<std::quoted(command.texture)<<",\"sheet\":"<<std::quoted(command.sheet)
+        <<",\"sourceRectangle\":["<<command.source_x<<','<<command.source_y<<','<<command.source_width<<','<<command.source_height
+        <<"],\"position\":";
+    vec(command.position);
+    std::cout<<",\"origin\":";
+    vec(command.origin);
+    std::cout<<",\"scale\":";
+    vec(command.scale);
+    std::cout<<",\"color\":["<<unsigned(command.color.r)<<','<<unsigned(command.color.g)<<','
+        <<unsigned(command.color.b)<<','<<unsigned(command.color.a)<<"]"
+        <<",\"rotation\":"<<command.rotation<<",\"effects\":"<<std::quoted(command.effects);
+}
 void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
                  const std::vector<draw_order::AuthoredDecalOwners>& authored,
                  const decal_commands::StaticDecalCatalog* static_decals,
-                 const terrain::Catalog* terrain_catalog) {
+                 const terrain::Catalog* terrain_catalog,
+                 const spike_commands::Catalog* spike_catalog) {
     const auto projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
@@ -230,30 +246,34 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
     }
     std::cout<<"]}\n";
     if(terrain_catalog) native_test::write_terrain_draw(std::cout,tick,*terrain_catalog,session.camera(),projection);
-    if(!static_decals) return;
-    const auto decals=decal_commands::project(projection,*static_decals);
-    for(std::size_t index=0;index<decals.commands.size();++index) {
-        const auto& command=decals.commands[index];
-        std::cout<<"{\"event\":\"static-decal-command\",\"tick\":"<<tick<<",\"index\":"<<index
-            <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
-            <<",\"layer\":\""<<(command.background?'B':'F')<<"\",\"ordinal\":"<<command.ordinal
-            <<",\"texture\":"<<std::quoted(command.texture)<<",\"sheet\":"<<std::quoted(command.sheet)
-            <<",\"sourceRectangle\":["<<command.source_x<<','<<command.source_y<<','<<command.source_width<<','<<command.source_height
-            <<"],\"position\":";
-        vec(command.position);
-        std::cout<<",\"origin\":";
-        vec(command.origin);
-        std::cout<<",\"scale\":";
-        vec(command.scale);
-        std::cout<<",\"color\":["<<unsigned(command.color.r)<<','<<unsigned(command.color.g)<<','
-            <<unsigned(command.color.b)<<','<<unsigned(command.color.a)<<"]"
-            <<",\"rotation\":"<<command.rotation<<",\"effects\":"<<std::quoted(command.effects)<<"}\n";
+    if(static_decals) {
+        const auto decals=decal_commands::project(projection,*static_decals);
+        for(std::size_t index=0;index<decals.commands.size();++index) {
+            const auto& command=decals.commands[index];
+            std::cout<<"{\"event\":\"static-decal-command\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
+                <<",\"layer\":\""<<(command.background?'B':'F')<<"\",\"ordinal\":"<<command.ordinal;
+            write_command_geometry(command);
+            std::cout<<"}\n";
+        }
+        for(const auto& deferred:decals.deferred)
+            std::cout<<"{\"event\":\"static-decal-deferred\",\"tick\":"<<tick
+                <<",\"ownerIdentity\":"<<deferred.identity<<",\"room\":"<<std::quoted(deferred.room)
+                <<",\"layer\":\""<<(deferred.background?'B':'F')<<"\",\"ordinal\":"<<deferred.ordinal
+                <<",\"texture\":"<<std::quoted(deferred.texture)<<"}\n";
     }
-    for(const auto& deferred:decals.deferred)
-        std::cout<<"{\"event\":\"static-decal-deferred\",\"tick\":"<<tick
-            <<",\"ownerIdentity\":"<<deferred.identity<<",\"room\":"<<std::quoted(deferred.room)
-            <<",\"layer\":\""<<(deferred.background?'B':'F')<<"\",\"ordinal\":"<<deferred.ordinal
-            <<",\"texture\":"<<std::quoted(deferred.texture)<<"}\n";
+    if(spike_catalog) {
+        const auto commands=spike_commands::project(projection,session.room_roster(),*spike_catalog);
+        for(std::size_t index=0;index<commands.size();++index) {
+            const auto& command=commands[index];
+            std::cout<<"{\"event\":\"spike-command\",\"tick\":"<<tick<<",\"index\":"<<index
+                <<",\"ownerIdentity\":"<<command.identity<<",\"room\":"<<std::quoted(command.room)
+                <<",\"authoredId\":"<<command.authored_id<<",\"direction\":\""
+                <<(command.direction==SpikeDirection::up?"up":"left")<<"\",\"piece\":"<<command.piece;
+            write_command_geometry(command);
+            std::cout<<"}\n";
+        }
+    }
 }
 struct Options {
     std::vector<std::string> positional;
@@ -263,19 +283,22 @@ struct Options {
     std::string static_decal_catalog;
     bool terrain_catalog=false;
     std::string terrain_catalog_path;
+    bool spike_commands=false;
+    std::string spike_catalog_path;
 };
 Options parse_options(int argc,char** argv) {
     Options options;
     for(int index=1;index<argc;++index) {
         const std::string argument=argv[index];
-        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--terrain-catalog") {
+        if(argument=="--player-commands" || argument=="--static-decal-commands" || argument=="--terrain-catalog" || argument=="--spike-commands") {
             if(index+1>=argc) throw std::invalid_argument("Missing trace option value: "+argument);
             const std::string value=argv[++index];
             bool* enabled=nullptr;
             std::string* destination=nullptr;
             if(argument=="--player-commands") { enabled=&options.player_commands; destination=&options.player_mapping; }
             else if(argument=="--static-decal-commands") { enabled=&options.static_decal_commands; destination=&options.static_decal_catalog; }
-            else { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
+            else if(argument=="--terrain-catalog") { enabled=&options.terrain_catalog; destination=&options.terrain_catalog_path; }
+            else { enabled=&options.spike_commands; destination=&options.spike_catalog_path; }
             if(*enabled) throw std::invalid_argument("Duplicate trace observer option: "+argument);
             *enabled=true; *destination=value;
         } else options.positional.push_back(argument);
@@ -289,7 +312,7 @@ int main(int argc,char** argv) {
         const auto& arguments=options.positional;
         if(arguments.size()!=6 && arguments.size()!=7 && arguments.size()!=8)
             throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog and --static-decal-commands descriptor-catalog");
+            ", optional authored first-room decal metadata and optional complete authored catalog, then optional --player-commands logical-mapping, --terrain-catalog catalog, --static-decal-commands descriptor-catalog and --spike-commands spike-material-catalog");
         const auto mask=read_asset(arguments[0].c_str(),4'000'512),hazards=read_asset(arguments[1].c_str(),8192),
             metadata=read_asset(arguments[2].c_str(),65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
@@ -316,6 +339,11 @@ int main(int argc,char** argv) {
         std::optional<terrain::Catalog> terrain_catalog;
         if(options.terrain_catalog)
             terrain_catalog=terrain::parse(read_asset(options.terrain_catalog_path.c_str(),terrain::catalog_byte_limit),0x16d1da6cu);
+        std::optional<spike_commands::Catalog> spike_catalog;
+        if(options.spike_commands) {
+            const auto catalog_text=read_asset(options.spike_catalog_path.c_str(),spike_commands::catalog_byte_limit);
+            spike_catalog=spike_commands::parse(catalog_text,spike_command_catalog_checksum);
+        }
         const std::string seed_text=arguments[5];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);
@@ -352,7 +380,8 @@ int main(int argc,char** argv) {
                 record(tick,phase,observed);
                 if(phase==SessionPhase::after_frame) draw_owners(tick,observed,catalog.first(),authored,
                     options.static_decal_commands?&static_decals:nullptr,
-                    terrain_catalog?&*terrain_catalog:nullptr);
+                    terrain_catalog?&*terrain_catalog:nullptr,
+                    spike_catalog?&*spike_catalog:nullptr);
             });
             if(options.player_commands) {
                 const std::string phase=session.phase();
