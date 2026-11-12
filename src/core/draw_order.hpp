@@ -26,11 +26,14 @@ struct DrawOwner {
     bool visible=true;
     bool hud_excluded=false;
     bool banner=false;
+    std::string texture={};
+    Vec2 position{},scale{1,1};
 };
 
 struct AuthoredDecalOwners {
     const RoomDefinition* room=nullptr;
     std::vector<DrawOwner> owners;
+    int background_count=-1,foreground_count=-1;
 };
 
 struct RosterSnapshot {

@@ -201,7 +201,12 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
             <<",\"authoredId\":"<<owner.authored_id<<",\"room\":\""<<(owner.room?owner.room->name:"")<<"\""
             <<",\"sortDepthBand\":"<<owner.sort_depth_band<<",\"sequence\":"<<owner.sequence
             <<",\"visible\":"<<owner.visible<<",\"hudExcluded\":"<<owner.hud_excluded
-            <<",\"banner\":"<<owner.banner<<'}';
+            <<",\"banner\":"<<owner.banner;
+        if(!owner.texture.empty()) {
+            std::cout<<",\"texture\":"<<std::quoted(owner.texture)<<",\"position\":";vec(owner.position);
+            std::cout<<",\"scale\":";vec(owner.scale);
+        }
+        std::cout<<'}';
     }
     std::cout<<"],\"decalGapRooms\":[";
     first=true;
@@ -223,16 +228,17 @@ void draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& 
 }
 int main(int argc,char** argv) {
     try {
-        if(argc!=7 && argc!=8) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
-            " and optional authored first-room decal metadata");
+        if(argc!=7 && argc!=8 && argc!=9) throw std::invalid_argument("Expected mask, first-room hazards, metadata, room catalog, legal controls, seed"
+            ", optional authored first-room decal metadata and optional complete authored catalog");
         const auto mask=read_asset(argv[1],4'000'512),hazards=read_asset(argv[2],8192),metadata=read_asset(argv[3],65536);
         Room room(parse_mask(mask,checksum(mask)),parse_spikes(hazards,checksum(hazards)));
         const auto assets=parse_player_assets(metadata,checksum(metadata));const auto catalog=read_catalog(argv[4]);
         std::vector<draw_order::AuthoredDecalOwners> authored;
-        if(argc==8) {
+        if(argc>=8) {
             const auto decal_text=read_asset(argv[7],65536);
             authored=authored_first_room_decals(parse_decals(decal_text,checksum(decal_text)),catalog.first());
         }
+        if(argc==9) authored=parse_authored_decals(read_asset(argv[8],65536),authored_decal_catalog_checksum,catalog);
         const std::string seed_text=argv[6];std::size_t used=0;const int seed=std::stoi(seed_text,&used);
         if(used!=seed_text.size()) throw std::invalid_argument("Invalid seed");
         FirstRoomSession session(room.world,assets.bank,false,seed,&catalog);

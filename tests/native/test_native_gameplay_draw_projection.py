@@ -55,6 +55,7 @@ def sample_source(path):
     ticks = {}
     current = None
     state_types = {}
+    state_entities = {}
     outgoing_ids = set()
     room = None
     commands = Counter()
@@ -74,7 +75,8 @@ def sample_source(path):
                     continue
                 state = row["state"]
                 room = state["room"]
-                state_types = {value["id"]: value["type"] for value in state["entities"]}
+                state_entities = {value["id"]: value for value in state["entities"]}
+                state_types = {key: value["type"] for key, value in state_entities.items()}
                 transition = state.get("transition")
                 iterator = transition.get("iterator") if transition else None
                 outgoing = iterator.get("outgoing") if iterator else None
@@ -87,6 +89,9 @@ def sample_source(path):
                     "outgoing": set(outgoing_ids),
                     "live": [(value["entity"], state_types[value["entity"]], value["Visible"], value["hudExcluded"])
                              for value in row["live"]],
+                    "decals": {key: {"position": value["position"],
+                                     "banner": any(component["type"] == "Banner" for component in value["components"])}
+                               for key, value in state_entities.items() if value["type"] == "Decal"},
                 }
             elif event == "draw-dispatch":
                 if current in DIFFERENTIAL_TICKS:
@@ -175,11 +180,11 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def compare_tick(tick, source, roster, dispatch, native_player_id):
+def compare_tick(tick, source, roster, dispatch, native_player_id, represented_rooms=frozenset({"1"})):
     entries = source_entries(source)
-    expected_entries = [entry for entry in entries if not (entry[1] == "Decal" and entry[2] == "2")]
-    expected = [key for key in source_keys(tick, source) if key[0] != "Decal" or key[1] != "2"]
-    unrepresented = [key for key in source_keys(tick, source) if key[0] == "Decal" and key[1] == "2"]
+    expected_entries = [entry for entry in entries if entry[1] != "Decal" or entry[2] in represented_rooms]
+    expected = [key for key in source_keys(tick, source) if key[0] != "Decal" or key[1] in represented_rooms]
+    unrepresented = [key for key in source_keys(tick, source) if key[0] == "Decal" and key[1] not in represented_rooms]
     native = roster["live"]
     actual = native_keys(roster)
     identities = [owner["identity"] for owner in native]
@@ -187,8 +192,7 @@ def compare_tick(tick, source, roster, dispatch, native_player_id):
     require(len(set(actual)) == len(actual), f"tick {tick}: native semantic owner bindings must be unique")
     require(len(native) + len(unrepresented) == len(entries),
             f"tick {tick}: native live owners plus the reported gap must equal the SOURCE roster")
-    require(len(roster["decalGapRooms"]) == (1 if unrepresented else 0) and
-            all(room == "2" for room in roster["decalGapRooms"]),
+    require(sorted(roster["decalGapRooms"]) == sorted({key[1] for key in unrepresented}),
             f"tick {tick}: the decal gap must be reported for exactly the unrepresented room")
     require(actual == expected, f"tick {tick}: native draw owner chronology differs from the SOURCE roster")
     for owner, entry in zip(native, expected_entries):
