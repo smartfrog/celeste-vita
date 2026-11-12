@@ -44,6 +44,8 @@ void negative_fraction_and_tile_edges_parameterized() {
     for(const auto e:{Example{-0.25f,0,4},{0,1,4},{7.99f,1,5},{8,2,5},{-16,0,2}}) {
         const auto window=catalog.window({e.x,0},{8,8});
         expect(window.left==e.left && window.right==e.right,"Floor camera then origin-relative floor/ceil plus extension");
+        const auto vertical=catalog.window({0,e.x},{8,8});
+        expect(vertical.top==e.left && vertical.bottom==e.right,"Vertical floor/ceil must match horizontal semantics");
     }
 }
 void layers_are_separate() {
@@ -67,6 +69,12 @@ void outside_bounds_parameterized() {
         const auto window=catalog.window(camera,{8,8});
         expect(window.outside_catalog && commands(catalog,true,camera).empty(),"Explicit outside condition and safe empty clamp");
     }
+}
+void partial_outside_bounds_is_explicit() {
+    const auto catalog=parse(fixture());
+    const auto window=catalog.window({-20,-16},{8,8});
+    expect(window.outside_catalog && window.left==0 && window.right==2 && commands(catalog,true,{-20,-16}).size()==2,
+        "Partial outside viewport clamps the grid and reports its coverage condition");
 }
 void invalid_camera_parameterized() {
     const auto catalog=parse(fixture());
@@ -156,9 +164,10 @@ int main() {
     try {
         sparse_order_and_world_coordinates();negative_fraction_and_tile_edges_parameterized();layers_are_separate();
         partial_edges_keep_full_quads();filler_survives_camera_move();outside_bounds_parameterized();
+        partial_outside_bounds_is_explicit();
         invalid_camera_parameterized();repeated_projection_is_pure();malformed_catalog_parameterized();checksum_mismatch();
         truncation_at_every_byte_parameterized();duplicate_sheet();
         observer_does_not_mutate_session_or_render_cadence();invalid_observer_owner_fails_before_output_parameterized();
-        std::cout<<"14 terrain test groups passed\n";
+        std::cout<<"15 terrain test groups passed\n";
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

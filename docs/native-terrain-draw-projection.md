@@ -92,5 +92,6 @@ claim. The full catalog is deliberately retained, not reduced to route playback.
 
 No full-owner command interleaving, full-Level rendergraph, shaders, scissor,
 vertices, GPU, pixels, hardware or Vita equivalence is claimed. Physics, input,
-timestep and RNG are unchanged. The independent sweat correction is not included;
-the existing Player comparison must still report its known 52 mismatches at this base.
+timestep and RNG are unchanged by terrain projection. The reviewed sweat correction
+is integrated separately: use its verified 33-animation bank for the combined
+zero-gap Player comparison and retain the old bank for legacy compatibility checks.

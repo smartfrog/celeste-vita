@@ -1,10 +1,11 @@
 import copy
+import os
 from pathlib import Path
 import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from compare_native_terrain_draw import compare_layer
+from compare_native_terrain_draw import compare, compare_layer
 
 
 class TerrainComparisonTests(unittest.TestCase):
@@ -51,6 +52,15 @@ class TerrainComparisonTests(unittest.TestCase):
         self.native["commands"][0][0] = 2
         with self.assertRaisesRegex(ValueError, "material"):
             self.differences()
+
+
+class TerrainRouteEvidenceTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("CELESTE_TERRAIN_DRAW_NATIVE_TRACE"), "Requires a fresh actual native terrain observer run")
+    def test_all514_all_ordered_terrain_commands_match(self):
+        from test_native_gameplay_draw_projection import SOURCE_TRACE
+        result = compare(SOURCE_TRACE, Path(os.environ["CELESTE_TERRAIN_DRAW_NATIVE_TRACE"]))
+        self.assertEqual(result["failures"], [])
+        self.assertEqual(result["native_commands"], 605992)
 
 
 if __name__ == "__main__":
