@@ -8,7 +8,7 @@ inline FILE* open_app_log(const char* path) {
     if(!path || !*path) throw std::invalid_argument("Normal app log requires its claimed path");
     auto* stream=std::fopen(path,"a");
     if(!stream) throw std::runtime_error(std::string("Normal app log open failed: ")+path);
-    if(std::setvbuf(stream,nullptr,_IONBF,0)) {
+    if(std::setvbuf(stream,nullptr,_IOFBF,4096)) {
         const auto closed=std::fclose(stream);
         throw std::runtime_error(std::string("Normal app log buffer setup failed: ")+path+(closed ? "; cleanup close failed" : ""));
     }
