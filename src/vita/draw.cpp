@@ -287,6 +287,10 @@ void initialize_graphics() {
     glDisable(GL_BLEND);
     check("graphics initialization");
 }
+void require_graphics_ok(const char* stage) { check(stage); }
+void upload_bounded_rgba(unsigned texture,int width,int height,std::string_view pixels) {
+    upload_texture(texture,width,height,pixels);
+}
 void load_textures(const VisualAssets& visuals) {
     if (uploaded) throw std::logic_error("Room textures already uploaded");
     if (visuals.texture_count < 6 || visuals.texture_count > static_cast<int>(textures.size()))

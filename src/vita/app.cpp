@@ -4,6 +4,11 @@
 #include "draw.hpp"
 #include "guest_io.hpp"
 #include "session_profile.hpp"
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+#include "gameplay_draw.hpp"
+#include "gameplay_pins.hpp"
+#include "gameplay_resources.hpp"
+#endif
 #include "capture_policy.hpp"
 #include "normal_outputs.hpp"
 #include "platform_diagnostics.hpp"
@@ -28,6 +33,9 @@ namespace {
 using namespace celeste::diagnostic;
 #if defined(CELESTE_ROOM_DASH_PROBE) != defined(CELESTE_STAGED_DASH_PROBE)
 #error "Dash probe mode requires matching staging; production cannot use probe staging"
+#endif
+#if defined(CELESTE_ROOM_GAMEPLAY_PRODUCTION) != defined(CELESTE_STAGED_GAMEPLAY_PRODUCTION)
+#error "Gameplay production requires matching explicit staging; legacy cannot use gameplay staging"
 #endif
 #ifdef CELESTE_ROOM_DASH_PROBE
 static_assert(std::string_view(guest_dash_probe)==guest_dash_probe_id && guest_dash_probe_samples==guest_dash_probe_frames &&
@@ -127,8 +135,15 @@ void run() {
     log("guest dash probe fixture=%s fixture_sha256=%s input_source=scripted_guest_controls samples=%u exit_frame=%u physical_controller_verified=false host_input_injected=false capture_policy=dash_trails instrumented=1 uninstrumented_proof=0 diagnostic_sweep=1 acceptance_disabled=1",
         guest_dash_probe,guest_dash_probe_sha256,guest_dash_probe_samples,guest_dash_probe_exit_frame);
 #endif
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+    GameplayResources gameplay(gameplay_file_pins,[](const std::string& name,std::size_t limit) {
+        return read_asset(("app0:assets/native-room/"+name).c_str(),limit);
+    });
+    const auto& room=gameplay.room;
+#else
     Room room(parse_mask(read_asset("app0:assets/native-room/global.mask",4'000'512),mask_checksum),
               parse_spikes(read_asset("app0:assets/native-room/hazards.txt",8192),spike_checksum));
+#endif
     if (room.grid.columns() != 541 || room.grid.rows() != 440 || room.solids.position.x != -64 ||
         room.solids.position.y != -3272 || room.spikes.size() != 5)
         throw std::runtime_error("Unexpected selected room geometry profile");
@@ -141,9 +156,11 @@ void run() {
     }
     if (occupied != 26915 || visible != 363) throw std::runtime_error("Unexpected merged/visible solid counts");
     log("assets ready mask=541x440 origin=-64,-3272 occupied=%u visible=%u spikes=%u",occupied,visible,unsigned(room.spikes.size()));
+#ifndef CELESTE_ROOM_GAMEPLAY_PRODUCTION
     const VisualAssets* visual_assets = nullptr;
     const DecalAssets* decal_assets = nullptr;
-#ifdef CELESTE_ROOM_TEXTURED
+#endif
+#if defined(CELESTE_ROOM_TEXTURED) && !defined(CELESTE_ROOM_GAMEPLAY_PRODUCTION)
     const auto visuals = parse_visuals(read_asset("app0:assets/native-room/visuals.txt",65'536),visual_checksum);
     visual_assets = &visuals;
 #ifdef CELESTE_ROOM_SPIKE_ART
@@ -161,10 +178,20 @@ void run() {
     log("render static_decals=22 bg_decals=20 fg_decals=2 animated_omitted=7 source_static_decal_cut render_order=BG_tiles_20BG_player_19spikes_FGtiles_2FG page=64x128 RGBA_bytes=32768");
 #endif
 #else
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+    log("render bounded_gameplay_production opt_in=1 strict_preflight=1 Source_camera=1 no_legacy_fallback=1 pixel_parity_claim=0");
+#else
     log("render style=debug hitboxes_and_diagnostic_spike_markers camera=0,0");
 #endif
+#endif
+#ifndef CELESTE_ROOM_GAMEPLAY_PRODUCTION
     const PlayerAssets* player_assets=nullptr;
-#ifdef CELESTE_ROOM_ANIMATED_PLAYER
+#endif
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+    auto session=make_session(room.world,&gameplay.player.bank,&gameplay.catalog,&gameplay.authored);
+    auto initial_gameplay=gameplay.prepare(0,session);
+    celeste::gameplay_bridge::PageOwner gameplay_pages;
+#elif defined(CELESTE_ROOM_ANIMATED_PLAYER)
     const auto player_frames=parse_player_assets(read_asset("app0:assets/native-room/player.txt",65'536),player_checksum);
     player_assets=&player_frames;
 #ifdef CELESTE_ROOM_SPIKE_ART
@@ -185,18 +212,29 @@ void run() {
     std::string automatic_completion;
 #endif
     try {
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+    upload_gameplay_pages(gameplay_pages,gameplay.pixels);
+#else
     if (visual_assets) load_textures(*visual_assets);
     if (decal_assets) load_decal_textures(*decal_assets);
     if (player_assets) load_player_textures(*player_assets);
+#endif
 #if !defined(CELESTE_ROOM_GUEST_REPLAY) && !defined(CELESTE_ROOM_GUEST_AUTOMATIC) && !defined(CELESTE_ROOM_DASH_PROBE)
     const int mode = sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
     if (mode < 0) throw std::runtime_error("Controller initialization failed: " + std::to_string(mode));
 #endif
+#ifndef CELESTE_ROOM_GAMEPLAY_PRODUCTION
     auto session=make_session(room.world,player_assets ? &player_assets->bank : nullptr);
+#endif
     if constexpr(automatic_session_profile)
         log("lifecycle source_first_room automatic_corpse_wipe_reload_respawn14 seed=0 original_startup_rng_parity=false Triangle=manual_diagnostic_restart");
     else log("lifecycle legacy_manual_diagnostic Triangle=fresh_Normal_player automatic_reload=false");
     const auto render=[&](const char* path,unsigned frame) {
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+        const auto ready=frame==0 ? std::move(initial_gameplay) : gameplay.prepare(frame,session);
+        return draw_gameplay(ready,gameplay_pages.pages(),{session.lifecycle()->camera(),960,544},path,frame,
+            normal_initial_respawn_profile ? &normal_outputs : nullptr);
+#else
         const auto* outputs=normal_initial_respawn_profile ? &normal_outputs : nullptr;
         const auto projection=session.projection();
         if(player_assets) {
@@ -204,6 +242,7 @@ void run() {
             return draw(room,session.player(),path,frame,session.resets(),visual_assets,&animated,decal_assets,outputs);
         }
         return draw(room,session.player(),path,frame,session.resets(),visual_assets,nullptr,decal_assets,outputs);
+#endif
     };
     Controller controller;
 #ifdef CELESTE_ROOM_GUEST_REPLAY
@@ -442,10 +481,28 @@ void run() {
     else log("diagnostic measurement frames=%u elapsed_us=%llu observed_fps=%.3f not_a_hardware_estimate",frame,
          static_cast<unsigned long long>(elapsed),elapsed ? frame*1e6/double(elapsed) : 0);
     } catch (const std::exception& error) {
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+        std::string cause=error.what();
+        try { dispose_gameplay_pages(gameplay_pages); }
+        catch(const std::exception& cleanup) { cause+="; gameplay page cleanup also failed: "+std::string(cleanup.what()); }
+        try { finish_graphics(); }
+        catch(const std::exception& cleanup) { cause+="; graphics teardown also failed: "+std::string(cleanup.what()); }
+        throw std::runtime_error(cause);
+#else
         try { finish_graphics(); }
         catch (const std::exception& cleanup) { throw std::runtime_error(std::string(error.what())+"; graphics teardown also failed: "+cleanup.what()); }
         throw;
+#endif
     }
+#ifdef CELESTE_ROOM_GAMEPLAY_PRODUCTION
+    try { dispose_gameplay_pages(gameplay_pages); }
+    catch(const std::exception& error) {
+        const std::string cause=error.what();
+        try { finish_graphics(); }
+        catch(const std::exception& cleanup) { throw std::runtime_error(cause+"; graphics teardown also failed: "+cleanup.what()); }
+        throw;
+    }
+#endif
     finish_graphics();
 #ifdef CELESTE_ROOM_DASH_PROBE
     dash_completion.graphics_finished();

@@ -22,6 +22,8 @@ struct PlayerRender {
     PlayerTrails* trails=nullptr;
 };
 void initialize_graphics();
+void require_graphics_ok(const char* stage);
+void upload_bounded_rgba(unsigned texture,int width,int height,std::string_view pixels);
 // Inactive opt-in entry: no uploads, clear, swap or app wiring. Caller owns the
 // current render target/context and verified page pixels; leaves configured draw state.
 // Establishes unit-zero-only 2D texturing, no sampler override and an identity UV matrix.

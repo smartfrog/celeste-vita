@@ -19,6 +19,15 @@ def canonical_digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def cache_values(path):
+    values = {}
+    for line in Path(path).read_text().splitlines():
+        if line and not line.startswith(("#", "//")) and ":" in line and "=" in line:
+            key, value = line.split("=", 1)
+            values[key.split(":", 1)[0]] = value
+    return values
+
+
 def source_binding(state):
     return {"schema": 1, "base_head": state["base_head"], "state_sha256": canonical_digest(state),
             "files_sha256": state["sha256"], "count": state["count"], "bytes": state["bytes"]}

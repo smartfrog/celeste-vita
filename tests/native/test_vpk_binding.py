@@ -28,9 +28,7 @@ def resident_elf(payload):
 
 class BuildBindingTests(unittest.TestCase):
     def setUp(self):
-        parent = ROOT / ".audit/native-player-death-respawn/artifact-tests"
-        parent.mkdir(parents=True, exist_ok=True)
-        self.temporary = tempfile.TemporaryDirectory(dir=parent)
+        self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.build = self.root / "build"
@@ -72,7 +70,7 @@ class BuildBindingTests(unittest.TestCase):
                  "CMAKE_CXX_COMPILER": self.sdk / "bin/arm-vita-eabi-g++", "CMAKE_LINKER": self.sdk / "bin/arm-vita-eabi-ld",
                  "CELESTE_VITAGL_LIBRARY": library}
         (self.build / "CMakeCache.txt").write_text("".join(f"{k}:STRING={v}\n" for k,v in cache.items()) + "CELESTE_ROOM_GUEST_REPLAY:BOOL=OFF\nCELESTE_ROOM_GUEST_AUTOMATIC:BOOL=OFF\n")
-        for target in ("celeste_native_kernel", "celeste_room_diagnostic", "celeste_native_room"):
+        for target in binding.TARGETS:
             folder = self.build / ("src/vita" if target == "celeste_native_room" else "") / "CMakeFiles" / (target + ".dir")
             folder.mkdir(parents=True)
             (folder / "flags.make").write_text("CXX_FLAGS = -O3 -fno-fast-math\n")
@@ -133,6 +131,64 @@ class BuildBindingTests(unittest.TestCase):
         self.configure()
         self.produce()
         self.assertTrue(self.check_package(self.package())["exact_wip"])
+
+    def enable_gameplay(self):
+        from stage_native_gameplay import METADATA, gameplay_pins_text, gameplay_inventory_text
+        self.expected["changes"] = []
+        self.expected_path.write_text(json.dumps(self.expected))
+        self.manifest["tracked_changes"] = False
+        self.manifest.update(gameplay_production="automatic-transition", render_style="bounded_gameplay_production")
+        assets = self.staging / "assets/native-room"
+        for name in set(METADATA) | {"page7.rgba"}:
+            path = assets / name
+            path.write_bytes(b"synthetic gameplay " + name.encode())
+            self.manifest["files"][name] = revision.file_identity(path) | {"fnv1a32": staging.checksum(path.read_bytes())}
+        self.write_staging()
+        (self.staging / "gameplay_pins.hpp").write_text(gameplay_pins_text(self.manifest))
+        (self.staging / "gameplay_files.cmake").write_text(gameplay_inventory_text(self.manifest))
+        cache = self.build / "CMakeCache.txt"
+        cache.write_text(cache.read_text() + "CELESTE_ROOM_GAMEPLAY_PRODUCTION:BOOL=ON\nCELESTE_ROOM_ANIMATED_PLAYER:BOOL=ON\n")
+        flags = self.build / "src/vita/CMakeFiles/celeste_native_room.dir/flags.make"
+        flags.write_text(flags.read_text() + "CXX_DEFINES = -DCELESTE_ROOM_GAMEPLAY_PRODUCTION -DCELESTE_ROOM_ANIMATED_PLAYER\n")
+
+    def test_gameplay_exact_synthetic_binding_and_package(self):
+        self.configure()
+        self.enable_gameplay()
+        self.produce()
+        result = self.check_package(self.package())
+        self.assertEqual(result["build_binding"]["capture_policy"], "bounded_gameplay_production")
+
+    def test_gameplay_binds_every_bridge_archive_build_recipe(self):
+        self.configure()
+        self.enable_gameplay()
+        record = self.binding.prepare(self.build, self.staging, self.expected)
+        paths = record["context"]["inputs"]
+        for target in ("celeste_command_preflight", "celeste_command_submission", "celeste_gameplay_bridge"):
+            self.assertIn(str(self.build / "CMakeFiles" / (target + ".dir") / "link.txt"), paths)
+
+    def test_gameplay_rejects_changed_generated_inventory(self):
+        self.configure()
+        self.enable_gameplay()
+        (self.staging / "gameplay_files.cmake").write_text("unbound replacement")
+        with self.assertRaisesRegex(ValueError, "inventory/pins"):
+            self.binding.prepare(self.build, self.staging, self.expected)
+
+    def test_gameplay_rejects_relabelled_old_staging(self):
+        self.configure()
+        self.enable_gameplay()
+        self.manifest.pop("gameplay_production")
+        self.write_staging()
+        with self.assertRaisesRegex(ValueError, "staging intent disagree"):
+            self.binding.prepare(self.build, self.staging, self.expected)
+
+    def test_gameplay_rejects_wip_even_with_explicit_expected_state(self):
+        self.configure()
+        self.enable_gameplay()
+        self.expected["changes"] = [" M native.cpp"]
+        self.expected_path.write_text(json.dumps(self.expected))
+        self.write_staging()
+        with self.assertRaisesRegex(ValueError, "committed-clean"):
+            self.binding.prepare(self.build, self.staging, self.expected)
 
     def enable_automatic(self):
         from native_room_automatic import automatic_intent

@@ -107,7 +107,8 @@ def asset_pins_text(manifest):
     player = manifest.get("player")
     label = manifest.get("binding", {}).get("revision_label", manifest["revision"] + ("-dirty" if manifest["tracked_changes"] else ""))
     return ('#pragma once\n#include <cstdint>\nnamespace celeste::diagnostic {\n'
-            f'constexpr bool guest_replay_enabled = {str(bool(replay)).lower()};\n'
+            + ('#define CELESTE_STAGED_GAMEPLAY_PRODUCTION 1\n' if manifest.get("gameplay_production") else '')
+            + f'constexpr bool guest_replay_enabled = {str(bool(replay)).lower()};\n'
             + f'constexpr const char* guest_automatic = {json.dumps(automatic) if automatic else "nullptr"};\n'
             + (f'constexpr const char* guest_automatic_sha256 = "{manifest["guest_automatic_fixture"]["sha256"]}";\n' if automatic else '')
             + (f'constexpr const char* guest_replay_sha256 = "{replay["sha256"]}";\n' if replay else '')

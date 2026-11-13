@@ -1,7 +1,10 @@
 #include "command_submission.hpp"
 #include "draw.hpp"
+#include "gameplay_draw.hpp"
+#include "guest_file_fixture.hpp"
 #include <vitaGL.h>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 #include <limits>
@@ -211,6 +214,8 @@ struct GLRecorder {
     std::array<unsigned,2> blend{};
     unsigned equation=0;
     float u=0,v=0;
+    unsigned allocated=0,uploaded=0,fail_upload_at=0,clears=0,swaps=0;
+    std::vector<unsigned> deleted;
 } gl;
 GLRecorder inherited_texture_state(unsigned second_unit_flags=3) {
     GLRecorder state;
@@ -327,6 +332,60 @@ void real_entry_stops_before_vertices_on_texture_unit_setup_error_parameterized(
         require(gl.vertices.empty() && gl.textures.empty(),"Failed unit setup must stop before page binding or any vertices");
     }
 }
+void real_fractional_source_camera_is_accepted_and_unchanged() {
+    Fixture f;const auto frame=f.ready();gl=inherited_texture_state();
+    const float camera=196.91904f;
+    diagnostic::submit_ready_frame(frame,f.pages,{{camera,-4.5f}});
+    require(gl.textures==std::vector<unsigned>{101,202,101},"Fractional camera must still emit A-B-A order");
+    require(gl.ortho[0]==double(camera) && gl.ortho[1]==double(camera+320.f),
+            "Preserve the exact Source camera float and its native float extent");
+    require(std::fabs((gl.ortho[1]-gl.ortho[0])-320.0)<=320.0*std::numeric_limits<float>::epsilon(),
+            "Fractional endpoint span must stay within one float-epsilon of 320");
+    for(unsigned i=0;i<3;++i) for(unsigned corner=0;corner<4;++corner)
+        require(gl.vertices[i*4+corner]==frame.commands()[i].geometry.vertices[corner],
+                "Accepting a fractional camera must not alter packed XYZ/UV bits");
+}
+void gameplay_draw_success_clears_and_swaps_exactly_once() {
+    Fixture f;const auto frame=f.ready();gl=inherited_texture_state();guest_test::reset();
+    const auto receipt=diagnostic::draw_gameplay(frame,f.pages,{{196.91904f,-4.5f}},nullptr,17);
+    require(receipt.empty() && gl.clears==1 && gl.swaps==1,"Valid no-export success must clear and swap exactly once");
+    require(gl.textures==std::vector<unsigned>{101,202,101},"Gameplay draw must preserve deferred A-B-A page order");
+    require(gl.ortho[0]==double(196.91904f) && gl.ortho[1]==double(196.91904f+320.f),
+            "Gameplay draw must emit the unchanged fractional Source camera");
+    for(unsigned i=0;i<3;++i) for(unsigned corner=0;corner<4;++corner)
+        require(gl.vertices[i*4+corner]==frame.commands()[i].geometry.vertices[corner],
+                "Gameplay success must emit all packed XYZ/UV bits unchanged");
+    for(unsigned i=0;i<3;++i) require_effective_page(i,i==1?202:101,frame.commands()[i]);
+}
+void gameplay_draw_success_exports_only_after_valid_preflight() {
+    Fixture f;const auto frame=f.ready();gl={};guest_test::reset();
+    const auto receipt=diagnostic::draw_gameplay(frame,f.pages,{{196.91904f,-4.5f}},"gameplay-success.ppm",18);
+    require(gl.clears==1 && gl.swaps==1 && receipt.find("frame_saved ")!=std::string::npos,
+            "Valid export must clear, submit, read, write and swap once");
+    require(guest_test::stored.count("gameplay-success.ppm")==1 && guest_test::stored.count("gameplay-success.ppm.txt")==1,
+            "Valid export must write the image and receipt exactly once");
+    const auto& image=guest_test::stored.at("gameplay-success.ppm").data;
+    require(image.rfind("P6\n960 544\n255\n",0)==0 && image.size()==15+960*544*3,
+            "Export must be the bounded 960x544 P6 image");
+    require(receipt.find("camera=196.919")!=std::string::npos && receipt.find("pixel_parity_claim=0")!=std::string::npos,
+            "Receipt must retain the actual fractional Source camera and avoid parity claims");
+}
+void gameplay_draw_invalid_input_has_zero_clear_swap_submit_parameterized() {
+    for(unsigned kind=0;kind<3;++kind) {
+        Fixture f;const auto frame=f.ready();gl=inherited_texture_state();guest_test::reset();
+        View view{{196.91904f,-4.5f},960,544};
+        auto pages=f.pages;
+        if(kind==0) view.camera.x=std::numeric_limits<float>::quiet_NaN();
+        if(kind==1) pages.pop_back();
+        if(kind==2) view.width=961;
+        bool rejected=false;
+        try {diagnostic::draw_gameplay(frame,pages,view,nullptr,0);} catch(const std::invalid_argument&) {rejected=true;}
+        require(rejected,"Invalid gameplay draw input must reject");
+        require(gl.clears==0 && gl.swaps==0 && gl.textures.empty() && gl.vertices.empty() && gl.ortho[0]==0,
+                "Failure before the sink must cause zero clear/swap/submit/GL state");
+        require(guest_test::stored.empty(),"Failure must not write an export");
+    }
+}
 void real_entry_stops_before_vertices_of_late_failing_page() {
     Fixture f;gl=inherited_texture_state();gl.fail_bind_at=2;
     std::string error;
@@ -334,8 +393,57 @@ void real_entry_stops_before_vertices_of_late_failing_page() {
     require(error=="ReadyFrame texture and color state: GL error "+std::to_string(GL_INVALID_ENUM),"Retain late page setup error cause");
     require(gl.vertices.size()==4 && gl.textures==std::vector<unsigned>{101,202},"No vertices of the failing second quad or later A quad may be emitted");
 }
+void production_late_preflight_failure_has_zero_GL_calls() {
+    Fixture f;gl={};
+    f.inputs.back().command.source_height=0;
+    std::string failure;
+    try {
+        const auto ready=gameplay_bridge::prepare(77,f.table,f.inputs);
+        diagnostic::submit_ready_frame(ready,f.pages,{});
+    } catch(const std::runtime_error& error) { failure=error.what(); }
+    require(gl.calls==0 && failure.find("frame=77")!=std::string::npos && failure.find("empty_crop")!=std::string::npos,
+        "Production late failure must precede all physical emitter GL calls");
+}
+void production_upload_driver_failure_releases_all_owned_handles() {
+    gl={};gl.fail_upload_at=2;
+    gameplay_bridge::PageOwner owner;
+    std::string failure;
+    try { diagnostic::upload_gameplay_pages(owner,{{{31,1,1},"aaaa"},{{7,1,1},"bbbb"}}); }
+    catch(const std::runtime_error& error) { failure=error.what(); }
+    require(failure.find("bounded RGBA texture upload: GL error")!=std::string::npos,
+        "Preserve actual upload stage and GL error code");
+    require(gl.deleted==std::vector<unsigned>{401,402} && owner.pages().empty(),
+        "Physical upload failure must delete earlier and failing allocations");
+    diagnostic::dispose_gameplay_pages(owner);
+    require(gl.deleted.size()==2,"Physical cleanup must not double-free");
+}
+void production_upload_owns_generic_page_ids_and_dimensions() {
+    gl={};gameplay_bridge::PageOwner owner;
+    diagnostic::upload_gameplay_pages(owner,{{{31,1,1},"aaaa"},{{7,2,1},"bbbbbbbb"}});
+    require(owner.pages().size()==2 && owner.pages()[0].id==31 && owner.pages()[1].width==2,
+        "Page ownership must not alias legacy room or player arrays");
+    diagnostic::dispose_gameplay_pages(owner);
+    require(gl.deleted==std::vector<unsigned>{401,402},"Dispose all generic page IDs exactly once");
+}
+void production_upload_invalid_late_page_has_zero_GL_calls() {
+    gl={};gameplay_bridge::PageOwner owner;
+    invalid([&] { diagnostic::upload_gameplay_pages(owner,{{{31,1,1},"aaaa"},{{7,1,2},"short"}}); });
+    require(gl.calls==0,"Validate every actual page byte count before allocating any GL texture");
+}
 }
 extern "C" {
+void glGenTextures(int count,GLuint* textures) {++gl.calls;for(int i=0;i<count;++i) textures[i]=401+gl.allocated++;}
+void glDeleteTextures(int count,const GLuint* textures) {++gl.calls;for(int i=0;i<count;++i) gl.deleted.push_back(textures[i]);}
+void glTexImage2D(unsigned,int,int,int,int,int,unsigned,unsigned,const void*) {
+    ++gl.calls;
+    if(++gl.uploaded==gl.fail_upload_at) gl.pending_error=GL_INVALID_ENUM;
+}
+void glClear(unsigned) {++gl.calls;++gl.clears;}
+void glClearColor(float,float,float,float) {++gl.calls;}
+void glReadBuffer(unsigned) {++gl.calls;}
+void glFinish() {++gl.calls;}
+void glReadPixels(int,int,int,int,unsigned,unsigned,void*) {++gl.calls;}
+void vglSwapBuffers(int) {++gl.calls;++gl.swaps;}
 unsigned glGetError() {++gl.calls;const auto error=gl.pending_error;gl.pending_error=GL_NO_ERROR;return error;}
 const unsigned char* glGetString(unsigned) {++gl.calls;return gl.context ? reinterpret_cast<const unsigned char*>("mock") : nullptr;}
 void glViewport(int x,int y,int w,int h) {++gl.calls;gl.viewport={x,y,w,h};}
@@ -435,7 +543,15 @@ int main() {
             real_entry_empty_frame_has_no_GL_side_effects,
             real_entry_propagates_context_or_driver_cause_parameterized,
             real_entry_stops_before_vertices_on_texture_unit_setup_error_parameterized,
-            real_entry_stops_before_vertices_of_late_failing_page};
+            real_entry_stops_before_vertices_of_late_failing_page,
+            production_late_preflight_failure_has_zero_GL_calls,
+            production_upload_driver_failure_releases_all_owned_handles,
+            production_upload_owns_generic_page_ids_and_dimensions,
+            production_upload_invalid_late_page_has_zero_GL_calls,
+            real_fractional_source_camera_is_accepted_and_unchanged,
+            gameplay_draw_success_clears_and_swaps_exactly_once,
+            gameplay_draw_success_exports_only_after_valid_preflight,
+            gameplay_draw_invalid_input_has_zero_clear_swap_submit_parameterized};
         for(auto test:tests) test();
         std::cout<<tests.size()<<" command submission scenarios passed (including parameterized cases)\n";
         return 0;

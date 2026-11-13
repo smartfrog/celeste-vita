@@ -9,12 +9,14 @@ import subprocess
 import tempfile
 
 from native_room_revision import (REPO_ROOT, canonical_digest, file_identity, source_binding,
-                                  staging_binding, validate_source_state, verify_file_identities)
+                                  staging_binding, validate_source_state, verify_file_identities, cache_values)
 from stage_native_room import asset_pins_text, checksum
 from native_room_automatic import verify_automatic_intent
 from native_room_dash_probe import verify_dash_probe_intent
+from stage_native_gameplay import gameplay_pins_text, gameplay_inventory_text
 
-TARGETS = ("celeste_native_kernel", "celeste_room_diagnostic", "celeste_native_room")
+TARGETS = ("celeste_native_kernel", "celeste_room_diagnostic", "celeste_command_preflight",
+           "celeste_command_submission", "celeste_gameplay_bridge", "celeste_native_room")
 
 
 def target_directory(build, target):
@@ -33,6 +35,13 @@ def staging_inputs(staging, state):
         raise ValueError("Unexpected staged payload inventory")
     inputs = {str(manifest_path.resolve()): file_identity(manifest_path),
               str((staging / "asset_pins.hpp").resolve()): file_identity(staging / "asset_pins.hpp")}
+    if manifest.get("gameplay_production"):
+        for name, expected in (("gameplay_pins.hpp", gameplay_pins_text(manifest)),
+                               ("gameplay_files.cmake", gameplay_inventory_text(manifest))):
+            path = staging / name
+            if path.read_text() != expected:
+                raise ValueError("Gameplay generated inventory/pins differ from staging provenance: " + name)
+            inputs[str(path.resolve())] = file_identity(path)
     for name, metadata in manifest["files"].items():
         path = directory / name
         identity = file_identity(path)
@@ -42,15 +51,6 @@ def staging_inputs(staging, state):
     verify_file_identities(manifest["prepared_inputs"])
     inputs.update(manifest["prepared_inputs"])
     return manifest, inputs
-
-
-def cache_values(path):
-    values = {}
-    for line in path.read_text().splitlines():
-        if line and not line.startswith(("#", "//")) and ":" in line and "=" in line:
-            key, value = line.split("=", 1)
-            values[key.split(":", 1)[0]] = value
-    return values
 
 
 def sdk_command(path, tool):
@@ -102,6 +102,16 @@ def build_context(build, staging, state, expected_mode):
     if ("-DCELESTE_ROOM_GUEST_AUTOMATIC" in defines) != automatic:
         raise ValueError("Guest automatic compile definition differs from build mode")
     capture_policy = build_capture_policy(cache, defines)
+    gameplay = cache.get("CELESTE_ROOM_GAMEPLAY_PRODUCTION", "OFF") == "ON"
+    if (("-DCELESTE_ROOM_GAMEPLAY_PRODUCTION" in defines) != gameplay or
+            manifest.get("gameplay_production") != ("automatic-transition" if gameplay else None)):
+        raise ValueError("Gameplay production cache/compile definition/staging intent disagree")
+    if gameplay:
+        if state["changes"]:
+            raise ValueError("Gameplay production build requires exact committed-clean source/config, including with expected-source-state")
+        if automatic or probe or cache.get("CELESTE_ROOM_ANIMATED_PLAYER") != "ON" or capture_policy != "initial_respawn" or cache.get("CELESTE_ROOM_GUEST_REPLAY", "OFF") == "ON":
+            raise ValueError("Gameplay production only supports the bounded automatic-transition profile")
+        capture_policy = "bounded_gameplay_production"
     if cache["CMAKE_GENERATOR"] != "Unix Makefiles" or Path(cache["CMAKE_HOME_DIRECTORY"]).resolve() != REPO_ROOT.resolve():
         raise ValueError("Exact native binding requires this source root and Unix Makefiles")
     if Path(cache["CELESTE_ROOM_STAGING"]).resolve() != staging:
@@ -183,6 +193,7 @@ def prepare(build, staging, expected_source_state=None):
         raise ValueError("Changed source/assets/build inputs require a fresh build directory")
     if not receipt.exists():
         artifacts = [build / "libceleste_native_kernel.a", build / "libceleste_room_diagnostic.a",
+                     build / "libceleste_command_preflight.a", build / "libceleste_command_submission.a", build / "libceleste_gameplay_bridge.a",
                      image / "celeste_native_room", image / "celeste_native_room.velf", image / "eboot.bin"]
         for target in TARGETS:
             folder = target_directory(build, target)

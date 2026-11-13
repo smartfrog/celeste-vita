@@ -13,6 +13,7 @@ from native_room_replay import verify_replay_intent
 from native_room_build import verify_build, cache_values
 from native_room_automatic import verify_automatic_intent
 from native_room_dash_probe import verify_dash_probe_intent
+from stage_native_gameplay import METADATA
 
 
 def verify(vpk, build, staging, expected_source_state=None):
@@ -47,6 +48,12 @@ def verify(vpk, build, staging, expected_source_state=None):
     if probe or cache.is_file():
         if (cache_values(cache).get("CELESTE_ROOM_DASH_PROBE", "OFF") == "ON") != probe:
             raise ValueError("Build and package Dash probe intent differ")
+    gameplay = manifest.get("gameplay_production")
+    if gameplay or cache.is_file():
+        if (cache_values(cache).get("CELESTE_ROOM_GAMEPLAY_PRODUCTION", "OFF") == "ON") != bool(gameplay):
+            raise ValueError("Build and package gameplay production intent differ")
+    if gameplay and (gameplay != "automatic-transition" or not binding or binding["capture_policy"] != "bounded_gameplay_production"):
+        raise ValueError("Gameplay package requires exact bounded production build binding")
     if replay or cache.is_file():
         expected = "CELESTE_ROOM_GUEST_REPLAY:BOOL="+("ON" if replay else "OFF")
         if expected not in cache.read_text().splitlines():
@@ -61,6 +68,13 @@ def verify(vpk, build, staging, expected_source_state=None):
     if probe and manifest["guest_dash_probe_fixture"]["sha256"].encode() not in elf:
         raise ValueError("Dash probe ELF lacks its exact fixture identity pin")
     asset_names = {"global.mask", "hazards.txt"}
+    if gameplay:
+        asset_names = set(METADATA)
+        pages = set(manifest["files"]) - asset_names
+        if not pages or len(pages) > 64 or any(not name.startswith("page") or not name.endswith(".rgba") or
+                not name[4:-5].isdigit() for name in pages):
+            raise ValueError("Unexpected gameplay page inventory")
+        asset_names.update(pages)
     if manifest.get("render_style", "debug") in {"textured_partial", "animated_player_partial"}:
         texture_count = 8 if manifest.get("spike_art") else 6
         asset_names.update({"visuals.txt", *(f"texture{i}.rgba" for i in range(texture_count))})

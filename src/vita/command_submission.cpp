@@ -1,9 +1,21 @@
 #include "command_submission.hpp"
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <unordered_map>
 
 namespace celeste::command_submission {
+namespace {
+// vitaGL narrows glOrtho endpoints to float and divides by (right-left). The float
+// sum camera+extent can differ from the intended extent by rounding; require the
+// emitted endpoints to preserve it within float relative epsilon, and reject
+// collapse/overflow instead of accepting an arbitrary absolute tolerance.
+bool preserves_span(float low,float high,float extent) {
+    if(!std::isfinite(low) || !std::isfinite(high) || !std::isfinite(extent) || !(high>low)) return false;
+    const double error=std::fabs((double(high)-double(low))-double(extent));
+    return error<=double(extent)*double(std::numeric_limits<float>::epsilon());
+}
+}
 void submit(const command_preflight::ReadyFrame& frame,const std::vector<UploadedPage>& pages,
             const View& view,const Sink& sink) {
     if(!sink.begin || !sink.quad || !sink.end)
@@ -13,9 +25,8 @@ void submit(const command_preflight::ReadyFrame& frame,const std::vector<Uploade
     const Projection projection{diagnostic::letterbox(view.width,view.height),
         view.camera.x,view.camera.x+320.f,view.camera.y,view.camera.y+180.f};
     // Finite endpoints alone do not exclude collapsed or rounded logical extents.
-    if(!std::isfinite(projection.left) || !std::isfinite(projection.right) ||
-       !std::isfinite(projection.top) || !std::isfinite(projection.bottom) ||
-       projection.right-projection.left!=320.f || projection.bottom-projection.top!=180.f)
+    if(!preserves_span(projection.left,projection.right,320.f) ||
+       !preserves_span(projection.top,projection.bottom,180.f))
         throw std::invalid_argument("ReadyFrame camera cannot represent a finite 320x180 projection");
 
     std::unordered_map<int,const UploadedPage*> uploaded;

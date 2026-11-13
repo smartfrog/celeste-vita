@@ -2,6 +2,7 @@
 #include "diagnostic.hpp"
 #include "draw_order.hpp"
 #include "gameplay_commands_trace.hpp"
+#include "gameplay_projection.hpp"
 #include "jumpthru_commands.hpp"
 #include "player_draw_trace.hpp"
 #include "spike_commands.hpp"
@@ -180,15 +181,7 @@ void write_command_vertices(const decal_commands::DecalCommand& command) {
     const auto geometry=decal_commands::project_geometry(command,4096,4096);
     native_test::write_image_geometry(std::cout,geometry,4096,4096);
 }
-struct DrawFrame {
-    draw_order::DrawProjection projection;
-    decal_commands::DecalProjection decals;
-    std::vector<spike_commands::Command> spikes;
-    std::vector<jumpthru_commands::Command> jumpthrus;
-    std::vector<strawberry_commands::Command> strawberries;
-    std::vector<spring_commands::Command> springs;
-    std::vector<particle_commands::Command> particles;
-};
+using DrawFrame=gameplay_projection::Frame;
 DrawFrame draw_owners(int tick,const FirstRoomSession& session,const RoomDefinition& initial_room,
                  const std::vector<draw_order::AuthoredDecalOwners>& authored,
                  const decal_commands::StaticDecalCatalog* static_decals,
@@ -197,18 +190,9 @@ DrawFrame draw_owners(int tick,const FirstRoomSession& session,const RoomDefinit
                   const strawberry_commands::Catalog* strawberry_catalog,const spring_commands::Catalog* spring_catalog,
                   const particle_commands::Catalog* particle_catalog,
                   std::array<std::uint64_t,DustParticles::capacity>& observed_particle_births) {
-    DrawFrame frame;
-    frame.projection=draw_order::project(draw_order::snapshot(session,&initial_room),authored);
+    auto frame=gameplay_projection::project(session,initial_room,authored,
+        {static_decals,terrain_catalog,complete_decals,spike_catalog,jumpthru_catalog,strawberry_catalog,spring_catalog,particle_catalog});
     const auto& projection=frame.projection;
-    std::vector<const RoomRuntime*> rooms;
-    if(complete_decals || jumpthru_catalog || spring_catalog) for(const auto& entry:session.room_roster())
-        if(entry.room && std::find(rooms.begin(),rooms.end(),entry.room)==rooms.end()) rooms.push_back(entry.room);
-    if(spring_catalog) frame.springs=spring_commands::project(projection,*spring_catalog,rooms);
-    if(jumpthru_catalog) frame.jumpthrus=jumpthru_commands::project(projection,*jumpthru_catalog,rooms);
-    if(static_decals) frame.decals=decal_commands::project(projection,*static_decals,complete_decals?&rooms:nullptr);
-    if(spike_catalog) frame.spikes=spike_commands::project(projection,session.room_roster(),*spike_catalog);
-    if(strawberry_catalog) frame.strawberries=strawberry_commands::project(projection,session.room_roster(),*strawberry_catalog);
-    if(particle_catalog) frame.particles=particle_commands::project(projection,session.visual_dust(),*particle_catalog);
     std::cout<<"{\"event\":\"draw-owner-roster\",\"tick\":"<<tick<<",\"live\":[";
     bool first=true;
     for(const auto& owner:projection.live) {
@@ -516,24 +500,8 @@ int main(int argc,char** argv) {
                 if(options.gameplay_commands) {
                     if(!gameplay_frame) throw std::logic_error("Missing after-frame gameplay producer snapshot");
                     const auto& frame=*gameplay_frame;
-                    gameplay_commands::CachedPlayer player{session.player().object_identity(),phase=="live",assets.bank,player_mapping,cached};
-                    std::uint64_t background=0,foreground=0;
-                    gameplay_commands::Inputs inputs;
-                    for(const auto& owner:frame.projection.live) {
-                        using Kind=draw_order::OwnerKind;
-                        using Reason=gameplay_commands::EmptyReason;
-                        if(owner.kind==Kind::background_tiles) background=owner.identity;
-                        if(owner.kind==Kind::solid_tiles) foreground=owner.identity;
-                        if(owner.kind==Kind::scene_helper) inputs.empty.push_back({owner.identity,Reason::scene_helper_has_no_capture_calls});
-                        if(owner.kind==Kind::wind) inputs.empty.push_back({owner.identity,Reason::wind_has_no_capture_calls});
-                        if(owner.kind==Kind::particle_system_back || owner.kind==Kind::particle_system_front)
-                            inputs.empty.push_back({owner.identity,Reason::particle_system_has_no_active_images});
-                    }
-                    gameplay_commands::TerrainInput terrain{*terrain_catalog,background,foreground,session.camera()};
-                    inputs.sheets=&terrain_catalog->sheets();inputs.terrain=&terrain;inputs.player=&player;
-                    inputs.decals=&frame.decals;inputs.spikes=&frame.spikes;inputs.jumpthrus=&frame.jumpthrus;
-                    inputs.strawberries=&frame.strawberries;inputs.springs=&frame.springs;inputs.particles=&frame.particles;
-                    native_test::write_gameplay_schedule(std::cout,tick,gameplay_commands::assemble(frame.projection,inputs));
+                    native_test::write_gameplay_schedule(std::cout,tick,gameplay_projection::assemble(session,frame,
+                        *terrain_catalog,assets.bank,player_mapping,cached));
                 }
             }
         }
