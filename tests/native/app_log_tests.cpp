@@ -23,6 +23,10 @@ std::string log_file,asset_file,tty_file;
 bool reset_on_asset_open=false;
 bool caller_probe=false;
 unsigned log_closes=0;
+unsigned setvbuf_calls=0;
+int setvbuf_mode=-1;
+std::size_t setvbuf_size=0;
+bool setvbuf_null_buffer=false;
 unsigned unexpected_calls=0;
 [[noreturn]] void unexpected_runtime_call() {++unexpected_calls;throw std::runtime_error("Unexpected game/SDK call in caller error probe");}
 bool format_failed(FILE* file) {
@@ -45,6 +49,7 @@ std::string fresh_path(const char* suffix) {
 std::string bytes(const std::string& path) {return read_asset(path.c_str(),65536);}
 void setup() {
     guest_test::reset();fault=emergency_fault=Fault::none;watched=nullptr;reset_on_asset_open=caller_probe=false;log_closes=unexpected_calls=0;
+    setvbuf_calls=0;setvbuf_mode=-1;setvbuf_size=0;setvbuf_null_buffer=false;
     normal_outputs=normal_output_paths(revision,77,0);normal_capture_closed=false;normal_ready_written=false;measuring_frame=false;
     log_file=fresh_path(".log");asset_file=fresh_path(".asset");normal_outputs.log=log_file;
     auto* claim=std::fopen(log_file.c_str(),"w+x");expect(claim,"Synthetic exclusive claim must open");
@@ -69,6 +74,19 @@ void owned_stream_survives_asset_stdio_and_global_reset() {
 }
 void append_preserves_claim_bytes() {
     setup();log("sentinel");cleanup();expect(bytes(log_file)=="normal_run_claimed\nsentinel\n","Opening owned normal log must append, never truncate its exclusive claim");
+}
+void owned_stream_requests_full_buffering_4096() {
+    setup();
+    expect(setvbuf_calls==1 && setvbuf_mode==_IOFBF && setvbuf_size==4096 && setvbuf_null_buffer,
+        "Owned log must configure one null-buffer 4096-byte fully buffered stream without delaying explicit flushes");
+    cleanup();
+}
+void completed_lines_are_visible_before_close_without_duplication() {
+    setup();log("first=%u",7u);log("second=%s","text");
+    const auto before=bytes(log_file);
+    expect(before=="normal_run_claimed\nfirst=7\nsecond=text\n","Every completed line must be flushed before log returns and read exactly once");
+    cleanup();
+    expect(bytes(log_file)==before,"Close must not append or repeat completed line bytes");
 }
 void open_failure_is_checked() {
     setup();close_app_log(normal_log,log_file.c_str());fault=Fault::open;
@@ -199,7 +217,10 @@ extern "C" FILE* __wrap_fopen(const char* path,const char* mode) {
     return file;
 }
 extern "C" int __wrap_fclose(FILE* file) {if(file==watched) {++log_closes;watched=nullptr;const auto result=__real_fclose(file);return fault==Fault::close || fault==Fault::buffer_and_close || fault==Fault::format_and_close ? EOF : result;}return __real_fclose(file);}
-extern "C" int __wrap_setvbuf(FILE* file,char* buffer,int mode,std::size_t size) {return file==watched && (fault==Fault::buffer || fault==Fault::buffer_and_close) ? -1 : __real_setvbuf(file,buffer,mode,size);}
+extern "C" int __wrap_setvbuf(FILE* file,char* buffer,int mode,std::size_t size) {
+    if(file==watched) {++setvbuf_calls;setvbuf_mode=mode;setvbuf_size=size;setvbuf_null_buffer=buffer==nullptr;}
+    return file==watched && (fault==Fault::buffer || fault==Fault::buffer_and_close) ? -1 : __real_setvbuf(file,buffer,mode,size);
+}
 extern "C" int __wrap_vfprintf(FILE* file,const char* format,va_list args) {return format_failed(file) ? -1 : __real_vfprintf(file,format,args);}
 extern "C" int __wrap_fputc(int value,FILE* file) {return (file==watched && fault==Fault::newline) || (file==tty && emergency_fault==Fault::newline) ? EOF : __real_fputc(value,file);}
 extern "C" int __wrap_fflush(FILE* file) {return (file==watched && fault==Fault::flush) || (file==tty && emergency_fault==Fault::flush) ? EOF : __real_fflush(file);}
@@ -219,11 +240,16 @@ std::string draw(const Room&,const Player&,const char*,unsigned,unsigned,const V
 }
 int main() {
     if constexpr(!normal_initial_respawn_profile) {
-        try {legacy_profile_keeps_stderr_routing();std::cout<<"legacy app log cases=1 failed=0\n";return 0;}
-        catch(const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
+        unsigned failed=0;
+        for(auto test:{legacy_profile_keeps_stderr_routing,owned_stream_requests_full_buffering_4096}) {
+            try {test();} catch(const std::exception& error) {std::cerr<<error.what()<<'\n';++failed;}
+        }
+        std::cout<<"legacy app log cases=2 failed="<<failed<<'\n';return failed ? 1 : 0;
     }
     unsigned failed=0;
-    for(auto test:{owned_stream_survives_asset_stdio_and_global_reset,append_preserves_claim_bytes,open_failure_is_checked,buffer_failure_closes_once,
+    for(auto test:{owned_stream_survives_asset_stdio_and_global_reset,append_preserves_claim_bytes,owned_stream_requests_full_buffering_4096,
+                  completed_lines_are_visible_before_close_without_duplication,
+                  open_failure_is_checked,buffer_failure_closes_once,
                   buffer_setup_and_cleanup_failure_keep_both_causes,open_failure_persists_without_borrowing_stderr,
                   write_failures_are_checked_parameterized,close_failure_releases_pointer_once,fatal_log_failure_still_persists_independent_sce_receipt,
                   close_failure_is_recorded_independently,fatal_route_stays_owned_after_global_reset,ready_update_survives_asset_stdio_churn,
@@ -231,5 +257,5 @@ int main() {
                   caller_emergency_errors_propagate_full_context_parameterized}) {
         try {test();} catch(const std::exception& error) {std::cerr<<error.what()<<'\n';++failed;}
     }
-    std::cout<<"app log cases=15 failed="<<failed<<"; global-stderr reset is a host test double, not Vita TLS proof\n";return failed ? 1 : 0;
+    std::cout<<"app log cases=17 failed="<<failed<<"; global-stderr reset is a host test double, not Vita TLS proof\n";return failed ? 1 : 0;
 }
