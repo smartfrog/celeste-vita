@@ -18,8 +18,13 @@ bool preserves_span(float low,float high,float extent) {
 }
 void submit(const command_preflight::ReadyFrame& frame,const std::vector<UploadedPage>& pages,
             const View& view,const Sink& sink) {
-    if(!sink.begin || !sink.quad || !sink.end)
-        throw std::invalid_argument("ReadyFrame submission requires begin/quad/end callbacks");
+    bool has_semantic=false,has_raster=false;
+    for(const auto& command:frame.commands()) {
+        if(command.coverage==command_preflight::Coverage::semantic_zero_area_banner) has_semantic=true;
+        else has_raster=true;
+    }
+    if(!sink.begin || !sink.quad || !sink.end || (has_semantic && !sink.non_raster_ack))
+        throw std::invalid_argument("ReadyFrame submission requires begin/quad/end and semantic ack callbacks");
     if(view.width<=0 || view.height<=0 || view.width>960 || view.height>544)
         throw std::invalid_argument("ReadyFrame viewport outside bounded 960x544 display");
     const Projection projection{diagnostic::letterbox(view.width,view.height),
@@ -46,8 +51,13 @@ void submit(const command_preflight::ReadyFrame& frame,const std::vector<Uploade
             throw std::invalid_argument("Uploaded page dimensions differ: "+std::to_string(page.id));
     }
     if(frame.commands().empty()) return;
-    sink.begin(projection);
-    for(const auto& command:frame.commands()) sink.quad(uploaded.at(command.page)->texture,command);
-    sink.end();
+    if(has_raster) sink.begin(projection);
+    for(const auto& command:frame.commands()) {
+        if(command.coverage==command_preflight::Coverage::raster)
+            sink.quad(uploaded.at(command.page)->texture,command);
+        else
+            sink.non_raster_ack(command);
+    }
+    if(has_raster) sink.end();
 }
 }

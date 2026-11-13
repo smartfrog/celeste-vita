@@ -27,6 +27,30 @@ bool contained(int x,int y,int width,int height,int left,int top,int outer_width
         std::int64_t(y)+height<=std::int64_t(top)+outer_height;
 }
 
+bool contained_zero_height(int x,int y,int width,int left,int top,int outer_width,int outer_height) {
+    return x>=left && y>=top && width>0 &&
+        std::int64_t(x)+width<=std::int64_t(left)+outer_width &&
+        std::int64_t(y)<=std::int64_t(top)+outer_height;
+}
+
+using AliasMap=std::unordered_map<std::string,std::unordered_map<std::string,std::size_t>>;
+
+struct ResolvedMaterial {
+    const MaterialBinding* binding=nullptr;
+    FailureReason reason=FailureReason::missing_material;
+    const char* detail="";
+};
+
+ResolvedMaterial resolve_material(const MaterialTable& table,const AliasMap& aliases,
+                                  const std::string& sheet_name,const std::string& texture) {
+    if(texture.empty()) return {nullptr,FailureReason::missing_material,"Missing exact frame alias and original sheet key"};
+    const auto sheet=aliases.find(sheet_name);
+    if(sheet==aliases.end()) return {nullptr,FailureReason::missing_material,"Missing exact frame alias and original sheet key"};
+    const auto alias=sheet->second.find(texture);
+    if(alias==sheet->second.end()) return {nullptr,FailureReason::missing_material,"Missing exact or explicitly equivalent frame alias"};
+    return {&table.bindings[alias->second],FailureReason::missing_material,""};
+}
+
 Failure command_failure(FailureReason reason,std::size_t index,const DecalCommand& command,const char* detail) {
     return {reason,index,{},command.identity,command.texture,command.sheet,
         {command.source_x,command.source_y,command.source_width,command.source_height},detail};
@@ -46,6 +70,10 @@ bool finite(const DecalCommand& command) {
 }
 
 Result preflight(const MaterialTable& table,const std::vector<CommandInput>& commands) {
+    return preflight(table,commands,Policy{});
+}
+
+Result preflight(const MaterialTable& table,const std::vector<CommandInput>& commands,const Policy& policy) {
     ReadyFrame ready;
     std::unordered_map<int,const Page*> pages;
     for(const auto& page:table.pages) {
@@ -63,7 +91,7 @@ Result preflight(const MaterialTable& table,const std::vector<CommandInput>& com
         ready.required_rgba_bytes_+=bytes;
     }
 
-    std::unordered_map<std::string,std::unordered_map<std::string,std::size_t>> aliases;
+    AliasMap aliases;
     std::unordered_map<std::string,std::pair<int,int>> sheet_dimensions;
     for(std::size_t index=0;index<table.bindings.size();++index) {
         const auto& binding=table.bindings[index];
@@ -106,50 +134,88 @@ Result preflight(const MaterialTable& table,const std::vector<CommandInput>& com
         const auto fail=[&](FailureReason reason,const char* detail) {
             return command_failure(reason,index,command,detail);
         };
-        if(command.source_width==0 || command.source_height==0)
-            return fail(FailureReason::empty_crop,"EMPTY_CROP blocks frame; Source EMPTY_RASTER is unknown");
-        if(!finite(command)) return fail(FailureReason::nonfinite_input,"Nonfinite logical command field");
-        const auto sheet=aliases.find(command.sheet);
-        if(command.texture.empty() || sheet==aliases.end())
-            return fail(FailureReason::missing_material,"Missing exact frame alias and original sheet key");
-        const auto alias=sheet->second.find(command.texture);
-        if(alias==sheet->second.end())
-            return fail(FailureReason::missing_material,"Missing exact or explicitly equivalent frame alias");
-        const auto& binding=table.bindings[alias->second];
-        const auto& original=binding.original;
-        if(!contained(command.source_x,command.source_y,command.source_width,command.source_height,
-                      original.x,original.y,original.width,original.height))
-            return fail(FailureReason::invalid_crop,"Command crop is not contained in its original parent frame");
-        for(const auto& vertex:input.geometry.vertices)
-            for(const auto field:vertex)
-                if(!std::isfinite(value(field)))
-                    return fail(FailureReason::nonfinite_input,"Nonfinite source geometry bits");
-        if(!input.geometry.finite) return fail(FailureReason::invalid_geometry,"Source geometry marked nonfinite");
+        const auto raster_command=[&]() -> std::optional<Failure> {
+            if(command.source_width==0 || command.source_height==0)
+                return fail(FailureReason::empty_crop,"EMPTY_CROP blocks frame; Source EMPTY_RASTER is unknown");
+            if(!finite(command)) return fail(FailureReason::nonfinite_input,"Nonfinite logical command field");
+            const auto resolved=resolve_material(table,aliases,command.sheet,command.texture);
+            if(!resolved.binding) return fail(resolved.reason,resolved.detail);
+            const auto& binding=*resolved.binding;
+            const auto& original=binding.original;
+            if(!contained(command.source_x,command.source_y,command.source_width,command.source_height,
+                          original.x,original.y,original.width,original.height))
+                return fail(FailureReason::invalid_crop,"Command crop is not contained in its original parent frame");
+            for(const auto& vertex:input.geometry.vertices)
+                for(const auto field:vertex)
+                    if(!std::isfinite(value(field)))
+                        return fail(FailureReason::nonfinite_input,"Nonfinite source geometry bits");
+            if(!input.geometry.finite) return fail(FailureReason::invalid_geometry,"Source geometry marked nonfinite");
 
-        const auto& page=*pages.at(binding.page);
-        ReadyCommand output{command,input.geometry,binding.page};
-        for(auto& vertex:output.geometry.vertices) {
-            for(unsigned axis=0;axis<2;++axis) {
-                const auto uv=value(vertex[3+axis]);
-                const int sheet_size=axis==0?binding.original_sheet_width:binding.original_sheet_height;
-                const int source=axis==0?command.source_x:command.source_y;
-                const int extent=axis==0?command.source_width:command.source_height;
-                const float low=float(source)/float(sheet_size);
-                const float high=low+float(extent)/float(sheet_size);
-                if(uv<low || uv>high)
-                    return fail(FailureReason::invalid_geometry,"Source UV outside command crop");
-                const int parent=axis==0?original.x:original.y;
-                const int parent_size=axis==0?original.width:original.height;
-                const int packed=axis==0?binding.packed_x:binding.packed_y;
-                const int packed_size=axis==0?binding.packed_width:binding.packed_height;
-                const int page_size=axis==0?page.width:page.height;
-                const double local=(double(uv)*sheet_size-parent)/parent_size;
-                const float mapped=float((packed+local*packed_size)/page_size);
-                if(!std::isfinite(mapped)) return fail(FailureReason::nonfinite_output,"Nonfinite packed UV");
-                vertex[3+axis]=bits(mapped);
+            const auto& page=*pages.at(binding.page);
+            ReadyCommand output{command,input.geometry,binding.page};
+            for(auto& vertex:output.geometry.vertices) {
+                for(unsigned axis=0;axis<2;++axis) {
+                    const auto uv=value(vertex[3+axis]);
+                    const int sheet_size=axis==0?binding.original_sheet_width:binding.original_sheet_height;
+                    const int source=axis==0?command.source_x:command.source_y;
+                    const int extent=axis==0?command.source_width:command.source_height;
+                    const float low=float(source)/float(sheet_size);
+                    const float high=low+float(extent)/float(sheet_size);
+                    if(uv<low || uv>high)
+                        return fail(FailureReason::invalid_geometry,"Source UV outside command crop");
+                    const int parent=axis==0?original.x:original.y;
+                    const int parent_size=axis==0?original.width:original.height;
+                    const int packed=axis==0?binding.packed_x:binding.packed_y;
+                    const int packed_size=axis==0?binding.packed_width:binding.packed_height;
+                    const int page_size=axis==0?page.width:page.height;
+                    const double local=(double(uv)*sheet_size-parent)/parent_size;
+                    const float mapped=float((packed+local*packed_size)/page_size);
+                    if(!std::isfinite(mapped)) return fail(FailureReason::nonfinite_output,"Nonfinite packed UV");
+                    vertex[3+axis]=bits(mapped);
+                }
             }
+            ready.commands_.push_back(std::move(output));
+            return std::nullopt;
+        };
+
+        if(policy.zero_area_banner==Policy::ZeroAreaBanner::reject) {
+            if(const auto error=raster_command()) return *error;
+            continue;
         }
-        ready.commands_.push_back(std::move(output));
+        switch(input.coverage) {
+        case Coverage::raster:
+            if(const auto error=raster_command()) return *error;
+            break;
+        case Coverage::semantic_zero_area_banner: {
+            if(command.slice<0 || command.source_width<=0 || command.source_height!=0)
+                return fail(FailureReason::invalid_crop,
+                    "Semantic zero-area Banner requires a banner slice, positive width and zero height");
+            if(!finite(command)) return fail(FailureReason::nonfinite_input,"Nonfinite logical command field");
+            const auto resolved=resolve_material(table,aliases,command.sheet,command.texture);
+            if(!resolved.binding) return fail(resolved.reason,resolved.detail);
+            const auto& binding=*resolved.binding;
+            const auto& original=binding.original;
+            if(!contained_zero_height(command.source_x,command.source_y,command.source_width,
+                                      original.x,original.y,original.width,original.height))
+                return fail(FailureReason::invalid_crop,"Command crop is not contained in its original parent frame");
+            bool xy_is_nan=true,zuv_is_finite=true;
+            for(const auto& vertex:input.geometry.vertices) {
+                if(!std::isnan(value(vertex[0])) || !std::isnan(value(vertex[1]))) xy_is_nan=false;
+                for(unsigned field=2;field<5;++field)
+                    if(!std::isfinite(value(vertex[field]))) zuv_is_finite=false;
+            }
+            if(!xy_is_nan)
+                return fail(FailureReason::invalid_geometry,
+                    "Semantic zero-area Banner requires all source XY words to be NaN");
+            if(!zuv_is_finite)
+                return fail(FailureReason::nonfinite_input,"Nonfinite semantic ZUV bits");
+            ready.commands_.push_back({command,input.geometry,binding.page,
+                Coverage::semantic_zero_area_banner});
+            break;
+        }
+        default:
+            return fail(FailureReason::invalid_metadata,"Unknown command coverage");
+        }
     }
     ready.pages_=table.pages;
     return ready;

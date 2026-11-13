@@ -271,7 +271,8 @@ void submit_ready_frame(const command_preflight::ReadyFrame& frame,
             glEnd();
             check("ReadyFrame quad");
         },
-        [] {check("ReadyFrame submission completion");}
+        [] {check("ReadyFrame submission completion");},
+        [](const command_preflight::ReadyCommand&) {}
     });
 }
 void initialize_graphics() {

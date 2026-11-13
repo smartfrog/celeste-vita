@@ -23,9 +23,17 @@ struct MaterialTable {
     std::vector<MaterialBinding> bindings;
 };
 
+enum class Coverage { raster, semantic_zero_area_banner };
+
+struct Policy {
+    enum class ZeroAreaBanner { reject, accept_semantic_no_raster };
+    ZeroAreaBanner zero_area_banner=ZeroAreaBanner::reject;
+};
+
 struct CommandInput {
     decal_commands::DecalCommand command;
     decal_commands::DecalGeometry geometry;
+    Coverage coverage=Coverage::raster;
 };
 
 enum class FailureReason {
@@ -46,6 +54,7 @@ struct ReadyCommand {
     decal_commands::DecalCommand command;
     decal_commands::DecalGeometry geometry;
     int page=0;
+    Coverage coverage=Coverage::raster;
 };
 
 class ReadyFrame;
@@ -61,13 +70,16 @@ private:
     std::vector<ReadyCommand> commands_;
     std::vector<Page> pages_;
     std::size_t required_rgba_bytes_=0;
-    friend Result preflight(const MaterialTable&,const std::vector<CommandInput>&);
+    friend Result preflight(const MaterialTable&,const std::vector<CommandInput>&,const Policy&);
 };
 
 // texture must name the original frame alias, not merely its sheet or packed page.
 // Callers must provide geometry projected with the binding's original sheet dimensions.
 // This gate proves finite submission readiness, not Source pixel/raster equivalence.
 // An empty frame succeeds only after table validation; the byte estimate covers all table pages.
+// Semantic zero-area Banner commands retain their actual source NaN XY payload and are
+// eligible only through an explicit Policy opt-in; the default remains whole-frame rejection.
 Result preflight(const MaterialTable& table,const std::vector<CommandInput>& commands);
+Result preflight(const MaterialTable& table,const std::vector<CommandInput>& commands,const Policy& policy);
 
 }

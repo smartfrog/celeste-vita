@@ -24,6 +24,11 @@ std::int32_t bits(float value) {
     std::memcpy(&result,&value,sizeof(result));
     return result;
 }
+float value(std::int32_t bits) {
+    float result;
+    std::memcpy(&result,&bits,sizeof(result));
+    return result;
+}
 struct Fixture {
     MaterialTable table;
     std::vector<CommandInput> inputs;
@@ -62,19 +67,30 @@ struct Fixture {
             inputs.push_back({command,geometry});
         }
     }
-    ReadyFrame ready() const { return std::get<ReadyFrame>(preflight(table,inputs)); }
+    ReadyFrame ready(Policy policy=Policy{}) const { return std::get<ReadyFrame>(preflight(table,inputs,policy)); }
 };
+void make_semantic(CommandInput& input) {
+    input.command.slice=0;
+    input.command.source_height=0;
+    input.command.source_y=36;
+    input.command.effects="None";
+    input.geometry=decal_commands::project_geometry(input.command,128,64);
+    input.coverage=Coverage::semantic_zero_area_banner;
+}
 struct Recorder {
     unsigned calls=0;
     Projection projection{};
     std::vector<unsigned> textures;
-    std::vector<ReadyCommand> quads;
+    std::vector<ReadyCommand> quads,acks;
+    std::vector<unsigned> order;
     Sink sink() {
-        return {[&](const Projection& p){++calls;projection=p;},
-                [&](unsigned texture,const ReadyCommand& q){++calls;textures.push_back(texture);quads.push_back(q);},
-                [&]{++calls;}};
+        return {[&](const Projection& p){++calls;order.push_back(0);projection=p;},
+                [&](unsigned texture,const ReadyCommand& q){++calls;order.push_back(1);textures.push_back(texture);quads.push_back(q);},
+                [&]{++calls;order.push_back(2);},
+                [&](const ReadyCommand& q){++calls;order.push_back(3);acks.push_back(q);}};
     }
 };
+const Policy accept_semantic{Policy::ZeroAreaBanner::accept_semantic_no_raster};
 template<class Function> void invalid(Function function) {
     try {function();} catch(const std::invalid_argument&) {return;}
     throw std::runtime_error("Expected input validation failure");
@@ -159,13 +175,43 @@ void empty_ready_frame_still_requires_unused_pages() {
     invalid([&]{submit(f.ready(),f.pages,{},recorder.sink());});
     require(recorder.calls==0,"Empty frame still validates complete table-page set");
 }
+void semantic_ack_is_ordered_between_raster_quads() {
+    Fixture f;make_semantic(f.inputs[1]);
+    const auto frame=f.ready(accept_semantic);Recorder recorder;
+    submit(frame,f.pages,{},recorder.sink());
+    require(recorder.order==std::vector<unsigned>{0,1,3,1,2},"Raster, semantic ack and raster must preserve actual command order");
+    require(recorder.textures==std::vector<unsigned>{101,101},"Only raster commands may resolve and bind a page texture");
+    require(recorder.quads.size()==2 && recorder.acks.size()==1,"Semantic commands must never become raster quads");
+    require(recorder.quads[0].command.identity==frame.commands()[0].command.identity &&
+            recorder.quads[1].command.identity==frame.commands()[2].command.identity,
+        "Raster GPU subsequence must skip the semantic command without regrouping");
+    require(recorder.acks[0].coverage==Coverage::semantic_zero_area_banner &&
+            recorder.acks[0].command.identity==frame.commands()[1].command.identity &&
+            recorder.acks[0].geometry.vertices==frame.commands()[1].geometry.vertices,
+        "The single ordered ack must identify the unchanged semantic command and NaN payload");
+}
+void all_semantic_frame_acks_only_without_begin_or_end() {
+    Fixture f;for(auto& input:f.inputs) make_semantic(input);
+    const auto frame=f.ready(accept_semantic);Recorder recorder;
+    submit(frame,f.pages,{},recorder.sink());
+    require(recorder.acks.size()==3 && recorder.quads.empty(),"All-semantic frame emits exactly one ack per command");
+    require(recorder.order==std::vector<unsigned>{3,3,3},"All-semantic acks retain command order without begin/end");
+    require(recorder.textures.empty(),"Ack-only frame must not bind or resolve a raster page");
+}
+void missing_semantic_ack_rejects_before_begin() {
+    Fixture f;make_semantic(f.inputs[1]);
+    const auto frame=f.ready(accept_semantic);Recorder recorder;
+    auto sink=recorder.sink();sink.non_raster_ack={};
+    invalid([&]{submit(frame,f.pages,{},sink);});
+    require(recorder.calls==0,"Missing semantic ack must fail before begin or any callback");
+}
 void sink_failure_propagates_without_claiming_rollback_parameterized() {
     for(unsigned stage=0;stage<3;++stage) {
         Fixture f;unsigned calls=0;
         const auto fail=[&]{++calls;throw std::runtime_error("sink cause");};
         Sink sink{[&](const Projection&){if(stage==0)fail();},
                   [&](unsigned,const ReadyCommand&){if(stage==1)fail();},
-                  [&]{if(stage==2)fail();}};
+                  [&]{if(stage==2)fail();},[](const ReadyCommand&) {}};
         bool propagated=false;
         try {submit(f.ready(),f.pages,{},sink);} catch(const std::runtime_error& e) {propagated=std::string(e.what())=="sink cause";}
         require(propagated && calls==1,"Preserve sink failure cause, no retry or cleanup callback");
@@ -263,6 +309,39 @@ void real_entry_removes_inherited_texture_matrix_transform() {
     Fixture f;const auto frame=f.ready();gl={};gl.units[0].transform={2,3,0.25f,0.5f};
     diagnostic::submit_ready_frame(frame,f.pages,{});
     require_effective_page(0,101,frame.commands()[0]);
+}
+void all_semantic_real_entry_has_no_gl_side_effects() {
+    Fixture f;for(auto& input:f.inputs) make_semantic(input);
+    const auto frame=f.ready(accept_semantic);gl=inherited_texture_state();
+    diagnostic::submit_ready_frame(frame,f.pages,{});
+    require(gl.calls==0,"All-semantic physical adapter must make no GL calls");
+}
+void real_entry_skips_semantic_nan_vertices_and_preserves_raster_bits() {
+    Fixture f;make_semantic(f.inputs[1]);
+    const auto frame=f.ready(accept_semantic);gl=inherited_texture_state();
+    diagnostic::submit_ready_frame(frame,f.pages,{{-12.25f,6.5f}});
+    require(gl.textures==std::vector<unsigned>{101,101},"Physical sink must emit only the A/C raster subsequence");
+    require(gl.modes==std::vector<unsigned>(2,GL_TRIANGLE_STRIP) && gl.vertices.size()==8,
+        "Semantic zero-area Banner must not start an empty or NaN vertex batch");
+    for(unsigned corner=0;corner<4;++corner) {
+        require(gl.vertices[corner]==frame.commands()[0].geometry.vertices[corner] &&
+                gl.vertices[4+corner]==frame.commands()[2].geometry.vertices[corner],
+            "Physical raster vertices must retain exact CPU bits and order around the ack");
+    }
+    for(const auto& vertex:gl.vertices)
+        require(!std::isnan(value(vertex[0])) && !std::isnan(value(vertex[1])),
+            "No semantic NaN XY word may reach the physical sink");
+}
+void isolated_semantic_export_accounts_raster_and_non_raster() {
+    Fixture f;make_semantic(f.inputs[1]);
+    const auto frame=f.ready(accept_semantic);gl={};guest_test::reset();
+    const auto receipt=diagnostic::draw_gameplay(frame,f.pages,{},"semantic-mix.ppm",19);
+    require(receipt.find("commands=3")!=std::string::npos &&
+            receipt.find("raster_commands=2")!=std::string::npos &&
+            receipt.find("non_raster_acks=1")!=std::string::npos &&
+            receipt.find("finite_preflight=0")!=std::string::npos,
+        "Receipt must sum raster and non-raster commands without claiming all geometry finite");
+    require(gl.textures==std::vector<unsigned>{101,101},"Export must draw only the finite raster subsequence");
 }
 void real_entry_rejects_invalid_inputs_before_any_GL_call_parameterized() {
     for(unsigned kind=0;kind<6;++kind) {
@@ -533,11 +612,17 @@ int main() {
             empty_ready_frame_validates_then_emits_nothing,
             empty_ready_frame_without_pages_emits_nothing,
             empty_ready_frame_still_requires_unused_pages,
+            semantic_ack_is_ordered_between_raster_quads,
+            all_semantic_frame_acks_only_without_begin_or_end,
+            missing_semantic_ack_rejects_before_begin,
+            real_entry_skips_semantic_nan_vertices_and_preserves_raster_bits,
+            isolated_semantic_export_accounts_raster_and_non_raster,
             sink_failure_propagates_without_claiming_rollback_parameterized,
             preflight_failure_never_reaches_submission_parameterized,
             real_entry_normalizes_inherited_texture_state_parameterized,
             real_entry_clears_unit_zero_sampler_override,
             real_entry_removes_inherited_texture_matrix_transform,
+            all_semantic_real_entry_has_no_gl_side_effects,
             real_entry_rejects_invalid_inputs_before_any_GL_call_parameterized,
             real_entry_emits_source_order_with_three_dimensional_vertices,
             real_entry_empty_frame_has_no_GL_side_effects,

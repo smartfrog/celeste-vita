@@ -24,12 +24,18 @@ const char* reason(command_preflight::FailureReason value) {
 std::vector<command_preflight::CommandInput> inputs(const gameplay_commands::Schedule& schedule) {
     std::vector<command_preflight::CommandInput> result;
     result.reserve(schedule.commands().size());
-    for(const auto& command:schedule.commands()) result.push_back({command.image,command.geometry});
+    for(const auto& command:schedule.commands()) {
+        const bool semantic=command.component==gameplay_commands::Component::banner &&
+            command.image.slice>=0 && command.image.source_width>0 && command.image.source_height==0;
+        result.push_back({command.image,command.geometry,
+            semantic?command_preflight::Coverage::semantic_zero_area_banner:command_preflight::Coverage::raster});
+    }
     return result;
 }
 command_preflight::ReadyFrame prepare(unsigned frame,const command_preflight::MaterialTable& table,
-                                     const std::vector<command_preflight::CommandInput>& commands) {
-    auto result=command_preflight::preflight(table,commands);
+                                     const std::vector<command_preflight::CommandInput>& commands,
+                                     const command_preflight::Policy& policy) {
+    auto result=command_preflight::preflight(table,commands,policy);
     if(const auto* failure=std::get_if<command_preflight::Failure>(&result)) {
         const auto& crop=failure->crop;
         throw std::runtime_error("Gameplay preflight frame="+std::to_string(frame)+" owner="+std::to_string(failure->identity)+
@@ -41,8 +47,9 @@ command_preflight::ReadyFrame prepare(unsigned frame,const command_preflight::Ma
 }
 void submit(unsigned frame,const command_preflight::MaterialTable& table,
     const std::vector<command_preflight::CommandInput>& commands,const std::vector<command_submission::UploadedPage>& pages,
-    const command_submission::View& view,const command_submission::Sink& sink) {
-    command_submission::submit(prepare(frame,table,commands),pages,view,sink);
+    const command_submission::View& view,const command_submission::Sink& sink,
+    const command_preflight::Policy& policy) {
+    command_submission::submit(prepare(frame,table,commands,policy),pages,view,sink);
 }
 void PageOwner::dispose(const std::function<void(unsigned)>& remove) {
     if(!remove) throw std::invalid_argument("Page cleanup callback is missing");

@@ -437,6 +437,147 @@ void non_power_of_two_dimensions_map_source_bits_without_clamping() {
         for(auto field:output.geometry.vertices[corner]) require(std::isfinite(value(field)),"Every output float bit must be finite");
     }
 }
+
+const Policy accept_semantic{Policy::ZeroAreaBanner::accept_semantic_no_raster};
+
+CommandInput semantic_input() {
+    auto command=input();
+    command.command.slice=0;
+    command.command.source_y=36;
+    command.command.source_height=0;
+    command.geometry=decal_commands::project_geometry(command.command,128,64);
+    command.coverage=Coverage::semantic_zero_area_banner;
+    return command;
+}
+
+void require_semantic_bits(const CommandInput& input,const ReadyCommand& output) {
+    require(output.coverage==Coverage::semantic_zero_area_banner,"Semantic coverage must survive preflight");
+    require(output.command.identity==input.command.identity && output.command.slice==input.command.slice &&
+            output.command.source_width==input.command.source_width && output.command.source_height==0,
+            "Semantic descriptor and crop metadata must remain unchanged");
+    require(snapshot({{output.command,output.geometry}})==snapshot({{input.command,input.geometry,input.coverage}}),
+        "Semantic logical descriptor and all geometry payload bits must remain unchanged");
+    require(output.geometry.vertices==input.geometry.vertices,"Semantic NaN/UV payload bits and vertex count must remain unchanged");
+    for(unsigned corner=0;corner<4;++corner) {
+        require(std::isnan(value(output.geometry.vertices[corner][0])) && std::isnan(value(output.geometry.vertices[corner][1])),
+            "Semantic XY must retain the real nonfinite pattern");
+        for(unsigned field=2;field<5;++field)
+            require(std::isfinite(value(output.geometry.vertices[corner][field])),"Semantic ZUV must remain finite");
+    }
+}
+
+void semantic_zero_area_banner_is_rejected_by_default() {
+    const auto command=semantic_input();
+    failure(preflight(table(),{command}),FailureReason::empty_crop);
+    failure(preflight(table(),{command},Policy{}),FailureReason::empty_crop);
+}
+
+void semantic_zero_area_banner_optin_preserves_cpu_bits_and_order() {
+    auto first=input(),third=input();
+    third.command.identity=77;
+    auto middle=semantic_input();
+    std::vector<CommandInput> inputs{first,middle,third};
+    const auto before=snapshot(inputs);
+    const auto result=preflight(table(),inputs,accept_semantic);
+    const auto& outputs=ready(result).commands();
+    require(outputs.size()==3,"Semantic opt-in must retain every command");
+    require(outputs[0].coverage==Coverage::raster && outputs[2].coverage==Coverage::raster,"Finite commands stay raster");
+    require(outputs[0].command.identity==first.command.identity && outputs[2].command.identity==third.command.identity,
+        "Semantic opt-in must not reorder commands");
+    require_semantic_bits(middle,outputs[1]);
+    require(snapshot(inputs)==before,"Semantic opt-in must not mutate any input CPU bits");
+}
+
+void three_source_empty_strip_patterns_are_semantic_eligible_parameterized() {
+    struct Strip { int frame_x,frame_y,frame_width,frame_height,crop_x,crop_y,crop_width; };
+    for(const auto strip:{Strip{49,1934,17,20,49,1954,17},Strip{0,138,7,4,0,142,7},Strip{5,94,5,5,5,99,5}}) {
+        MaterialTable materials;
+        materials.pages={{7,64,32}};
+        MaterialBinding binding;
+        binding.original={"synthetic/sheet",strip.frame_x,strip.frame_y,strip.frame_width,strip.frame_height,
+                          0,0,strip.frame_width,strip.frame_height,"synthetic/zero-area"};
+        binding.original_sheet_width=1024;
+        binding.original_sheet_height=2048;
+        binding.page=7;
+        binding.packed_x=4;binding.packed_y=8;
+        binding.packed_width=strip.frame_width;binding.packed_height=strip.frame_height;
+        materials.bindings.push_back(binding);
+        decal_commands::DecalCommand command;
+        command.identity=42;command.room="synthetic/room";command.texture="synthetic/zero-area";
+        command.sheet="synthetic/sheet";command.source_x=strip.crop_x;command.source_y=strip.crop_y;
+        command.source_width=strip.crop_width;command.source_height=0;command.slice=0;
+        command.position={10,20};command.origin={2,3};command.scale={1,1};
+        CommandInput input{command,decal_commands::project_geometry(command,1024,2048),
+            Coverage::semantic_zero_area_banner};
+        const auto result=preflight(materials,{input},accept_semantic);
+        require_semantic_bits(input,ready(result).commands()[0]);
+        require(ready(result).commands()[0].page==7,"Semantic strip must resolve the exact material page");
+    }
+}
+
+void semantic_zero_area_invalid_claims_and_extreme_crop_bounds_block_frame_parameterized() {
+    for(unsigned kind=0;kind<23;++kind) {
+        auto command=semantic_input();
+        FailureReason expected=FailureReason::invalid_crop;
+        switch(kind) {
+        case 0: command.command.slice=-1;break;
+        case 1: command.command.source_width=0;expected=FailureReason::invalid_crop;break;
+        case 2: command.command.source_height=1;break;
+        case 3: command.command.source_width=0;command.command.source_height=0;break;
+        case 4: command.command.position.x=std::numeric_limits<float>::infinity();expected=FailureReason::nonfinite_input;break;
+        case 5: command.command.rotation=std::numeric_limits<float>::quiet_NaN();expected=FailureReason::nonfinite_input;break;
+        case 6: command.geometry.vertices[0][2]=bits(std::numeric_limits<float>::infinity());expected=FailureReason::nonfinite_input;break;
+        case 7: command.geometry.vertices[1][3]=bits(std::numeric_limits<float>::quiet_NaN());expected=FailureReason::nonfinite_input;break;
+        case 8: command.geometry.vertices[2][4]=bits(std::numeric_limits<float>::infinity());expected=FailureReason::nonfinite_input;break;
+        case 9: command.geometry.vertices[0][0]=bits(0.f);expected=FailureReason::invalid_geometry;break;
+        case 10: command.geometry.vertices[3][1]=bits(std::numeric_limits<float>::infinity());expected=FailureReason::invalid_geometry;break;
+        case 11: command.command.source_y=37;break;
+        case 12: command.command.source_x=100;break;
+        case 13: command.command.texture="synthetic/missing";expected=FailureReason::missing_material;break;
+        case 14: command.command.sheet="synthetic/missing-sheet";expected=FailureReason::missing_material;break;
+        case 15: command.geometry.vertices[1][0]=bits(0.f);expected=FailureReason::invalid_geometry;break;
+        case 16: command.coverage=static_cast<Coverage>(99);expected=FailureReason::invalid_metadata;break;
+        case 17: command.command.source_x=std::numeric_limits<int>::max();break;
+        case 18: command.command.source_x=std::numeric_limits<int>::min();break;
+        case 19: command.command.source_y=std::numeric_limits<int>::max();break;
+        case 20: command.command.source_y=std::numeric_limits<int>::min();break;
+        case 21: command.command.source_width=std::numeric_limits<int>::max();break;
+        case 22: command.command.source_width=-1;break;
+        }
+        if(kind==1 || kind==2 || kind==3 || kind==11 || kind==12)
+            command.geometry=decal_commands::project_geometry(command.command,128,64);
+        const std::vector<CommandInput> inputs{command};
+        const auto before=snapshot(inputs);
+        MockSubmission gpu;
+        const auto result=preflight(table(),inputs,accept_semantic);
+        if(const auto* frame=std::get_if<ReadyFrame>(&result)) gpu.submit(*frame);
+        const auto& error=failure(result,expected);
+        require(gpu.count==0 && error.command_index==0,"Invalid semantic claim must block the frame before any submission");
+        require(snapshot(inputs)==before,"Invalid semantic claim must not rewrite CPU payload bits");
+    }
+}
+
+void late_invalid_semantic_blocks_prior_ready_semantic_atomically() {
+    auto invalid=semantic_input();
+    invalid.command.identity=123;
+    invalid.command.source_width=0;
+    invalid.geometry=decal_commands::project_geometry(invalid.command,128,64);
+    std::vector<CommandInput> inputs{input(),semantic_input(),invalid};
+    const auto before=snapshot(inputs);
+    MockSubmission gpu;
+    const auto result=preflight(table(),inputs,accept_semantic);
+    if(const auto* frame=std::get_if<ReadyFrame>(&result)) gpu.submit(*frame);
+    const auto& error=failure(result,FailureReason::invalid_crop);
+    require(gpu.count==0 && error.command_index==2,"Late invalid semantics must stop every earlier raster and semantic command");
+    require(snapshot(inputs)==before,"Atomic semantic failure must preserve every CPU bit");
+}
+
+void semantic_true_finite_flag_does_not_override_actual_nan_bits() {
+    auto command=semantic_input();
+    command.geometry.finite=true;
+    const auto result=preflight(table(),{command},accept_semantic);
+    require_semantic_bits(command,ready(result).commands()[0]);
+}
 }
 
 int main() {
@@ -471,7 +612,13 @@ int main() {
             duplicate_alias_within_binding_is_rejected,
             rgba_byte_estimate_overflow_blocks_frame,
             actual_page_dimensions_have_no_invented_gpu_limit,
-            non_power_of_two_dimensions_map_source_bits_without_clamping
+            non_power_of_two_dimensions_map_source_bits_without_clamping,
+            semantic_zero_area_banner_is_rejected_by_default,
+            semantic_zero_area_banner_optin_preserves_cpu_bits_and_order,
+            three_source_empty_strip_patterns_are_semantic_eligible_parameterized,
+            semantic_zero_area_invalid_claims_and_extreme_crop_bounds_block_frame_parameterized,
+            late_invalid_semantic_blocks_prior_ready_semantic_atomically,
+            semantic_true_finite_flag_does_not_override_actual_nan_bits
         };
         for(auto test:tests) test();
         std::cout<<tests.size()<<" command preflight scenarios passed (including parameterized cases)\n";
